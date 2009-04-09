@@ -1322,7 +1322,7 @@ public class KeyValue {
     volatile boolean ignoreType = false;
 
     public int compare(byte[] left, int loffset, int llength, byte[] right,
-        int roffset, int rlength) {
+        int roffset, int rlength){
       int initloffset = loffset;
       int initroffset = roffset;
       
@@ -1342,7 +1342,7 @@ public class KeyValue {
       // Compare family.
       byte lfamilylength = left[loffset];
       loffset += Bytes.SIZEOF_BYTE;
-      byte rfamilylength = left[roffset];
+      byte rfamilylength = right[roffset];
       roffset += Bytes.SIZEOF_BYTE;
       
       compare = Bytes.compareTo(left, loffset, lfamilylength, right,

@@ -340,7 +340,7 @@ public class HConnectionManager implements HConstants {
 
         public boolean processRow(RowResult rowResult) throws IOException {
           HRegionInfo info = Writables.getHRegionInfo(
-              rowResult.get(COL_REGIONINFO));
+              rowResult.get(HConstants.COL_REGIONINFO));
 
           // Only examine the rows where the startKey is zero length
           if (info.getStartKey().length == 0) {
@@ -563,7 +563,18 @@ public class HConnectionManager implements HConstants {
             throw new TableNotFoundException(Bytes.toString(tableName));
           }
 
-          Cell value = regionInfoRow.get(COL_REGIONINFO);
+          Cell value = regionInfoRow.get(HConstants.COL_REGIONINFO);
+          //Eriks
+          if (LOG.isDebugEnabled()) {
+            LOG.debug("regionInfoRow " +regionInfoRow);
+            if(value == null){
+              LOG.debug("value length = null");
+            } else {
+              LOG.debug("value length = " +value.getValue().length);
+            }
+                
+          }
+          
           if (value == null || value.getValue().length == 0) {
             throw new IOException("HRegionInfo was null or empty in " + 
               Bytes.toString(parentTable));
