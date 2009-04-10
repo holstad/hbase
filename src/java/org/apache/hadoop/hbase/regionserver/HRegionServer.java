@@ -1577,6 +1577,10 @@ public class HRegionServer implements HConstants, HRegionInterface, HBaseRPCErro
   public List<KeyValue> newGet(final byte [] regionName, Get get,
     final long lockId)
   throws IOException {
+    if (LOG.isDebugEnabled()) {
+      LOG.debug("Entering HRS:newGet");
+    }
+    System.out.println("IN HRS.newGet");
     checkOpen();
     requestCount.incrementAndGet();
     try {
@@ -1590,23 +1594,6 @@ public class HRegionServer implements HConstants, HRegionInterface, HBaseRPCErro
       throw convertThrowableToIOE(cleanup(t));
     }
   }
-  
-//  public List<KeyValue> getColumns(final byte [] regionName, final byte [] row, 
-//      final Family [] families, final long lockId)
-//      throws IOException {
-//    checkOpen();
-//    requestCount.incrementAndGet();
-//    try {
-//      HRegion region = getRegion(regionName);
-//      List<KeyValue> result = region.getColumns(row, families,
-//          getLockFromId(lockId));
-//      if (result.isEmpty())
-//        return null;
-//      return result;
-//    } catch (Throwable t) {
-//      throw convertThrowableToIOE(cleanup(t));
-//    }
-//  }  
   
   public RowResult getClosestRowBefore(final byte [] regionName, 
     final byte [] row, final byte [] columnFamily)

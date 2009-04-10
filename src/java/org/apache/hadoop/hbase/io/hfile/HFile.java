@@ -270,12 +270,8 @@ public class HFile {
      * @param ostream Stream to use.
      * @param blocksize
      * @param compress
-<<<<<<< HEAD:src/java/org/apache/hadoop/hbase/io/hfile/HFile.java
      * @param c RawComparator to use.
-     * @param bloomfilter
-=======
      * @param c
->>>>>>> hbase/trunk:src/java/org/apache/hadoop/hbase/io/hfile/HFile.java
      * @throws IOException
      */
     public Writer(final FSDataOutputStream ostream, final int blocksize,
@@ -527,7 +523,7 @@ public class HFile {
         @SuppressWarnings("unused") final int offset,
         final int length) throws IOException {
       if (value == null) {
-        throw new IOException("Value cannot be null or empty");
+        throw new IOException("Value cannot be null");
       }
     }
 

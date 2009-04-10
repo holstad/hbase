@@ -36,6 +36,7 @@ import org.apache.hadoop.hbase.HRegionLocation;
 import org.apache.hadoop.hbase.HServerAddress;
 import org.apache.hadoop.hbase.HStoreKey;
 import org.apache.hadoop.hbase.HTableDescriptor;
+import org.apache.hadoop.hbase.KeyValue;
 import org.apache.hadoop.hbase.UnknownScannerException;
 import org.apache.hadoop.hbase.client.MetaScanner.MetaScannerVisitor;
 import org.apache.hadoop.hbase.filter.RowFilterInterface;
@@ -44,6 +45,7 @@ import org.apache.hadoop.hbase.filter.WhileMatchRowFilter;
 import org.apache.hadoop.hbase.io.BatchOperation;
 import org.apache.hadoop.hbase.io.BatchUpdate;
 import org.apache.hadoop.hbase.io.Cell;
+import org.apache.hadoop.hbase.io.Get;
 import org.apache.hadoop.hbase.io.RowResult;
 import org.apache.hadoop.hbase.io.HbaseMapWritable;
 import org.apache.hadoop.hbase.io.RowUpdates;
@@ -287,6 +289,31 @@ public class HTable {
     return regionMap;
   }
 
+  
+  
+  public List<KeyValue> get(final Get get)
+  throws IOException {
+    System.out.println("IN HT.get");
+    return connection.getRegionServerWithRetries(
+        new ServerCallable<List<KeyValue>>(connection, tableName, get.getRow()) {
+          public List<KeyValue> call() throws IOException {
+            System.out.println("IN HT.get.ServerCallable");
+            List<KeyValue> result = server.newGet(
+                location.getRegionInfo().getRegionName(), get, -1L);
+            return (result == null)? null : result;
+          }
+        }
+    );
+  }
+  
+  
+  
+  
+  
+  
+  
+  
+  
   /**
    * Get a single value for the specified row and column
    * 

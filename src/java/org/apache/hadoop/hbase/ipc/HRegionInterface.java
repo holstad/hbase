@@ -20,15 +20,18 @@
 package org.apache.hadoop.hbase.ipc;
 
 import java.io.IOException;
+import java.util.List;
 
 import org.apache.hadoop.hbase.filter.RowFilterInterface;
 import org.apache.hadoop.hbase.io.BatchUpdate;
 import org.apache.hadoop.hbase.io.Cell;
+import org.apache.hadoop.hbase.io.Get;
 import org.apache.hadoop.hbase.io.RowResult;
 import org.apache.hadoop.hbase.io.HbaseMapWritable;
 import org.apache.hadoop.hbase.io.RowUpdates;
 
 import org.apache.hadoop.hbase.HRegionInfo;
+import org.apache.hadoop.hbase.KeyValue;
 import org.apache.hadoop.hbase.NotServingRegionException;
 
 /**
@@ -222,6 +225,10 @@ public interface HRegionInterface extends HBaseRPCProtocolVersion {
    */
   public boolean exists(byte [] regionName, byte [] row, byte [] column, 
     long timestamp, long lockID)
+  throws IOException;
+  
+  public List<KeyValue> newGet(final byte [] regionName, Get get,
+      final long lockId)
   throws IOException;
   
   /**

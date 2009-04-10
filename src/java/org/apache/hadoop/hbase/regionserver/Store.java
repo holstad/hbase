@@ -49,14 +49,9 @@ import org.apache.hadoop.hbase.HBaseConfiguration;
 import org.apache.hadoop.hbase.HColumnDescriptor;
 import org.apache.hadoop.hbase.HConstants;
 import org.apache.hadoop.hbase.HRegionInfo;
-//import org.apache.hadoop.hbase.HStoreKey;
 import org.apache.hadoop.hbase.KeyValue;
 import org.apache.hadoop.hbase.RemoteExceptionHandler;
 import org.apache.hadoop.hbase.filter.RowFilterInterface;
-import org.apache.hadoop.hbase.io.Cell;
-import org.apache.hadoop.hbase.io.Column;
-import org.apache.hadoop.hbase.io.Family;
-import org.apache.hadoop.hbase.io.Get;
 import org.apache.hadoop.hbase.io.SequenceFile;
 import org.apache.hadoop.hbase.io.hfile.Compression;
 import org.apache.hadoop.hbase.io.hfile.HFile;
@@ -421,7 +416,6 @@ public class Store implements HConstants {
       lock.readLock().unlock();
     }
   }
-  
   
   /**
    * @return All store files.
@@ -1030,7 +1024,8 @@ public class Store implements HConstants {
    * row and timestamp, but not a column name.
    *
    * The returned object should map column names to Cells.
-   * @param key
+   * @param origin Where to start searching.  Specifies a row and timestamp.
+   * Columns are specified in following arguments.
    * @param columns Can be null which means get all
    * @param columnPattern Can be null.
    * @param numVersions
@@ -1054,13 +1049,13 @@ public class Store implements HConstants {
     // It duplicates columns but doing check of columns, we don't want to make
     // column set each time.
     this.lock.readLock().lock();
-    // get from the memcache first.
-    if (this.memcache.getFull(key, columns, columnPattern, versions,
-        versionsCounter, deletes, keyvalues, now)) {
-      // May have gotten enough results, enough to return.
-      return;
-    }
     try {
+      // get from the memcache first.
+      if (this.memcache.getFull(key, columns, columnPattern, versions,
+          versionsCounter, deletes, keyvalues, now)) {
+        // May have gotten enough results, enough to return.
+        return;
+      }
       Map<Long, StoreFile> m = this.storefiles.descendingMap();
       for (Iterator<Map.Entry<Long, StoreFile>> i = m.entrySet().iterator();
           i.hasNext();) {
@@ -1076,7 +1071,8 @@ public class Store implements HConstants {
 
   /*
    * @param f
-   * @param search
+   * @param key Where to start searching.  Specifies a row and timestamp.
+   * Columns are specified in following arguments.
    * @param columns
    * @param versions
    * @param versionCounter
@@ -1086,7 +1082,7 @@ public class Store implements HConstants {
    * and <code>columns</code> passed.
    * @throws IOException
    */
-  private boolean getFullFromStoreFile(StoreFile f, KeyValue key, 
+  private boolean getFullFromStoreFile(StoreFile f, KeyValue target, 
     Set<byte []> columns, final Pattern columnPattern, int versions, 
     Map<KeyValue, HRegion.Counter> versionCounter,
     NavigableSet<KeyValue> deletes,
@@ -1094,40 +1090,62 @@ public class Store implements HConstants {
   throws IOException {
     long now = System.currentTimeMillis();
     HFileScanner scanner = f.getReader().getScanner();
-    if (!getClosest(scanner, key)) {
+    if (!getClosest(scanner, target)) {
       return false;
     }
     boolean hasEnough = false;
     do {
       KeyValue kv = scanner.getKeyValue();
-      // Below must be same as we do in Memcache#getFull.
-      // Make sure we have not passed out the row.
-      if (key.isEmptyColumn()? !this.comparator.matchingRows(key, kv):
-          !this.comparator.matchingRowColumn(key, kv)) {
+      // Make sure we have not passed out the row.  If target key has a
+      // column on it, then we are looking explicit key+column combination.  If
+      // we've passed it out, also break.
+      if (target.isEmptyColumn()? !this.comparator.matchingRows(target, kv):
+          !this.comparator.matchingRowColumn(target, kv)) {
         break;
       }
-      // Does column match?
-      if (!Store.matchingColumns(kv, columns)) {
+      if (!Store.getFullCheck(this.comparator, target, kv, columns, columnPattern)) {
         continue;
       }
-      // if the column pattern is not null, we use it for column matching.
-      // we will skip the keys whose column doesn't match the pattern.
-      if (columnPattern != null) {
-        if (!(columnPattern.matcher(kv.getColumnString()).matches())) {
-          continue;
-        }
-      }
-      if (this.comparator.compareTimestamps(key, kv) <= 0)  {
-        if (Store.doKeyValue(kv, versions, versionCounter, columns, deletes, now,
+      if (Store.doKeyValue(kv, versions, versionCounter, columns, deletes, now,
           this.ttl, keyvalues, null)) {
-          hasEnough = true;
-          break;
-        }
+        hasEnough = true;
+        break;
       }
     } while (scanner.next());
     return hasEnough;
   }
 
+  /**
+   * Code shared by {@link Memcache#getFull(KeyValue, NavigableSet, Pattern, int, Map, NavigableSet, List, long)}
+   * and {@link #getFullFromStoreFile(StoreFile, KeyValue, Set, Pattern, int, Map, NavigableSet, List)}
+   * @param c
+   * @param target
+   * @param candidate
+   * @param columns
+   * @param columnPattern
+   * @return True if <code>candidate</code> matches column and timestamp.
+   */
+  static boolean getFullCheck(final KeyValue.KVComparator c,
+      final KeyValue target, final KeyValue candidate,
+      final Set<byte []> columns, final Pattern columnPattern) {
+    // Does column match?
+    if (!Store.matchingColumns(candidate, columns)) {
+      return false;
+    }
+    // if the column pattern is not null, we use it for column matching.
+    // we will skip the keys whose column doesn't match the pattern.
+    if (columnPattern != null) {
+      if (!(columnPattern.matcher(candidate.getColumnString()).matches())) {
+        return false;
+      }
+    }
+    if (c.compareTimestamps(target, candidate) > 0)  {
+      return false;
+    }
+    return true; 
+  }
+
+  
   /**
    * Return all the available columns for the given key.  The key indicates a 
    * row and timestamp, but not a column name.
@@ -1146,6 +1164,7 @@ public class Store implements HConstants {
     // get from the memcache first.
     boolean multiFamily = family.getMultiFamily();
     retCode = this.memcache.newget(sget, result, multiFamily);
+    
     if(retCode == 1){
       return;
     }
@@ -1221,198 +1240,18 @@ public class Store implements HConstants {
   }
   
   
-//  /**
-//   * Return all the available columns for the given key.  The key indicates a 
-//   * row and timestamp, but not a column name.
-//   *
-//   * The returned object should map column names to Cells.
-//   */
-//  void getColumns(byte [] row, Family family, List<KeyValue> results)
-//  throws IOException {
-//    this.lock.readLock().lock();
-//    // get from the memcache first.
-//    this.memcache.getColumns(row, family, results);
-//    //If all the columns were found
-//    if(family.isEmpty())
-//      return;
-//
-//    try {
-//      for(Map.Entry<Long, StoreFile> entry :
-//        this.storefiles.descendingMap().entrySet()){
-//
-//        getColumnsFromStoreFile(entry.getValue(), row, family, results);
-//      }
-//    } finally {
-//      this.lock.readLock().unlock();
-//    }
-//  }
-//
-//  private void getColumnsFromStoreFile(StoreFile sf, byte[] row, Family family, 
-//      List<KeyValue> results) 
-//  throws IOException {
-//
-//    long now = System.currentTimeMillis();
-//    HFileScanner scanner = sf.getReader().getScanner();
-//    //So should do the following: 
-//    //Seek to the beginning of the row
-//    //get DeleteRow and DeleteFamily if they exist and save biggest
-//    //Seek to the first wanted column, iterate through all the updates for it
-//    //if delete, delete from wanted, if put add to results, can stop if you get
-//    //a deleteFamColumn for all ts.
-//    byte type = null;
-//    int isSame = scanner.seekTo(row);
-//    //Get the big deletes
-//    byte[] readKey = scanner.getKey().array();
-//    int readKeyLen = readKey.length;
-//    boolean delRow = false;
-//    boolean delFam = false;
-//    type = readKey[readKey.length-1];
-//    if(KeyValue.Type.Type(type) == KeyValue.Type.DeleteRow)
-//      delRow = true;
-//    else if (type != KeyValue.Type.DeleteFamily)
-//      delFam = true;
-//    
-//    for(Column column : family.getColumns()){
-//      byte[] key = makeKey(row, family, column);
-//      isSame = scanner.seekTo(key);
-//      byte[] readKey = scanner.getKey();
-//      
-//      if(type == deleteRow)
-//        DeleteRow = true;
-//      else if(type  = deleteFamily)
-//        DeleteFamily = true;
-//      else {
-//        for(Column column : family.getColumns()){
-//          if (type == DeleteColumn){
-//            deletes.add(column);
-//            break;
-//          } else if(type == Put){ 
-//            results.add(kv);
-//            if(column.decreaseMaxNrVersions() == 0){
-//              deletes.add(column);
-//              break;
-//            }
-//          }
-//
-//        }
-//      }     
-//    }
-//    
-//    
-//    //Would be nice if you could get some flags out from the key like type
-//    //and get returned the byte[] 
-//    byte[] readKey = scanner.getKey();
-//    if(type == deleteRow)
-//      DeleteRow = true;
-//    else if(type  = deleteFamily)
-//      DeleteFamily = true;
-//    else {
-//      for(Column column : family.getColumns()){
-//        if (type == DeleteColumn){
-//          deletes.add(column);
-//          break;
-//        } else if(type == Put){ 
-//          results.add(kv);
-//          if(column.decreaseMaxNrVersions() == 0){
-//            deletes.add(column);
-//            break;
-//          }
-//        }
-//        
-//      }
-//      
-//    }
-//      
-//    
-//    
-//    
-//    
-//    if (!getClosest(scanner, row)) {
-//      return;
-//    }
-//    do {
-//      HStoreKey readkey = HStoreKey.create(scanner.getKey());
-//      byte[] readcol = readkey.getColumn();
-//
-//      // if we're looking for this column (or all of them), and there isn't
-//      // already a value for this column in the results map or there is a value
-//      // but we haven't collected enough versions yet, and the key we
-//      // just read matches, then we'll consider it
-//      if ((columns == null || columns.contains(readcol)) &&
-//          (!results.containsKey(readcol) ||
-//              results.get(readcol).getNumValues() < numVersions) &&
-//              key.matchesWithoutColumn(readkey)) {
-//        // if the value of the cell we're looking at right now is a delete,
-//        // we need to treat it differently
-//        ByteBuffer value = scanner.getValue();
-//        if (HLogEdit.isDeleted(value)) {
-//          // if it's not already recorded as a delete or recorded with a more
-//          // recent delete timestamp, record it for later
-//          if (!deletes.containsKey(readcol)
-//              || deletes.get(readcol).longValue() < readkey.getTimestamp()) {
-//            deletes.put(readcol, Long.valueOf(readkey.getTimestamp()));
-//          }
-//        } else if (!(deletes.containsKey(readcol) && deletes.get(readcol)
-//            .longValue() >= readkey.getTimestamp())) {
-//          // So the cell itself isn't a delete, but there may be a delete
-//          // pending from earlier in our search. Only record this result if
-//          // there aren't any pending deletes.
-//          if (!(deletes.containsKey(readcol) && deletes.get(readcol)
-//              .longValue() >= readkey.getTimestamp())) {
-//            if (!isExpired(readkey, ttl, now)) {
-//              if (!results.containsKey(readcol)) {
-//                results.put(readcol, new Cell(value, readkey.getTimestamp()));
-//              } else {
-//                results.get(readcol).add(Bytes.toBytes(value),
-//                    readkey.getTimestamp());
-//              }
-//            }
-//          }
-//        }
-//      } else if (this.rawcomparator.compareRows(key.getRow(), 0,
-//          key.getRow().length,
-//          readkey.getRow(), 0, readkey.getRow().length) < 0) {
-//        // if we've crossed into the next row, then we can just stop
-//        // iterating
-//        break;
-//      }
-//    } while (scanner.next());
-//  }   
-
-  
-//  public byte[] makeKey(byte [] row, Family family, Column column){
-//    return makeKey(row, family.getFamily(), column.getColumn(),
-//      Bytes.toBytes(column.getTimestamp()));
-//  }
-//
-//  public byte[] makeKey(byte [] row, byte [] family, byte [] column,
-//      byte [] ts){
-//    int rowLen = row.length;
-//    int famLen = family.length;
-//    int colLen = column.length;
-//    int tsLen = Bytes.SIZEOF_LONG;
-//    byte [] key = new byte [rowLen + famLen + colLen + tsLen];
-//    System.arraycopy(row, 0, key, 0, rowLen);
-//    int offset = rowLen;
-//    System.arraycopy(family, 0, key, offset, famLen);
-//    offset += famLen;
-//    System.arraycopy(column, 0, key, offset, colLen);
-//    offset += colLen;
-//    System.arraycopy(ts, 0, key, offset, tsLen);
-//    
-//    return key;
-//  }
   
   /*
    * @param wantedVersions How many versions were asked for.
-   * @return wantedVersions or this families' MAX_VERSIONS.
+   * @return wantedVersions or this families' VERSIONS.
    */
   private int versionsToReturn(final int wantedVersions) {
     if (wantedVersions <= 0) {
       throw new IllegalArgumentException("Number of versions must be > 0");
     }
     // Make sure we do not return more than maximum versions for this store.
-    return wantedVersions > this.family.getMaxVersions()?
+    return wantedVersions > this.family.getMaxVersions() &&
+        wantedVersions != HConstants.ALL_VERSIONS?
       this.family.getMaxVersions(): wantedVersions;
   }
   
@@ -1445,12 +1284,12 @@ public class Store implements HConstants {
     // be faster than calculating a hash.  Use a comparator that ignores ts.
     NavigableSet<KeyValue> deletes =
       new TreeSet<KeyValue>(this.comparatorIgnoringType);
+    List<KeyValue> keyvalues = new ArrayList<KeyValue>();
     this.lock.readLock().lock();
-    List<KeyValue> results = new ArrayList<KeyValue>();
     try {
       // Check the memcache
-      if (this.memcache.get(key, versions, results, deletes, now)) {
-        return results;
+      if (this.memcache.get(key, versions, keyvalues, deletes, now)) {
+        return keyvalues;
       }
       Map<Long, StoreFile> m = this.storefiles.descendingMap();
       for (Map.Entry<Long, StoreFile> e: m.entrySet()) {
@@ -1462,9 +1301,10 @@ public class Store implements HConstants {
         }
         do {
           KeyValue kv = scanner.getKeyValue();
-          // This clause is nearly same as in Memcache#get.  Keep them synced.
+          // Make sure below matches what happens up in Memcache#get.
           if (this.comparator.matchingRowColumn(kv, key)) {
-            if (get(kv, versions, results, deletes, now)) {
+            if (doKeyValue(kv, numVersions, deletes, now, this.ttl, keyvalues,
+                null)) {
               break;
             }
           } else {
@@ -1473,37 +1313,10 @@ public class Store implements HConstants {
           }
         } while (scanner.next());
       }
-      return results.isEmpty()? null: results;
+      return keyvalues.isEmpty()? null: keyvalues;
     } finally {
       this.lock.readLock().unlock();
     }
-  }
-
-  /*
-   * Look at one key/value.
-   * @param key
-   * @param versions
-   * @param results
-   * @param deletes
-   * @param now
-   * @return True if we have enough versions.
-   */
-  private boolean get(final KeyValue key, final int versions,
-      final List<KeyValue> results, final Set<KeyValue> deletes, final long now) {
-    if (!key.isDeleteType()) {
-      if (notExpiredAndNotInDeletes(this.ttl, key, now, deletes)) {
-        results.add(key);
-      }
-      // Perhaps only one version is wanted.  I could let this
-      // test happen later in the for loop test but it would cost
-      // the allocation of an ImmutableBytesWritable.
-      if (hasEnoughVersions(versions, results)) {
-        return true;
-      }
-    } else {
-      deletes.add(key);
-    }
-    return false;
   }
 
   /*
@@ -1519,6 +1332,7 @@ public class Store implements HConstants {
   }
 
   /*
+   * Used when doing getFulls.
    * @param kv
    * @param versions
    * @param versionCounter
@@ -1546,7 +1360,7 @@ public class Store implements HConstants {
       }
     } else if (!deletes.contains(kv)) {
       // Skip expired cells
-      if (!Store.isExpired(kv, ttl, now)) {
+      if (!isExpired(kv, ttl, now)) {
         if (HRegion.okToAddResult(kv, versions, versionCounter)) {
           HRegion.addResult(kv, versionCounter, keyvalues);
           if (HRegion.hasEnoughVersions(versions, versionCounter, columns)) {
@@ -1557,6 +1371,43 @@ public class Store implements HConstants {
         // Remove the expired.
         Store.expiredOrDeleted(set, kv);
       }
+    }
+    return hasEnough;
+  }
+
+  /*
+   * Used when doing get.
+   * @param kv
+   * @param versions
+   * @param deletes
+   * @param now
+   * @param ttl
+   * @param keyvalues
+   * @param set
+   * @return True if enough versions.
+   */
+  static boolean doKeyValue(final KeyValue kv, final int versions,
+      final NavigableSet<KeyValue> deletes,
+      final long now,  final long ttl,
+      final List<KeyValue> keyvalues, final SortedSet<KeyValue> set) {
+    boolean hasEnough = false;
+    if (!kv.isDeleteType()) {
+      // Filter out expired results
+      if (notExpiredAndNotInDeletes(ttl, kv, now, deletes)) {
+        if (!keyvalues.contains(kv)) {
+          keyvalues.add(kv);
+          if (hasEnoughVersions(versions, keyvalues)) {
+            hasEnough = true;
+          }
+        }
+      } else {
+        if (set != null) {
+          expiredOrDeleted(set, kv);
+        }
+      }
+    } else {
+      // Cell holds a delete value.
+      deletes.add(kv);
     }
     return hasEnough;
   }
@@ -1587,11 +1438,11 @@ public class Store implements HConstants {
    * preceeds it. WARNING: Only use this method on a table where writes occur 
    * with stricly increasing timestamps. This method assumes this pattern of 
    * writes in order to make it reasonably performant.
-   * @param kv
-   * @return Found row
+   * @param targetkey
+   * @return Found keyvalue
    * @throws IOException
    */
-  KeyValue getRowKeyAtOrBefore(final KeyValue kv)
+  KeyValue getRowKeyAtOrBefore(final KeyValue targetkey)
   throws IOException{
     // Map of keys that are candidates for holding the row key that
     // most closely matches what we're looking for. We'll have to update it as
@@ -1612,17 +1463,17 @@ public class Store implements HConstants {
     // values.  If memory usage becomes an issue, could redo as bloom filter.
     NavigableSet<KeyValue> deletes =
       new TreeSet<KeyValue>(this.comparatorIgnoringType);
-
+    long now = System.currentTimeMillis();
     this.lock.readLock().lock();
     try {
       // First go to the memcache.  Pick up deletes and candidates.
-      this.memcache.getRowKeyAtOrBefore(kv, candidates, deletes);
+      this.memcache.getRowKeyAtOrBefore(targetkey, candidates, deletes, now);
       // Process each store file.  Run through from newest to oldest.
-      // This code below is very close to the body of the getKeys method.
       Map<Long, StoreFile> m = this.storefiles.descendingMap();
       for (Map.Entry<Long, StoreFile> e: m.entrySet()) {
         // Update the candidate keys from the current map file
-        rowAtOrBeforeFromStoreFile(e.getValue(), kv, candidates, deletes);
+        rowAtOrBeforeFromStoreFile(e.getValue(), targetkey, candidates,
+          deletes, now);
       }
       // Return the best key from candidateKeys
       return candidates.isEmpty()? null: candidates.last();
@@ -1635,58 +1486,22 @@ public class Store implements HConstants {
    * Check an individual MapFile for the row at or before a given key 
    * and timestamp
    * @param f
-   * @param row
+   * @param targetkey
    * @param candidates Pass a Set with a Comparator that
    * ignores key Type so we can do Set.remove using a delete, i.e. a KeyValue
    * with a different Type to the candidate key.
    * @throws IOException
    */
   private void rowAtOrBeforeFromStoreFile(final StoreFile f,
-    final KeyValue kv, final NavigableSet<KeyValue> candidates,
-    final NavigableSet<KeyValue> deletes)
+    final KeyValue targetkey, final NavigableSet<KeyValue> candidates,
+    final NavigableSet<KeyValue> deletes, final long now)
   throws IOException {
-    HFileScanner scanner = f.getReader().getScanner();
-    if (!scanner.seekBefore(kv.getBuffer(), kv.getOffset(), kv.getLength())) {
-      return;
-    }
-    long now = System.currentTimeMillis();
-    KeyValue found = scanner.getKeyValue();
     // if there aren't any candidate keys yet, we'll do some things different 
     if (candidates.isEmpty()) {
-      rowAtOrBeforeCandidate(found, f, kv, candidates, deletes, now);
+      rowAtOrBeforeCandidate(f, targetkey, candidates, deletes, now);
     } else {
-      rowAtOrBeforeWithCandidates(found, f, kv, candidates, deletes, now);
+      rowAtOrBeforeWithCandidates(f, targetkey, candidates, deletes, now);
     }
-  }
-  
-  /* Find a candidate for row that is at or before passed row in passed
-   * mapfile.
-   * @param startKey First key in the mapfile.
-   * @param map
-   * @param row
-   * @param candidateKeys
-   * @param now
-   * @throws IOException
-   */
-  private void rowAtOrBeforeCandidate(final KeyValue startKey,
-    final StoreFile f, final KeyValue kv,
-    final NavigableSet<KeyValue> candidates,
-    final NavigableSet<KeyValue> deletes, final long now) 
-  throws IOException {
-    // if the row we're looking for is past the end of this mapfile, set the
-    // search key to be the last key.  If its a deleted key, then we'll back
-    // up to the row before and return that.
-    KeyValue finalKey = new KeyValue(f.getReader().getLastKey());
-    KeyValue searchKey = null;
-    if (this.comparator.compareRows(finalKey, kv) < 0) {
-      searchKey = finalKey;
-    } else {
-      searchKey = kv;
-      if (this.comparator.compare(searchKey, startKey) < 0) {
-        searchKey = startKey;
-      }
-    }
-    rowAtOrBeforeCandidate(f, searchKey, candidates, deletes, now);
   }
 
   /* 
@@ -1707,36 +1522,44 @@ public class Store implements HConstants {
     return ttl != HConstants.FOREVER && now > key.getTimestamp() + ttl;
   }
 
-  /* Find a candidate for row that is at or before passed key, sk, in mapfile.
+  /* Find a candidate for row that is at or before passed key, searchkey, in hfile.
    * @param f
-   * @param sk Key to go search the mapfile with.
+   * @param targetkey Key to go search the hfile with.
    * @param candidates
    * @param now
    * @throws IOException
    * @see {@link #rowAtOrBeforeCandidate(HStoreKey, org.apache.hadoop.io.MapFile.Reader, byte[], SortedMap, long)}
    */
   private void rowAtOrBeforeCandidate(final StoreFile f,
-    final KeyValue start, final NavigableSet<KeyValue> candidates,
+    final KeyValue targetkey, final NavigableSet<KeyValue> candidates,
     final NavigableSet<KeyValue> deletes, final long now)
   throws IOException {
-    KeyValue search = start;
-    KeyValue readkey = null;
+    KeyValue search = targetkey;
+    // If the row we're looking for is past the end of this mapfile, set the
+    // search key to be the last key.  If its a deleted key, then we'll back
+    // up to the row before and return that.
+    // TODO: Cache last key as KV over in the file.
+    byte [] lastkey = f.getReader().getLastKey();
+    KeyValue lastKeyValue =
+      KeyValue.createKeyValueFromKey(lastkey, 0, lastkey.length);
+    if (this.comparator.compareRows(lastKeyValue, targetkey) < 0) {
+      search = lastKeyValue;
+    }
     KeyValue knownNoGoodKey = null;
     HFileScanner scanner = f.getReader().getScanner();
     for (boolean foundCandidate = false; !foundCandidate;) {
       // Seek to the exact row, or the one that would be immediately before it
-      int result = scanner.seekTo(search.getBuffer(), search.getOffset(),
-        search.getLength());
+      int result = scanner.seekTo(search.getBuffer(), search.getKeyOffset(),
+        search.getKeyLength());
       if (result < 0) {
         // Not in file.
         continue;
       }
       KeyValue deletedOrExpiredRow = null;
+      KeyValue kv = null;
       do {
-        KeyValue kv = scanner.getKeyValue();
-        // If we have an exact match on row, and it's not a delete, save this
-        // as a candidate key
-        if (this.comparator.compareRows(kv, search) == 0) {
+        kv = scanner.getKeyValue();
+        if (this.comparator.compareRows(kv, search) <= 0) {
           if (!kv.isDeleteType()) {
             if (handleNonDelete(kv, now, deletes, candidates)) {
               foundCandidate = true;
@@ -1757,7 +1580,7 @@ public class Store implements HConstants {
           // we're seeking yet, so this row is a candidate for closest
           // (assuming that it isn't a delete).
           if (!kv.isDeleteType()) {
-            if (handleNonDelete(readkey, now, deletes, candidates)) {
+            if (handleNonDelete(kv, now, deletes, candidates)) {
               foundCandidate = true;
               // NOTE: Continue
               continue;
@@ -1769,15 +1592,16 @@ public class Store implements HConstants {
           }
         }
       } while(scanner.next() && (knownNoGoodKey == null ||
-          this.comparator.compare(readkey, knownNoGoodKey) < 0));
+          this.comparator.compare(kv, knownNoGoodKey) < 0));
 
       // If we get here and have no candidates but we did find a deleted or
       // expired candidate, we need to look at the key before that
       if (!foundCandidate && deletedOrExpiredRow != null) {
         knownNoGoodKey = deletedOrExpiredRow;
         if (!scanner.seekBefore(deletedOrExpiredRow.getBuffer(),
-            deletedOrExpiredRow.getOffset(), deletedOrExpiredRow.getLength())) {
-          // Is this right?
+            deletedOrExpiredRow.getKeyOffset(),
+            deletedOrExpiredRow.getKeyLength())) {
+          // Not in file -- what can I do now but break?
           break;
         }
         search = scanner.getKeyValue();
@@ -1792,8 +1616,8 @@ public class Store implements HConstants {
     // through here.
   }
 
-  private void rowAtOrBeforeWithCandidates(final KeyValue startKey,
-    final StoreFile f, final KeyValue find,
+  private void rowAtOrBeforeWithCandidates(final StoreFile f,
+    final KeyValue targetkey,
     final NavigableSet<KeyValue> candidates,
     final NavigableSet<KeyValue> deletes, final long now) 
   throws IOException {
@@ -1804,16 +1628,16 @@ public class Store implements HConstants {
     // BUT do not backup before the first key in the store file.
     KeyValue firstCandidateKey = candidates.first();
     KeyValue search = null;
-    if (this.comparator.compareRows(firstCandidateKey, startKey) < 0) {
-      search = startKey;
+    if (this.comparator.compareRows(firstCandidateKey, targetkey) < 0) {
+      search = targetkey;
     } else {
       search = firstCandidateKey;
     }
 
     // Seek to the exact row, or the one that would be immediately before it
     HFileScanner scanner = f.getReader().getScanner();
-    int result = scanner.seekTo(search.getBuffer(), search.getOffset(),
-      search.getLength());
+    int result = scanner.seekTo(search.getBuffer(), search.getKeyOffset(),
+      search.getKeyLength());
     if (result < 0) {
       // Key is before start of this file.  Return.
       return;
@@ -1822,9 +1646,9 @@ public class Store implements HConstants {
       KeyValue kv = scanner.getKeyValue();
       // if we have an exact match on row, and it's not a delete, save this
       // as a candidate key
-      if (this.comparator.matchingRows(kv, find)) {
+      if (this.comparator.matchingRows(kv, targetkey)) {
         handleKey(kv, now, deletes, candidates);
-      } else if (this.comparator.compareRows(kv, find) > 0 ) {
+      } else if (this.comparator.compareRows(kv, targetkey) > 0 ) {
         // if the row key we just read is beyond the key we're searching for,
         // then we're done.
         break;
@@ -1909,18 +1733,18 @@ public class Store implements HConstants {
       long maxSize = 0L;
       Long mapIndex = Long.valueOf(0L);
       for (Map.Entry<Long, StoreFile> e: storefiles.entrySet()) {
-        StoreFile curHSF = e.getValue();
+        StoreFile sf = e.getValue();
         if (splitable) {
-          splitable = !curHSF.isReference();
+          splitable = !sf.isReference();
           if (!splitable) {
             // RETURN IN MIDDLE OF FUNCTION!!! If not splitable, just return.
             if (LOG.isDebugEnabled()) {
-              LOG.debug(curHSF +  " is not splittable");
+              LOG.debug(sf +  " is not splittable");
             }
             return null;
           }
         }
-        long size = curHSF.getReader().length();
+        long size = sf.getReader().length();
         if (size > maxSize) {
           // This is the largest one so far
           maxSize = size;
@@ -1949,7 +1773,7 @@ public class Store implements HConstants {
           }
           return null;
         }
-        return new StoreSize(maxSize, mk.getRow());
+        return new StoreSize(maxSize, mk.getKey());
       }
     } catch(IOException e) {
       LOG.warn("Failed getting store size for " + this.storeNameStr, e);

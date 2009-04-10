@@ -133,6 +133,9 @@ public class HbaseObjectWritable implements Writable, Configurable {
       e.printStackTrace();
     }
     addToMap(BatchUpdate[].class, code++);
+    
+    addToMap(Get.class, code++);
+    addToMap(RowUpdates.class, code++);
   }
   
   private Class<?> declaredClass;

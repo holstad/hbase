@@ -25,7 +25,6 @@ import java.lang.management.ManagementFactory;
 import java.lang.management.RuntimeMXBean;
 import java.rmi.UnexpectedException;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
@@ -44,10 +43,6 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.hbase.HConstants;
 import org.apache.hadoop.hbase.KeyValue;
-import org.apache.hadoop.hbase.io.Column;
-import org.apache.hadoop.hbase.io.Family;
-import org.apache.hadoop.hbase.io.Get;
-
 import org.apache.hadoop.hbase.regionserver.HRegion.Counter;
 import org.apache.hadoop.hbase.util.Bytes;
 
@@ -79,7 +74,6 @@ class Memcache {
   private final ReentrantReadWriteLock lock = new ReentrantReadWriteLock();
 
   final KeyValue.KVComparator comparator;
-  final Comparator<KeyValue> keyComparator;
 
   // Used comparing versions -- same r/c and ts but different type.
   final KeyValue.KVComparator comparatorIgnoreType;
@@ -114,7 +108,6 @@ class Memcache {
   public Memcache(final long ttl, final KeyValue.KVComparator c) {
     this.ttl = ttl;
     this.comparator = c;
-    this.keyComparator = null;
     this.comparatorIgnoreTimestamp =
       this.comparator.getComparatorIgnoringTimestamps();
     this.comparatorIgnoreType = this.comparator.getComparatorIgnoringType();
@@ -122,7 +115,6 @@ class Memcache {
     this.snapshot = createSet(c);
   }
 
-  
   static ConcurrentSkipListSet<KeyValue> createSet(final KeyValue.KVComparator c) {
     return new ConcurrentSkipListSet<KeyValue>(c);
   }
@@ -216,6 +208,7 @@ class Memcache {
     return size;
   }
 
+  
   /**
    * Write an update
    * @param kv
@@ -312,7 +305,7 @@ class Memcache {
     return size - deleteSize;
   }
   
-  
+
   
   
   /**
@@ -657,7 +650,8 @@ class Memcache {
   /**
    * Return all the available columns for the given key.  The key indicates a 
    * row and timestamp, but not a column name.
-   * @param key
+   * @param origin Where to start searching.  Specifies a row and timestamp.
+   * Columns are specified in following arguments.
    * @param columns Pass null for all columns else the wanted subset.
    * @param columnPattern Column pattern to match.
    * @param numVersions number of versions to retrieve
@@ -690,7 +684,7 @@ class Memcache {
 
   /*
    * @param set
-   * @param key
+   * @param target Where to start searching.
    * @param columns
    * @param versions
    * @param versionCounter
@@ -699,50 +693,42 @@ class Memcache {
    * @return True if enough results found.
    */
   private boolean getFull(final ConcurrentSkipListSet<KeyValue> set,
-      final KeyValue key, final Set<byte []> columns,
+      final KeyValue target, final Set<byte []> columns,
       final Pattern columnPattern,
       final int versions, final Map<KeyValue, HRegion.Counter> versionCounter,
       final NavigableSet<KeyValue> deletes, List<KeyValue> keyvalues,
       final long now) {
     boolean hasEnough = false;
-    if (key == null) {
+    if (target == null) {
       return hasEnough;
     }
-    NavigableSet<KeyValue> tailset = set.tailSet(key);
+    NavigableSet<KeyValue> tailset = set.tailSet(target);
     if (tailset == null || tailset.isEmpty()) {
       return hasEnough;
     }
     // TODO: This loop same as in HStore.getFullFromStoreFile.  Make sure they
     // are the same.
-    // This is like the guts of getFullFromStoreFile.  Keep them the same.
     for (KeyValue kv: tailset) {
-      // Make sure we have not passed out the row.
-      if (key.isEmptyColumn()? !this.comparator.matchingRows(key, kv):
-          !this.comparator.matchingRowColumn(key, kv)) {
+      // Make sure we have not passed out the row.  If target key has a
+      // column on it, then we are looking explicit key+column combination.  If
+      // we've passed it out, also break.
+      if (target.isEmptyColumn()? !this.comparator.matchingRows(target, kv):
+          !this.comparator.matchingRowColumn(target, kv)) {
         break;
       }
-      // Does column match?
-      if (!Store.matchingColumns(kv, columns)) {
+      if (!Store.getFullCheck(this.comparator, target, kv, columns, columnPattern)) {
         continue;
       }
-      // if the column pattern is not null, we use it for column matching.
-      // we will skip the keys whose column doesn't match the pattern.
-      if (columnPattern != null) {
-        if (!(columnPattern.matcher(kv.getColumnString()).matches())) {
-          continue;
-        }
-      }
-      if (this.comparator.compareTimestamps(key, kv) <= 0)  {
-        if (Store.doKeyValue(kv, versions, versionCounter, columns, deletes, now,
+      if (Store.doKeyValue(kv, versions, versionCounter, columns, deletes, now,
           this.ttl, keyvalues, tailset)) {
-          hasEnough = true;
-          break;
-        }
+        hasEnough = true;
+        break;
       }
     }
     return hasEnough;
   }
 
+  
   /**
    * 
    * @param sget
@@ -818,73 +804,8 @@ class Memcache {
       }
     }
     return -1;
-  }
+  }  
   
-  
-//  /**
-//   * @param row
-//   * @param Family
-//   * @param results Where to stick row results found.
-//   */
-//  void getColumns(final byte[] row, final Family family,
-//    List<KeyValue> results) {
-//    this.lock.readLock().lock();
-//    try {
-//      // Used to be synchronized but now with weak iteration, no longer needed.
-//      internalGetColumns(this.memcache, row, family, results);
-//      internalGetColumns(this.snapshot, row, family, results);
-//    } finally {
-//      this.lock.readLock().unlock();
-//    }
-//  }
-//
-//  private void internalGetColumns(final SortedSet<KeyValue> set,
-//    final byte[] row, final Family family, List<KeyValue> results) {
-//    if (set.isEmpty()){
-//      return;
-//    }
-//    
-//    byte[] famName = family.getFamily();
-//    KeyValue key = null;
-//    SortedSet<KeyValue> tailset = null;
-//    List<Column> deletes = new ArrayList<Column>();
-//    
-//    for(Column column : family.getColumns()){
-//      key = 
-//        new KeyValue(row, famName, column.getColumn(), column.getTimestamp();
-//      //TODO maybe can find some better way than fetching everything, since we
-//      // only need at most maxNrVersions
-//      tailset = set.tailSet(key);
-//      Type type;
-//      for (KeyValue kv: tailset) {
-//        if (comparator.matchingRowFamilyColumn(key, kv, type)){
-//          if (type == DeleteColumn){
-//            deletes.add(column);
-//            break;
-//          } else if(type == Put){ 
-//            results.add(kv);
-//            if(column.decreaseMaxNrVersions() == 0){
-//              deletes.add(column);
-//              break;
-//            }
-//          }
-//        } else
-//          break;
-//      }
-//    }
-//    
-//    //Check if there are any higher deletes in the set 
-//    if (set.contains(new KeyValue(row, deleteRowType)) ||
-//        set.contains(new KeyValue(row, deleteFamilyType))) {
-//      family.setEmpty();
-//    } else {
-//      //Removing deleted columns and columns that have all their versions
-//      //already
-//      for(Column column : deletes){
-//        family.remove(column);
-//      }
-//    }
-//  }   
   
   
   /**
@@ -895,7 +816,7 @@ class Memcache {
   void getRowKeyAtOrBefore(final KeyValue row,
       final NavigableSet<KeyValue> candidateKeys) {
     getRowKeyAtOrBefore(row, candidateKeys,
-      new TreeSet<KeyValue>(this.comparator));
+      new TreeSet<KeyValue>(this.comparator), System.currentTimeMillis());
   }
 
   /**
@@ -908,11 +829,11 @@ class Memcache {
    */
   void getRowKeyAtOrBefore(final KeyValue kv,
       final NavigableSet<KeyValue> candidates, 
-      final NavigableSet<KeyValue> deletes) {
+      final NavigableSet<KeyValue> deletes, final long now) {
     this.lock.readLock().lock();
     try {
-      getRowKeyAtOrBefore(memcache, kv, candidates, deletes);
-      getRowKeyAtOrBefore(snapshot, kv, candidates, deletes);
+      getRowKeyAtOrBefore(memcache, kv, candidates, deletes, now);
+      getRowKeyAtOrBefore(snapshot, kv, candidates, deletes, now);
     } finally {
       this.lock.readLock().unlock();
     }
@@ -920,14 +841,13 @@ class Memcache {
 
   private void getRowKeyAtOrBefore(final ConcurrentSkipListSet<KeyValue> set,
       final KeyValue kv, final NavigableSet<KeyValue> candidates,
-      final NavigableSet<KeyValue> deletes) {
+      final NavigableSet<KeyValue> deletes, final long now) {
     if (set.isEmpty()) {
       return;
     }
     // We want the earliest possible to start searching from.  Start before
     // the candidate key in case it turns out a delete came in later.
     KeyValue search = candidates.isEmpty()? kv: candidates.first();
-    long now = System.currentTimeMillis();
 
     // Get all the entries that come equal or after our search key
     SortedSet<KeyValue> tailset = set.tailSet(search);
@@ -1060,16 +980,18 @@ class Memcache {
    * TODO - This is kinda slow.  We need a data structure that allows for 
    * proximity-searches, not just precise-matches.
    * 
-   * @param map
+   * @param set
    * @param key
    * @param results
-   * @param numVersions
+   * @param versions
+   * @param keyvalues
    * @param deletes Pass a Set that has a Comparator that ignores key type.
+   * @param now
    * @return True if enough versions.
    */
   private boolean get(final ConcurrentSkipListSet<KeyValue> set,
-      final KeyValue key, final int numVersions,
-      final List<KeyValue> results,
+      final KeyValue key, final int versions,
+      final List<KeyValue> keyvalues,
       final NavigableSet<KeyValue> deletes,
       final long now) {
     NavigableSet<KeyValue> tailset = set.tailSet(key);
@@ -1079,20 +1001,9 @@ class Memcache {
     boolean enoughVersions = false;
     for (KeyValue kv : tailset) {
       if (this.comparator.matchingRowColumn(kv, key)) {
-        if (!kv.isDeleteType()) {
-          // Filter out expired results
-          if (Store.notExpiredAndNotInDeletes(ttl, kv, now, deletes)) {
-            results.add(kv);
-            if (Store.hasEnoughVersions(numVersions, results)) {
-              enoughVersions = true;
-              break;
-            }
-          } else {
-            Store.expiredOrDeleted(set, kv);
-          }
-        } else {
-          // Cell holds a delete value.
-          deletes.add(kv);
+        if (Store.doKeyValue(kv, versions, deletes, now, this.ttl, keyvalues,
+            tailset)) {
+          break;
         }
       } else {
         // By L.N. HBASE-684, map is sorted, so we can't find match any more.
@@ -1161,7 +1072,7 @@ class Memcache {
       this.deletes = new TreeSet<KeyValue>(comparatorIgnoreType);
       this.versionCounter =
         new TreeMap<KeyValue, Counter>(comparatorIgnoreTimestamp);
-      this.current = new KeyValue(firstRow, timestamp);
+      this.current = KeyValue.createFirstOnRow(firstRow, timestamp);
       // If we're being asked to scan explicit columns rather than all in 
       // a family or columns that match regexes, cache the sorted array of
       // columns.
@@ -1169,12 +1080,12 @@ class Memcache {
     }
 
     @Override
-    public boolean next(final List<KeyValue> results)
+    public boolean next(final List<KeyValue> keyvalues)
     throws IOException {
       if (this.scannerClosed) {
         return false;
       }
-      while (results.isEmpty() && this.current != null) {
+      while (keyvalues.isEmpty() && this.current != null) {
         // Deletes are per row.
         if (!deletes.isEmpty()) {
           deletes.clear();
@@ -1188,24 +1099,29 @@ class Memcache {
         // if row is null but that looks like it would take same amount of work
         // so leave it for now.
         getFull(this.current, isWildcardScanner()? null: this.columns, null, 1,
-          versionCounter, deletes, results, this.now);
-        for (KeyValue bb: results) {
+          versionCounter, deletes, keyvalues, this.now);
+        for (KeyValue bb: keyvalues) {
           if (isWildcardScanner()) {
             // Check the results match.  We only check columns, not timestamps.
             // We presume that timestamps have been handled properly when we
             // called getFull.
             if (!columnMatch(bb)) {
-              results.remove(bb);
+              keyvalues.remove(bb);
             }
           }
         }
         // Add any deletes found so they are available to the StoreScanner#next.
         if (!this.deletes.isEmpty()) {
-          results.addAll(deletes);
+          keyvalues.addAll(deletes);
         }
         this.current = getNextRow(this.current);
+        // Change current to be column-less and to have the scanners' now.  We
+        // do this because first item on 'next row' may not have the scanners'
+        // now time which will cause trouble down in getFull; same reason no
+        // column.
+        if (this.current != null) this.current = this.current.cloneRow(this.now);
       }
-      return !results.isEmpty();
+      return !keyvalues.isEmpty();
     }
 
     public void close() {

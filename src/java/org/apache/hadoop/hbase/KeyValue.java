@@ -453,90 +453,24 @@ public class KeyValue {
     return bytes;
   }
 
-  
-  public KeyValue(final byte [] row, final byte [] family,
-    final byte [] qualifier, final long timestamp, Type type,
-    final byte [] value) {
-    this(row, family, qualifier, Bytes.toBytes(timestamp), type, value);
+  public boolean equals(Object other) {
+    KeyValue kv = (KeyValue)other;
+    // Comparing bytes should be fine doing equals test.  Shouldn't have to
+    // worry about special .META. comparators doing straight equals.
+    boolean result = Bytes.BYTES_RAWCOMPARATOR.compare(getBuffer(),
+        getKeyOffset(), getKeyLength(),
+      kv.getBuffer(), kv.getKeyOffset(), kv.getKeyLength()) == 0;
+    return result;
   }
-  
-  public KeyValue(final byte [] row, final byte [] family,
-      final byte [] qualifier, final byte [] timestamp, Type type,
-      final byte [] value) {
-      this.bytes = createByteArray(row, 0, row.length, family, 0, family.length,
-        qualifier, 0, qualifier.length, timestamp, type, value, 0,
-        value.length);
-      this.length = bytes.length;
-      this.offset = 0;
-    }
-  
-  static byte [] createByteArray(final byte [] row, final int roffset,
-    final int rlength, final byte [] family, final int foffset, int flength,
-    final byte [] qualifier, final int qoffset, int qlength,
-    final byte [] timestamp, final Type type, final byte [] value,
-    final int voffset, int vlength) {
 
-    //TODO check if this section is right 
-    if (rlength > Short.MAX_VALUE) {
-      throw new IllegalArgumentException("Row > " + Short.MAX_VALUE);
-    }
-    if (row == null) {
-      throw new IllegalArgumentException("Row is null");
-    }
-    if (flength > Byte.MAX_VALUE) {
-      throw new IllegalArgumentException("family > " + Byte.MAX_VALUE);
-    }
-    if (family == null) {
-      throw new IllegalArgumentException("family is null");
-    }
-    
-    // Qualifier length
-    qlength = qualifier == null? 0: qlength;
-    
-    long longkeylength = KEY_INFRASTRUCTURE_SIZE + rlength + flength + qlength;
-    if (longkeylength > Integer.MAX_VALUE) {
-      throw new IllegalArgumentException("keylength " + longkeylength + " > " + Integer.MAX_VALUE);
-    }
-    int keylength = (int)longkeylength;  
-    
-    // Value length
-    vlength = value == null? 0: vlength;
-
-    // Allocate right-sized byte array.
-    byte [] bytes = new byte[KEYVALUE_INFRASTRUCTURE_SIZE + keylength + vlength];
-
-    // Write key, value and key row length.
-    int pos = 0;
-    pos = Bytes.putInt(bytes, pos, keylength);
-    pos = Bytes.putInt(bytes, pos, vlength);
-    
-    pos = Bytes.putShort(bytes, pos, (short)(rlength & 0x0000ffff));
-    pos = Bytes.putBytes(bytes, pos, row, roffset, rlength);
-
-    pos = Bytes.putByte(bytes, pos, (byte)(flength & 0x0000ff));
-    pos = Bytes.putBytes(bytes, pos, family, foffset, flength);
- 
-    pos = Bytes.putBytes(bytes, pos, qualifier, qoffset, qlength);
-    
-    pos = Bytes.putBytes(bytes, pos, timestamp, 0, Bytes.SIZEOF_LONG);
-
-    pos = Bytes.putByte(bytes, pos, type.getCode());
-    if (value != null) {
-      pos = Bytes.putBytes(bytes, pos, value, voffset, vlength);
-    }
-    return bytes;
-  }  
-  
-  
   /**
    * @param timestamp
    * @return Clone of bb's key portion with only the row and timestamp filled in.
    * @throws IOException
    */
   public KeyValue cloneRow(final long timestamp) {
-    short rowlength = getRowLength();
-    return new KeyValue(this.bytes, getKeyOffset(), rowlength,
-      null, 0, 0, timestamp, Type.Put, null, 0, 0);
+    return new KeyValue(getBuffer(), getRowOffset(), getRowLength(),
+      null, 0, 0, timestamp, Type.codeToType(getType()), null, 0, 0);
   }
 
   /**
@@ -558,6 +492,8 @@ public class KeyValue {
   }
 
   /*
+   * Make a clone with the new type.
+   * Does not copy value.
    * @param newtype New type to set on clone of this key.
    * @return Clone of this key with type set to <code>newtype</code>
    */
@@ -568,7 +504,7 @@ public class KeyValue {
     System.arraycopy(getBuffer(), getOffset(), other, 0, l);
     // Set value length to zero.
     Bytes.putInt(other, Bytes.SIZEOF_INT, 0);
-    // Set last byte, the type, to Delete
+    // Set last byte, the type, to new type
     other[l - 1] = newtype.getCode();
     return new KeyValue(other, 0, other.length);
   }
@@ -645,7 +581,7 @@ public class KeyValue {
   }
 
   /**
-   * @return Copy of the key.  Used in testing.
+   * @return Copy of the key.  Used compacting and testing.
    */
   public byte [] getKey() {
     int keylength = getKeyLength();
@@ -1198,6 +1134,34 @@ public class KeyValue {
   }
 
   /**
+   * @param row
+   * @return First possible KeyValue on passed <code>row</code>
+   */
+  public static KeyValue createFirstOnRow(final byte [] row) {
+    return createFirstOnRow(row, HConstants.LATEST_TIMESTAMP);
+  }
+
+  /**
+   * @param row
+   * @param ts
+   * @return First possible key on passed <code>row</code> and timestamp.
+   */
+  public static KeyValue createFirstOnRow(final byte [] row,
+      final long ts) {
+    return createFirstOnRow(row, null, ts);
+  }
+
+  /**
+   * @param row
+   * @param ts
+   * @return First possible key on passed <code>row</code>, column and timestamp.
+   */
+  public static KeyValue createFirstOnRow(final byte [] row, final byte [] c,
+      final long ts) {
+    return new KeyValue(row, c, ts, Type.Maximum);
+  }
+
+  /**
    * @param b
    * @param o
    * @param l
@@ -1383,6 +1347,54 @@ public class KeyValue {
       }
       return 0;
     }
+    
+    
+//    public int compare(byte[] left, int loffset, int llength, byte[] right,
+//        int roffset, int rlength) {
+//      // Compare row
+//      short lrowlength = Bytes.toShort(left, loffset);
+//      short rrowlength = Bytes.toShort(right, roffset);
+//      int compare = compareRows(left, loffset + Bytes.SIZEOF_SHORT,
+//          lrowlength,
+//          right, roffset + Bytes.SIZEOF_SHORT, rrowlength);
+//      if (compare != 0) {
+//        return compare;
+//      }
+//
+//      // Compare column family.  Start compare past row and family length.
+//      int lcolumnoffset = Bytes.SIZEOF_SHORT + lrowlength + 1 + loffset;
+//      int rcolumnoffset = Bytes.SIZEOF_SHORT + rrowlength + 1 + roffset;
+//      int lcolumnlength = llength - TIMESTAMP_TYPE_SIZE -
+//        (lcolumnoffset - loffset);
+//      int rcolumnlength = rlength - TIMESTAMP_TYPE_SIZE -
+//        (rcolumnoffset - roffset);
+//      compare = Bytes.compareTo(left, lcolumnoffset, lcolumnlength, right,
+//          rcolumnoffset, rcolumnlength);
+//      if (compare != 0) {
+//        return compare;
+//      }
+//
+//      if (!this.ignoreTimestamp) {
+//        // Get timestamps.
+//        long ltimestamp = Bytes.toLong(left,
+//            loffset + (llength - TIMESTAMP_TYPE_SIZE));
+//        long rtimestamp = Bytes.toLong(right,
+//            roffset + (rlength - TIMESTAMP_TYPE_SIZE));
+//        compare = compareTimestamps(ltimestamp, rtimestamp);
+//        if (compare != 0) {
+//          return compare;
+//        }
+//      }
+//
+//      if (!this.ignoreType) {
+//        // Compare types. Let the delete types sort ahead of puts; i.e. types
+//        // of higher numbers sort before those of lesser numbers
+//        byte ltype = left[loffset + (llength - 1)];
+//        byte rtype = right[roffset + (rlength - 1)];
+//        return (0xff & rtype) - (0xff & ltype);
+//      }
+//      return 0;
+//    }
 
     public int compare(byte[] left, byte[] right) {
       return compare(left, 0, left.length, right, 0, right.length);

@@ -1,8 +1,13 @@
 package org.apache.hadoop.hbase.io;
 
 //import java.util.Comparator;
+import java.io.DataInput;
+import java.io.DataOutput;
+import java.io.IOException;
 import java.util.TreeMap;
 import java.util.Set;
+
+import org.apache.hadoop.io.Writable;
 
 //import org.apache.hadoop.hbase.KeyValue;
 import org.apache.hadoop.hbase.filter.RowFilterInterface;;
@@ -11,7 +16,7 @@ import org.apache.hadoop.hbase.filter.RowFilterInterface;;
  * Interface for all the different get calls 
  * 
  */
-public interface Get {
+public interface Get extends Writable{
 
   public Family[] getFamilies();
   public void setFamilies(Set<byte [] > families);
@@ -26,6 +31,10 @@ public interface Get {
   public int getVersions();
   public void setVersions(int versions);
   
+  
+  //Writable
+  public void readFields(final DataInput in) throws IOException;
+  public void write(final DataOutput out) throws IOException;
 //  public void setComparator(Comparator comp);
 //  public void setMap(TreeMap<byte[], Integer> treemap);
   

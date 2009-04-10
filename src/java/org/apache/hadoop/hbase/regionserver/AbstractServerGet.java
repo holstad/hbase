@@ -1,18 +1,16 @@
 package org.apache.hadoop.hbase.regionserver;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Iterator;
-import java.util.LinkedList;
 import java.util.List;
-import java.util.SortedMap;
-import java.util.SortedSet;
-//import java.util.TreeSet;
 
 import org.apache.hadoop.hbase.filter.RowFilterInterface;
 
 import org.apache.hadoop.hbase.KeyValue;
-import org.apache.hadoop.hbase.io.Column;
-import org.apache.hadoop.hbase.io.Family;
+//import org.apache.hadoop.hbase.io.Column;
+//import org.apache.hadoop.hbase.io.Family;
 import org.apache.hadoop.hbase.io.Get;
 import org.apache.hadoop.hbase.io.TimeRange;
 import org.apache.hadoop.hbase.util.Bytes;
@@ -48,7 +46,7 @@ public abstract class AbstractServerGet implements ServerGet{
   List<byte[]> columns = null;
   
   //Same thing as above goes for this
-  List<Key> deletes = new LinkedList<Key>();
+  List<Key> deletes = new ArrayList<Key>();
 
   RowFilterInterface filter = null;
 //  Filter filter = null;
@@ -58,8 +56,8 @@ public abstract class AbstractServerGet implements ServerGet{
   
   public AbstractServerGet(Get get){
     this.get = get;
-    this.columns = new LinkedList<byte []>();
-    this.deletes = new LinkedList<Key>();
+    this.columns = new ArrayList<byte []>();
+    this.deletes = new ArrayList<Key>();
   }
   
   public byte [] getFamily(){
@@ -88,11 +86,14 @@ public abstract class AbstractServerGet implements ServerGet{
   public List<byte[]> getColumns(){
     return columns; 
   }
+//  @Override
+//  public void setColumns(List<byte[]> columns){
+//    this.columns = columns; 
+//  }
   @Override
-  public void setColumns(List<byte[]> columns){
-    this.columns = columns; 
-  }
-  
+  public void setColumns(byte [][] columns){
+    this.columns = Arrays.asList(columns); 
+  }  
   public List<Key> getDeletes(){
     return deletes; 
   }
@@ -321,7 +322,7 @@ public abstract class AbstractServerGet implements ServerGet{
     //TODO Add check for deleteFamily
     long deleteFamily = 0L;
     
-    List<Key> mergedDeletes = new LinkedList<Key>();
+    List<Key> mergedDeletes = new ArrayList<Key>();
     if(l1.isEmpty()){
       if(l2.isEmpty()){
         return null;

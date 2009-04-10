@@ -265,15 +265,10 @@ public class Cell implements Writable, Iterable<Map.Entry<Long, byte[]>>,
    */
   public static Cell [] createSingleCellArray(final List<KeyValue> results) {
     if (results == null) return null;
-    int index = results.size();
-    Cell [] cells = new Cell[index];
-    // Walking backward through the list of results though it has no effect
-    // because we're inserting into a sorted map.
-    for (ListIterator<KeyValue> i = results.listIterator(index);
-        i.hasPrevious();) {
-      KeyValue kv = i.previous();
-      cells[index - 1] = new Cell(kv.getValue(), kv.getTimestamp());
-      index --;
+    int index = 0;
+    Cell [] cells = new Cell[results.size()];
+    for (KeyValue kv: results) {
+      cells[index++] = new Cell(kv.getValue(), kv.getTimestamp());
     }
     return cells;
   }

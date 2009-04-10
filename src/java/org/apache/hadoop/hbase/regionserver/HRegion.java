@@ -22,7 +22,6 @@ package org.apache.hadoop.hbase.regionserver;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
@@ -950,9 +949,8 @@ public class HRegion implements HConstants {
   public List<KeyValue> get(final byte[] row, final byte[] column, final long ts,
       final int nv) 
   throws IOException {
-    long timestamp = ts == -1 ? HConstants.LATEST_TIMESTAMP : ts;
-    int numVersions = nv == -1 ? 1 : nv;
-
+    long timestamp = ts == -1? HConstants.LATEST_TIMESTAMP : ts;
+    int numVersions = nv == -1? 1 : nv;
     splitsAndClosesLock.readLock().lock();
     try {
       if (this.closed.get()) {
@@ -962,8 +960,8 @@ public class HRegion implements HConstants {
       checkRow(row);
       checkColumn(column);
       // Don't need a row lock for a simple get
-      List<KeyValue> result =
-        getStore(column).get(new KeyValue(row, column, timestamp), numVersions);
+      List<KeyValue> result = getStore(column).
+        get(KeyValue.createFirstOnRow(row, column, timestamp), numVersions);
       // Guarantee that we return null instead of a zero-length array, 
       // if there are no results to return.
       return (result == null || result.isEmpty())? null : result;
@@ -1012,6 +1010,8 @@ public class HRegion implements HConstants {
   static void addResult(final KeyValue kv,
       final Map<KeyValue, HRegion.Counter> versionsCount,
       final List<KeyValue> results) {
+    // Don't add if already present; i.e. ignore second entry.
+    if (results.contains(kv)) return;
     results.add(kv);
     if (versionsCount == null) {
       return;
@@ -1051,36 +1051,6 @@ public class HRegion implements HConstants {
     return true;
   }
 
-  /*
-   * Get <code>versions</code> keys matching the origin key's
-   * row/column/timestamp and those of an older vintage.
-   * Public so available when debugging.
-   * @param origin Where to start searching.
-   * @param versions How many versions to return. Pass HConstants.ALL_VERSIONS
-   * to retrieve all.
-   * @return Ordered list of <code>versions</code> keys going from newest back.
-   * @throws IOException
-   */
-  private List<KeyValue> getFull(final KeyValue origin, final int versions)
-  throws IOException {
-    List<KeyValue> keyvalues = new ArrayList<KeyValue>();
-    Collection<Store> storesToCheck = null;
-    if (origin.getColumn() == null || origin.getColumn().length == 0) {
-      // All families
-      storesToCheck = this.stores.values();
-    } else {
-      storesToCheck = new ArrayList<Store>(1);
-      storesToCheck.add(getStore(origin.getColumn()));
-    }
-    long now = System.currentTimeMillis();
-    for (Store targetStore: storesToCheck) {
-      if (targetStore != null) {
-        targetStore.getFull(origin, null, null, versions, null, keyvalues, now);
-      }
-    }
-    return keyvalues;
-  }
-
   /**
    * Fetch all the columns for the indicated row at a specified timestamp.
    * Returns a HbaseMapWritable that maps column names to values.
@@ -1112,7 +1082,6 @@ public class HRegion implements HConstants {
     List<KeyValue> keyvalues = new ArrayList<KeyValue>();
     Map<KeyValue, Counter> versionCounter =
       new TreeMap<KeyValue, Counter>(this.comparatorIgnoreTimestamp);
-    KeyValue key = new KeyValue(row, ts);
     Integer lid = getLock(lockid,row);
     HashSet<Store> storeSet = new HashSet<Store>();
     try {
@@ -1129,6 +1098,7 @@ public class HRegion implements HConstants {
       }
       long timestamp =
         (ts == HConstants.LATEST_TIMESTAMP)? System.currentTimeMillis(): ts;
+      KeyValue key = KeyValue.createFirstOnRow(row, timestamp);
       // For each column name that is just a column family, open the store
       // related to it and fetch everything for that row. HBASE-631
       // Also remove each store from storeSet so that these stores
@@ -1154,6 +1124,7 @@ public class HRegion implements HConstants {
     }
   }
 
+  
   /**
    * 
    * @param get
@@ -1164,7 +1135,10 @@ public class HRegion implements HConstants {
   public List<KeyValue> newget(Get get, List<KeyValue> result,
     final Integer lockid)
   throws IOException {
-    byte [] row = get.getRow();
+    if (LOG.isDebugEnabled()) {
+      LOG.debug("Entering HR:newGet");
+    }
+//    byte [] row = get.getRow();
     ServerGet serverGet = null; 
     
     if(get instanceof GetRow){
@@ -1197,42 +1171,9 @@ public class HRegion implements HConstants {
     } finally {
       if(lockid == null) releaseRowLock(lid);
     }  
-  }    
+  } 
   
-
   
-  /**
-   * 
-   * @param get
-   * @param lockid
-   * @return the result
-   * @throws IOException
-   */
-//  public List<KeyValue> getColumns(GetColumns get, final Integer lockid)
-//  throws IOException {
-//    byte [] row = get.getRow();
-//    Family[] families = get.getFamilies();
-//    
-//    checkFamilies(families);
-//    Integer lid = getLock(lockid, get.getRow());
-//
-//    try {
-//      List<KeyValue> result = new ArrayList<KeyValue>();
-//
-//      for (Family family : families) {
-//        //For locality groups will probably end up with a list of stores
-//        //so have to add a loop or something
-//        Store store = stores.get(Bytes.mapKey(family.getFamily()));
-//        if (store != null) {
-//          store.getColumns(row, family, result);
-//        }
-//      }
-//      return result;
-//    } finally {
-//      if(lockid == null) releaseRowLock(lid);
-//    }  
-//  }   
-
   
   /**
    * Return all the data for the row that matches <i>row</i> exactly, 
@@ -1275,9 +1216,12 @@ public class HRegion implements HConstants {
         return null;
       }
       List<KeyValue> results = new ArrayList<KeyValue>();
-      // This will get all results for this store.
-      store.getFull(key, null, null, 1, null, results,
-        System.currentTimeMillis());
+      // This will get all results for this store.  TODO: Do I have to make a
+      // new key?
+      if (!this.comparator.matchingRows(kv, key)) {
+        kv = new KeyValue(key.getRow(), HConstants.LATEST_TIMESTAMP);
+      }
+      store.getFull(kv, null, null, 1, null, results, System.currentTimeMillis());
       // Convert to RowResult.  TODO: Remove need to do this.
       return RowResult.createRowResult(results);
     } finally {
@@ -1386,7 +1330,7 @@ public class HRegion implements HConstants {
       // If we did not pass an existing row lock, obtain a new one
       Integer lid = getLock(lockid, row);
       long commitTime = b.getTimestamp() == LATEST_TIMESTAMP?
-        System.currentTimeMillis() : b.getTimestamp();
+        System.currentTimeMillis(): b.getTimestamp();
       Set<byte []> latestTimestampDeletes = null;
       List<KeyValue> edits = new ArrayList<KeyValue>();
       try {
@@ -1411,11 +1355,11 @@ public class HRegion implements HConstants {
                   new TreeSet<byte []>(Bytes.BYTES_RAWCOMPARATOR);
               }
               latestTimestampDeletes.add(op.getColumn());
-            } else {
-              // Its an explicit timestamp delete
-              kv = new KeyValue(row, column, commitTime, KeyValue.Type.Delete,
-                HConstants.EMPTY_BYTE_ARRAY);
+              continue;
             }
+            // Its an explicit timestamp delete
+            kv = new KeyValue(row, column, commitTime, KeyValue.Type.Delete,
+              HConstants.EMPTY_BYTE_ARRAY);
           }
           edits.add(kv);
         }
@@ -1439,8 +1383,6 @@ public class HRegion implements HConstants {
     }
   }
 
-  
- 
   
   public void updateRow(RowUpdates rups, Integer lockid, boolean writeToWAL)
   throws IOException {
@@ -1480,10 +1422,6 @@ public class HRegion implements HConstants {
       splitsAndClosesLock.readLock().unlock();
     }
   }
-  
-  
-  
-  
   
   
   /**
@@ -1659,17 +1597,14 @@ public class HRegion implements HConstants {
     checkReadOnly();
     Integer lid = getLock(lockid,row);
     try {
-      // Delete ALL versions rather than MAX_VERSIONS.  If we just did
-      // MAX_VERSIONS, then if 2* MAX_VERSION cells, subsequent gets would
-      // get old stuff.
+      // Delete ALL versions rather than column family VERSIONS.  If we just did
+      // VERSIONS, then if 2* VERSION cells, subsequent gets would get old stuff.
       deleteMultiple(row, column, ts, ALL_VERSIONS);
     } finally {
       if(lockid == null) releaseRowLock(lid);
     }
   }
 
-  
-  
   /**
    * Delete all cells of the same age as the passed timestamp or older.
    * @param row
@@ -1681,11 +1616,11 @@ public class HRegion implements HConstants {
   throws IOException {
     checkReadOnly();
     Integer lid = getLock(lockid, row);
-    KeyValue kv = new KeyValue(row, ts);
     long time = ts;
     if (ts == HConstants.LATEST_TIMESTAMP) {
       time = System.currentTimeMillis();
     }
+    KeyValue kv = KeyValue.createFirstOnRow(row, time);
     try {
       for (Store store : stores.values()) {
         List<KeyValue> keyvalues = new ArrayList<KeyValue>();
@@ -1829,10 +1764,10 @@ public class HRegion implements HConstants {
     // shouldn't matter if we get key and value since it'll be the entry that
     // is in memcache.  For the keyvalues from storefile, could be saving if
     // we only returned key component. TODO.
-    List<KeyValue> keys = getFull(new KeyValue(row, column, ts), versions);
-    if (keys.size() > 0) {
-      // I think the below map doesn't have to be exactly storetd.  Its deletes
-      // they don't have to go in in exact sorted order (we don't have to worry
+    List<KeyValue> keys = get(row, column, ts, versions);
+    if (keys != null && keys.size() > 0) {
+      // I think the below edits don't have to be storted.  Its deletes.
+      // hey don't have to go in in exact sorted order (we don't have to worry
       // about the meta or root sort comparator here).
       List<KeyValue> edits = new ArrayList<KeyValue>();
       for (KeyValue key: keys) {
@@ -1858,16 +1793,14 @@ public class HRegion implements HConstants {
     checkRow(row);
     Integer lid = getLock(lockid, row);
     try {
-      KeyValue origin;
+      NavigableSet<byte []> columns = null;
       if (column != null) {
-        origin = new KeyValue(row, column, timestamp);
-      } else {
-        origin = new KeyValue(row, timestamp);
+        columns = new TreeSet<byte []>(Bytes.BYTES_COMPARATOR);
+        columns.add(column);
       }
-      return !getFull(origin, 1).isEmpty();
+      return !getFull(row, columns, timestamp, 1, lid).isEmpty();
     } finally {
-      if (lockid == null)
-        releaseRowLock(lid);
+      if (lockid == null) releaseRowLock(lid);
     }
   }
 
@@ -1912,6 +1845,7 @@ public class HRegion implements HConstants {
       }
       long size = 0;
       for (KeyValue kv: edits) {
+        // TODO: Fix -- do I have to do a getColumn here?
         size = this.memcacheSize.addAndGet(getStore(kv.getColumn()).add(kv));
       }
       flush = isFlushSize(size);
@@ -1948,7 +1882,6 @@ public class HRegion implements HConstants {
       // Request a cache flush.  Do it outside update lock.
       requestFlush();
     }
-    
   }
   
   
@@ -2036,25 +1969,8 @@ public class HRegion implements HConstants {
     }
   }
 
-  /*
-   * Make sure this is a valid column for the current table
-   * @param columnName
-   * @throws NoSuchColumnFamilyException
-   */
-  private void checkFamilies(final Family [] families)
-  throws NoSuchColumnFamilyException {
-    if (families == null) {
-      return;
-    }
-    for(Family family: families){
-      if (!regionInfo.getTableDesc().hasFamily(family.getFamily())) {
-        throw new NoSuchColumnFamilyException("Column family on " +
-          Bytes.toString(family.getFamily()) + " does not exist in region " +
-          this + " in table " + regionInfo.getTableDesc());
-      }
-    }
-  }  
- 
+  
+  
   /*
    * Make sure this is a valid column for the current table
    * @param columnName
@@ -2070,7 +1986,8 @@ public class HRegion implements HConstants {
           Bytes.toString(family) + " does not exist in region " +
           this + " in table " + regionInfo.getTableDesc());
     }
-  }   
+  } 
+  
   
   /**
    * Obtain a lock on the given row.  Blocks until success.
