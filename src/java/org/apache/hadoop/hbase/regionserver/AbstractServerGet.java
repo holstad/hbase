@@ -5,6 +5,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
+import java.util.LinkedList;
 
 import org.apache.hadoop.hbase.filter.RowFilterInterface;
 
@@ -19,8 +20,8 @@ public abstract class AbstractServerGet implements ServerGet{
 //  byte[] row = null;
 //  Family family = null;
 //  TimeRange tr = null;
-  Get get = null;
-  byte [] family = null;
+  protected Get get = null;
+  private byte [] family = null;
   
   private Iterator<Key> deleteIterator = null;
   private Key delete = null;
@@ -43,9 +44,12 @@ public abstract class AbstractServerGet implements ServerGet{
   //properties are that ability to add to iterate over it and insert at your
   //current location. Going to use LinkedList for now, some overhead but that
   //will be an optimization.
+//  List<byte[]> columns = null;
   List<byte[]> columns = null;
+
   
   //Same thing as above goes for this
+//  List<Key> deletes = new LinkedList<Key>();
   List<Key> deletes = new ArrayList<Key>();
 
   RowFilterInterface filter = null;
@@ -56,6 +60,8 @@ public abstract class AbstractServerGet implements ServerGet{
   
   public AbstractServerGet(Get get){
     this.get = get;
+//    this.columns = new LinkedList<byte []>();
+//    this.deletes = new LinkedList<Key>();
     this.columns = new ArrayList<byte []>();
     this.deletes = new ArrayList<Key>();
   }
@@ -151,11 +157,17 @@ public abstract class AbstractServerGet implements ServerGet{
   protected int checkTTL(byte [] bytes, int offset){
     //Check if KeyValue is still alive
     if((this.now - this.ttl) > Bytes.toLong(bytes, offset)){
-      return 0;
+      return 1;
     }
-    return 1; 
+    return 0; 
   }
-
+  protected int checkTTL(long ts){
+    //Check if KeyValue is still alive
+    if((this.now - this.ttl) > ts){
+      return 1;
+    }
+    return 0; 
+  }
   
   protected boolean isDelete(byte [] bytes, int initialOffset, int keyLen){
     byte type = bytes[initialOffset + KEY_OFFSET + keyLen -1];
@@ -322,7 +334,9 @@ public abstract class AbstractServerGet implements ServerGet{
     //TODO Add check for deleteFamily
     long deleteFamily = 0L;
     
-    List<Key> mergedDeletes = new ArrayList<Key>();
+    List<Key> mergedDeletes = new LinkedList<Key>();
+//    List<Key> mergedDeletes = new ArrayList<Key>();
+
     if(l1.isEmpty()){
       if(l2.isEmpty()){
         return null;
@@ -547,5 +561,42 @@ public abstract class AbstractServerGet implements ServerGet{
     }
   }
   
+  
+  /**
+   * For now only returns the family and the columns
+   * Not the fastest implementation though columns is a LinkedList, but not too
+   * concerned about that right now.
+   * TODO speed it up 
+   * 
+   * @return a string representation of the object
+   */
+  public String toString(){
+    StringBuffer sb = new StringBuffer();
+    sb.append("/");
+    sb.append(new String(this.family));
+    sb.append(", columns[");
+    int i=0;
+    byte [] col = null;
+    int len = 0;
+    for(; i<columns.size()-1; i++){
+      col = columns.get(i);
+      len = col.length;
+      sb.append(new String(col, 0, len-1));
+      sb.append("-");
+      //The number of versions fetched
+      sb.append(col[len]);
+      sb.append(", ");
+    }
+    if(columns != null && columns.size() > 0){
+      col = columns.get(i);
+      sb.append(new String(col, 0, col.length-1));
+      sb.append("-");
+      //The number of versions fetched
+      sb.append(col[len]);
+    }
+    sb.append("]");    
+    
+   return sb.toString(); 
+  }
   
 }

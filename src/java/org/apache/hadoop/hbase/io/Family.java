@@ -10,7 +10,9 @@ import java.util.TreeSet;
 
 import org.apache.hadoop.io.Writable;
 
+import org.apache.hadoop.hbase.HTableDescriptor;
 import org.apache.hadoop.hbase.util.Bytes;
+import org.apache.hadoop.hbase.util.Writables;
 
 
 /**
@@ -20,8 +22,8 @@ import org.apache.hadoop.hbase.util.Bytes;
  *
  */
 public class Family implements Writable{
-  private byte [] family = null;
-  private byte [][] columns = null;
+  private byte [] family = new byte [0];
+  private byte [][] columns = new byte [0][];
   
   public Family(){}
   
@@ -96,6 +98,24 @@ public class Family implements Writable{
    System.arraycopy(column, 0, ret, 0, len);
    ret[len] = b;
    return ret;
+  }
+  
+  @Override
+  public String toString(){
+    StringBuffer sb = new StringBuffer();
+
+    sb.append("Family ");
+    sb.append(new String(family));
+    sb.append(", columns [");
+    int i = 0;
+    for(; i<columns.length-1; i++){
+      sb.append(new String(columns[i], 0, columns[i].length -1));
+      sb.append(", ");      
+    }
+
+    sb.append(new String(columns[i], 0, columns[i].length -1));
+    sb.append("]"); 
+    return sb.toString();
   }
   
   //Writable

@@ -63,35 +63,36 @@ public class TestKeyValue extends TestCase {
     final byte [] a = Bytes.toBytes("aaa");
     final byte [] b = Bytes.toBytes("bbb");
     final byte [] column = Bytes.toBytes("col:umn");
-    KeyValue abb = new KeyValue(a, column, a);
+    KeyValue aaa = new KeyValue(a, column, a);
     KeyValue bbb = new KeyValue(b, column, b);
-    byte [] keyabb = abb.getKey();
+    byte [] keyabb = aaa.getKey();
     byte [] keybbb = bbb.getKey();
-    assertTrue(KeyValue.COMPARATOR.compare(abb, bbb) < 0);
+    assertTrue(KeyValue.COMPARATOR.compare(aaa, bbb) < 0);
     assertTrue(KeyValue.KEY_COMPARATOR.compare(keyabb, 0, keyabb.length, keybbb,
       0, keybbb.length) < 0);
-    assertTrue(KeyValue.COMPARATOR.compare(bbb, abb) > 0);
+    assertTrue(KeyValue.COMPARATOR.compare(bbb, aaa) > 0);
     assertTrue(KeyValue.KEY_COMPARATOR.compare(keybbb, 0, keybbb.length, keyabb,
       0, keyabb.length) > 0);
     // Compare breaks if passed same ByteBuffer as both left and right arguments.
     assertTrue(KeyValue.COMPARATOR.compare(bbb, bbb) == 0);
     assertTrue(KeyValue.KEY_COMPARATOR.compare(keybbb, 0, keybbb.length, keybbb,
       0, keybbb.length) == 0);
-    assertTrue(KeyValue.COMPARATOR.compare(abb, abb) == 0);
+    assertTrue(KeyValue.COMPARATOR.compare(aaa, aaa) == 0);
     assertTrue(KeyValue.KEY_COMPARATOR.compare(keyabb, 0, keyabb.length, keyabb,
       0, keyabb.length) == 0);
     // Do compare with different timestamps.
-    abb = new KeyValue(a, column, 1, a);
+    aaa = new KeyValue(a, column, 1, a);
     bbb = new KeyValue(a, column, 2, a);
-    assertTrue(KeyValue.COMPARATOR.compare(abb, bbb) > 0);
-    assertTrue(KeyValue.COMPARATOR.compare(bbb, abb) < 0);
-    assertTrue(KeyValue.COMPARATOR.compare(abb, abb) == 0);
-    // Do compare with different types.
-    abb = new KeyValue(a, column, 1, KeyValue.Type.Delete, a);
+    assertTrue(KeyValue.COMPARATOR.compare(aaa, bbb) > 0);
+    assertTrue(KeyValue.COMPARATOR.compare(bbb, aaa) < 0);
+    assertTrue(KeyValue.COMPARATOR.compare(aaa, aaa) == 0);
+    // Do compare with different types.  Higher numbered types -- Delete
+    // should sort ahead of lower numbers; i.e. Put
+    aaa = new KeyValue(a, column, 1, KeyValue.Type.Delete, a);
     bbb = new KeyValue(a, column, 1, a);
-    assertTrue(KeyValue.COMPARATOR.compare(abb, bbb) > 0);
-    assertTrue(KeyValue.COMPARATOR.compare(bbb, abb) < 0);
-    assertTrue(KeyValue.COMPARATOR.compare(abb, abb) == 0);
+    assertTrue(KeyValue.COMPARATOR.compare(aaa, bbb) < 0);
+    assertTrue(KeyValue.COMPARATOR.compare(bbb, aaa) > 0);
+    assertTrue(KeyValue.COMPARATOR.compare(aaa, aaa) == 0);
   }
 
   public void testMoreComparisons() throws Exception {

@@ -21,10 +21,13 @@
 package org.apache.hadoop.hbase.client;
 
 import java.io.IOException;
+import java.io.EOFException;
 import java.util.concurrent.Callable;
+
 
 import org.apache.hadoop.hbase.HRegionLocation;
 import org.apache.hadoop.hbase.ipc.HRegionInterface;
+import org.apache.hadoop.hbase.util.Bytes;
 
 /**
  * Abstract class that implements Callable, used by retryable actions.
@@ -54,8 +57,25 @@ public abstract class ServerCallable<T> implements Callable<T> {
    * @throws IOException
    */
   public void instantiateServer(boolean reload) throws IOException {
-    this.location = connection.getRegionLocation(tableName, row, reload);
-    this.server = connection.getHRegionConnection(location.getServerAddress());
+    try{
+      this.location = connection.getRegionLocation(tableName, row, reload);
+    } 
+//    catch (Exception e){
+//      throw new IOException(e);
+//    }
+    
+    catch (Throwable t){
+      if(t instanceof EOFException){
+        throw new IOException(t+ ", location");
+      }
+    }
+    try{
+      this.server = connection.getHRegionConnection(location.getServerAddress());
+    } catch (Throwable t){
+      if(t instanceof NullPointerException){
+        throw new IOException(t + ", server");
+      }
+    }
   }
 
   /** @return the server name */

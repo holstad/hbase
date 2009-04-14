@@ -902,6 +902,7 @@ public class HConnectionManager implements HConstants {
     public <T> T getRegionServerWithRetries(ServerCallable<T> callable) 
     throws IOException, RuntimeException {
       getMaster();
+
       List<Throwable> exceptions = new ArrayList<Throwable>();
       for(int tries = 0; tries < numRetries; tries++) {
         try {
@@ -918,11 +919,17 @@ public class HConnectionManager implements HConstants {
             throw (DoNotRetryIOException)t;
           }
           exceptions.add(t);
+          
+          if(t instanceof NullPointerException){
+            throw new IOException(t);
+          }
+          
           if (tries == numRetries - 1) {
             throw new RetriesExhaustedException(callable.getServerName(),
                 callable.getRegionName(), callable.getRow(), tries, exceptions);
           }
         }
+        
         try {
           Thread.sleep(getPauseTime(tries));
         } catch (InterruptedException e) {

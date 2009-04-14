@@ -227,7 +227,10 @@ public interface HRegionInterface extends HBaseRPCProtocolVersion {
     long timestamp, long lockID)
   throws IOException;
   
-  public List<KeyValue> newGet(final byte [] regionName, Get get,
+//  public List<KeyValue> newGet(final byte [] regionName, Get get,
+//      final long lockId)
+//  throws IOException;
+  public KeyValue [] newGet(final byte [] regionName, Get get,
       final long lockId)
   throws IOException;
   

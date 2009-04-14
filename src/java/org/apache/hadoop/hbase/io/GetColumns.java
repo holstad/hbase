@@ -2,6 +2,8 @@ package org.apache.hadoop.hbase.io;
 
 import java.io.IOException; 
 
+import org.apache.hadoop.hbase.util.Writables;
+
 public class GetColumns extends AbstractGet{
 
   /**
@@ -12,13 +14,13 @@ public class GetColumns extends AbstractGet{
    * @param versions the maximum number of versions to be returned
    * @param tr
    */
-  public GetColumns(byte [] row, byte [] family, byte [] column, int versions,
+  public GetColumns(byte [] row, byte [] family, byte [] column, byte versions,
     TimeRange tr){
     super.row = row;
     super.versions = versions;
     super.families = new Family[]{new Family(family, column)};
     if (tr == null){
-      
+      tr = new TimeRange();
     }
     super.tr = tr;
   }
@@ -31,7 +33,7 @@ public class GetColumns extends AbstractGet{
    * @param versions the maximum number of versions to be returned
    * @param tr
    */
-  public GetColumns(byte [] row, Family [] families, int versions,
+  public GetColumns(byte [] row, Family [] families, byte versions,
     TimeRange tr){
     super.row = row;
     super.versions = versions;
@@ -39,12 +41,12 @@ public class GetColumns extends AbstractGet{
     super.tr = tr;
   }
 
-  public GetColumns(byte [] row, Family [] families, int versions)
+  public GetColumns(byte [] row, Family [] families, byte versions)
   throws IOException{
     this(row, families, versions, System.currentTimeMillis());
   }
   
-  public GetColumns(byte [] row, Family [] families, int versions,
+  public GetColumns(byte [] row, Family [] families, byte versions,
     long ts)
   throws IOException{
     super.row = row;
@@ -52,7 +54,5 @@ public class GetColumns extends AbstractGet{
     super.families = families;
     super.tr = new TimeRange(ts, ts);
   }
-
-
   
 }

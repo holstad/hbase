@@ -1154,6 +1154,12 @@ public class Store implements HConstants {
    */
   void newget(ServerGet sget, List<KeyValue> result)
   throws IOException {
+    if (LOG.isDebugEnabled()) {
+      LOG.debug("Entering newGet");
+    }
+    if (LOG.isDebugEnabled()) {
+      LOG.debug("sget " +sget);
+    }
     this.lock.readLock().lock();
 //    SortedSet<KeyValue> deleteSet = new TreeSet<KeyValue>();
 //    sget.setDeletes(deleteSet);

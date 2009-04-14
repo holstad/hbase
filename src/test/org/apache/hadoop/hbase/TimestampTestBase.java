@@ -19,7 +19,6 @@
 package org.apache.hadoop.hbase;
 
 import java.io.IOException;
-import java.util.TreeMap;
 
 import org.apache.hadoop.hbase.io.BatchUpdate;
 import org.apache.hadoop.hbase.io.Cell;
@@ -94,7 +93,7 @@ public class TimestampTestBase extends HBaseTestCase {
   private static void assertOnlyLatest(final Incommon incommon,
     final long currentTime)
   throws IOException {
-    Cell[] cellValues = incommon.get(ROW, COLUMN, 3/*Ask for too much*/);
+    Cell [] cellValues = incommon.get(ROW, COLUMN, 3/*Ask for too much*/);
     assertEquals(1, cellValues.length);
     long time = Bytes.toLong(cellValues[0].getValue());
     assertEquals(time, currentTime);

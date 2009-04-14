@@ -20,11 +20,17 @@
 package org.apache.hadoop.hbase;
 
 
+import java.io.IOException;
+
 import org.apache.hadoop.hbase.io.BatchOperation;
 import org.apache.hadoop.hbase.io.BatchUpdate;
 import org.apache.hadoop.hbase.io.Cell;
+import org.apache.hadoop.hbase.io.Family;
+import org.apache.hadoop.hbase.io.Get;
+import org.apache.hadoop.hbase.io.GetColumns;
 import org.apache.hadoop.hbase.io.HbaseMapWritable;
 import org.apache.hadoop.hbase.io.RowResult;
+import org.apache.hadoop.hbase.io.TimeRange;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.hbase.util.Writables;
 
@@ -162,4 +168,86 @@ public class TestSerialization extends HBaseTestCase {
     }
     assertEquals(firstCount, secondCount);
   }
+  
+  public void testFamily() throws Exception {
+    byte [] famName = getName().getBytes();
+    byte [][] cols = {(getName()+"1").getBytes(), (getName()+"2").getBytes(), 
+        (getName()+"3").getBytes()};
+    Family fam = new Family(famName, cols);
+    
+    byte [] mb = Writables.getBytes(fam);
+    Family deserializedFam = (Family)Writables.getWritable(mb, new Family());
+    assertTrue(Bytes.equals(fam.getFamily(), deserializedFam.getFamily()));
+    cols = fam.getColumns();
+    byte [][] deserializedCols = deserializedFam.getColumns();
+    assertEquals(cols.length, deserializedCols.length);
+
+    for(int i=0; i<cols.length; i++){
+      assertTrue(Bytes.equals(cols[i], deserializedCols[i]));
+    }
+  }
+ 
+  public void testTimeRange(String[] args) throws Exception{
+    TimeRange tr = new TimeRange(5,0);
+    byte [] mb = Writables.getBytes(tr);
+    TimeRange deserializedTr =
+      (TimeRange)Writables.getWritable(mb, new TimeRange());
+    assertTrue(Bytes.equals(tr.getMax(), deserializedTr.getMax()));
+    assertTrue(Bytes.equals(tr.getMin(), deserializedTr.getMin()));
+  }
+  
+  public void testKeyValue() throws Exception {
+    byte [] row = getName().getBytes();
+    byte [] col = (getName()+":col").getBytes();
+    KeyValue kv = new KeyValue(row, col);
+    
+    byte [] mb = Writables.getBytes(kv);
+    KeyValue deserializedKv =
+      (KeyValue)Writables.getWritable(mb, new KeyValue(row, col));
+    assertEquals(kv.getLength(), deserializedKv.getLength());
+    assertTrue(Bytes.equals(kv.getBuffer(), deserializedKv.getBuffer()));
+  }
+  
+  
+  public void testGet() throws Exception{
+    byte [] row = (getName()+"row").getBytes();
+    byte [] fam = (getName()+"fam").getBytes();
+    byte [] col = (getName()+"col").getBytes();
+    byte versions = (byte)1;
+    TimeRange tr = new TimeRange();
+    
+    Get get = new GetColumns(row, fam, col, versions, tr);
+    byte [] mb = Writables.getBytes(get);
+    GetColumns deserializedGet =
+      (GetColumns)Writables.getWritable(mb,
+          new GetColumns(row, fam, col, versions, tr));
+      //row
+      assertTrue(Bytes.equals(get.getRow(), deserializedGet.getRow()));
+      
+      //families
+      Family [] fams = get.getFamilies();
+      Family [] deserializedFams = deserializedGet.getFamilies();
+      assertEquals(fams.length, deserializedFams.length);
+      for(int i=0; i<fams.length; i++){
+        assertTrue(Bytes.equals(fams[i].getFamily(),
+            deserializedFams[i].getFamily()));
+        byte [][] cols = fams[i].getColumns();
+        byte [][] deserializedCols = deserializedFams[i].getColumns();
+        assertEquals(cols.length, deserializedCols.length);
+
+        for(int j=0; j<cols.length; j++){
+          assertTrue(Bytes.equals(cols[j], deserializedCols[j]));
+        }
+      }
+
+      //versions
+      assertEquals(get.getVersions(), deserializedGet.getVersions());
+      
+      //timeRange
+      tr = get.getTimeRange();
+      TimeRange deserializedTr = get.getTimeRange();
+      assertTrue(Bytes.equals(tr.getMax(), deserializedTr.getMax()));
+      assertTrue(Bytes.equals(tr.getMin(), deserializedTr.getMin()));
+  }
+  
 }

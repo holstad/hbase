@@ -1136,13 +1136,13 @@ public class HRegion implements HConstants {
     final Integer lockid)
   throws IOException {
     if (LOG.isDebugEnabled()) {
-      LOG.debug("Entering HR:newGet");
+      LOG.debug("Entering newGet");
     }
 //    byte [] row = get.getRow();
     ServerGet serverGet = null; 
     
     if(get instanceof GetRow){
-      get.setFamilies(regionInfo.getTableDesc().getFamiliesKeys());
+      ((GetRow)get).setFamilies(regionInfo.getTableDesc().getFamiliesKeys());
       serverGet = new ServerGetFamilies(get);
     } else if(get instanceof GetFamilies){
       serverGet = new ServerGetFamilies(get);
@@ -1160,10 +1160,16 @@ public class HRegion implements HConstants {
       for (Family family : get.getFamilies()) {
         //For locality groups will probably end up with a list of stores
         //so have to add a loop or something
-        Store store = stores.get(Bytes.mapKey(family.getFamily()));
+        Store store = stores.get(family.getFamily());
         if (store != null) {
           serverGet.setFamily(family.getFamily());
           serverGet.setColumns(family.getColumns());
+          if (LOG.isDebugEnabled()) {
+            LOG.debug("family " +family);
+          }
+          if (LOG.isDebugEnabled()) {
+            LOG.debug("sget " +serverGet);
+          }
           store.newget(serverGet, result);
         }
       }

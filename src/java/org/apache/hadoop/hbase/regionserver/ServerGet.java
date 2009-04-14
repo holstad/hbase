@@ -68,4 +68,6 @@ public interface ServerGet {
   public Deletes mergeDeletes(List<Key> l1, List<Key> l2);
   public Deletes mergeDeletes(List<Key> l1, List<Key> l2, boolean multiFamily);
   
+  public String toString();
+  
 }

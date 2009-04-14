@@ -1,5 +1,6 @@
 package org.apache.hadoop.hbase.regionserver;
 
+import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
@@ -12,7 +13,10 @@ import org.apache.hadoop.hbase.util.Bytes;
 
 public class ServerGetColumns extends AbstractServerGet {
   
-  private List<Key> newDeletes = new LinkedList<Key>();
+//  private List<Key> newDeletes = new LinkedList<Key>();
+  private List<Key> newDeletes = new ArrayList<Key>();
+
+  private List<byte[]> columnsToDelete = new LinkedList<byte[]>();
   
 //  private Iterator<Key> deleteIterator = null;
 //  private Key delete = null;
@@ -43,9 +47,9 @@ public class ServerGetColumns extends AbstractServerGet {
    * @param kv, the KeyValue to compare with
    * @return int the return code 
    */
-  public int compareTo(KeyValue kv){
-    return compareTo(kv, false);
-  }
+//  public int compareTo(KeyValue kv){
+//    return compareTo(kv, false);
+//  }
   
   public int compareTo(KeyValue kv, boolean multiFamily){
     if(isDone()){
@@ -109,12 +113,15 @@ public class ServerGetColumns extends AbstractServerGet {
     //to be a delete we can be sure that all the deletes in the delete list
     //are valid deletes
     int tsOffset = offset + colLen;
-    ret = super.checkTTL(bytes, tsOffset);
+    long ts = Bytes.toLong(bytes, tsOffset);
+//    ret = super.checkTTL(bytes, tsOffset);
+    ret = super.checkTTL(ts);
     if(ret == 0){
       return NEXT_KV;
     }
 
-    ret = super.get.getTimeRange().withinTimeRange(bytes, tsOffset);
+//    ret = super.get.getTimeRange().withinTimeRange(bytes, tsOffset);
+    ret = super.get.getTimeRange().withinTimeRange(ts);
     if(ret != 1){
       return NEXT_KV;
     }
@@ -157,7 +164,9 @@ public class ServerGetColumns extends AbstractServerGet {
 * Helpers 
 *******************************************************************************/  
   private boolean isDone(){
-    if(super.columns.isEmpty()){
+    if(columnsToDelete.size() >= super.columns.size()){
+//    if(super.columns.isEmpty()){
+
       return true;
     }
     return false;
@@ -167,15 +176,23 @@ public class ServerGetColumns extends AbstractServerGet {
 //TODO this is one method that needs to be changed for the other gets
   private void updateVersions(){
     int versionPos = super.column.length-1;
-    byte version = ++super.column[versionPos];
-    if(version == super.getMaxVersions()){
-      super.columnIterator.remove();
+    byte versions = ++super.column[versionPos];
+    if(versions >= super.getMaxVersions()){
+//      super.columnIterator.remove();
+      columnsToDelete.add(super.column);
     } else{
-      super.column[versionPos] = version;
+      super.column[versionPos] = versions;
     }
   }
  
   
+  private void deleteColumns(){
+    Iterator<byte[]> iter = columnsToDelete.iterator();
+    while(iter.hasNext()){
+      
+    }
+    
+  }
  
   
 }

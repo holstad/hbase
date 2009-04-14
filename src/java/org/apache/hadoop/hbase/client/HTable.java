@@ -291,14 +291,29 @@ public class HTable {
 
   
   
-  public List<KeyValue> get(final Get get)
+//  public List<KeyValue> get(final Get get)
+//  throws IOException {
+//    System.out.println("IN HT.get, row " +Bytes.toInt(get.getRow()));
+//    return connection.getRegionServerWithRetries(
+//        new ServerCallable<List<KeyValue>>(connection, tableName, get.getRow()) {
+//          public List<KeyValue> call() throws IOException {
+//            System.out.println("IN HT.get.ServerCallable,");
+//            List<KeyValue> result = server.newGet(
+//                location.getRegionInfo().getRegionName(), get, -1L);
+//            return (result == null)? null : result;
+//          }
+//        }
+//    );
+//  }
+
+  public KeyValue [] get(final Get get)
   throws IOException {
-    System.out.println("IN HT.get");
+    System.out.println("IN HT.get, row " +Bytes.toInt(get.getRow()));
     return connection.getRegionServerWithRetries(
-        new ServerCallable<List<KeyValue>>(connection, tableName, get.getRow()) {
-          public List<KeyValue> call() throws IOException {
-            System.out.println("IN HT.get.ServerCallable");
-            List<KeyValue> result = server.newGet(
+        new ServerCallable<KeyValue []>(connection, tableName, get.getRow()) {
+          public KeyValue [] call() throws IOException {
+            System.out.println("IN HT.get.ServerCallable,");
+            KeyValue [] result = server.newGet(
                 location.getRegionInfo().getRegionName(), get, -1L);
             return (result == null)? null : result;
           }
@@ -306,7 +321,22 @@ public class HTable {
     );
   }
   
-  
+//  public RowResult getRow(final byte [] row, final byte [][] columns, 
+//      final long ts, final int numVersions, final RowLock rl) 
+//    throws IOException {       
+//      return connection.getRegionServerWithRetries(
+//          new ServerCallable<RowResult>(connection, tableName, row) {
+//            public RowResult call() throws IOException {
+//              long lockId = -1L;
+//              if(rl != null) {
+//                lockId = rl.getLockId();
+//              }
+//              return server.getRow(location.getRegionInfo().getRegionName(), row, 
+//                  columns, ts, numVersions, lockId);
+//            }
+//          }
+//      );
+//    } 
   
   
   
@@ -636,7 +666,8 @@ public class HTable {
    */
   public RowResult getRow(final byte [] row, final byte [][] columns, 
     final long ts, final int numVersions, final RowLock rl) 
-  throws IOException {       
+  throws IOException {
+//    System.out.println("row " +Bytes.toInt(row));
     return connection.getRegionServerWithRetries(
         new ServerCallable<RowResult>(connection, tableName, row) {
           public RowResult call() throws IOException {

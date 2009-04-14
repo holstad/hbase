@@ -1574,13 +1574,14 @@ public class HRegionServer implements HConstants, HRegionInterface, HBaseRPCErro
     }
   }
 
-  public List<KeyValue> newGet(final byte [] regionName, Get get,
+//  public List<KeyValue> newGet(final byte [] regionName, Get get,
+//    final long lockId)
+  public KeyValue [] newGet(final byte [] regionName, Get get,
     final long lockId)
   throws IOException {
     if (LOG.isDebugEnabled()) {
-      LOG.debug("Entering HRS:newGet");
+      LOG.debug("Entering newGet");
     }
-    System.out.println("IN HRS.newGet");
     checkOpen();
     requestCount.incrementAndGet();
     try {
@@ -1589,7 +1590,9 @@ public class HRegionServer implements HConstants, HRegionInterface, HBaseRPCErro
 
       region.newget(get, result, getLockFromId(lockId));
       
-      return result.isEmpty() ? null : result;
+//      return result.isEmpty() ? null : result;
+      return result.isEmpty() ? null : result.toArray(new KeyValue[0]);
+
     } catch (Throwable t) {
       throw convertThrowableToIOE(cleanup(t));
     }

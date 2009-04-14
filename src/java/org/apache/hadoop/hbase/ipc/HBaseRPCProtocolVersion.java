@@ -71,5 +71,5 @@ public interface HBaseRPCProtocolVersion extends VersionedProtocol {
    * <li>Version 17: Added incrementColumnValue.</li>
    * </ul>
    */
-  public static final long versionID = 17L;
+  public static final long versionID = 18L;
 }

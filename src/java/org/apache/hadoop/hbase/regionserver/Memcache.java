@@ -738,6 +738,9 @@ class Memcache {
    */
   int newget(ServerGet sget, List<KeyValue> results, boolean multiFamily)
   throws IOException {
+    if (LOG.isDebugEnabled()) {
+      LOG.debug("Entering newget");
+    }
     this.lock.readLock().lock();
     int retCode = 0;
     try {
@@ -754,6 +757,9 @@ class Memcache {
     } finally {
       this.lock.readLock().unlock();
     }
+    if (LOG.isDebugEnabled()) {
+      LOG.debug("MC: Return code");
+    }
     return retCode;
   }  
   
@@ -767,6 +773,9 @@ class Memcache {
   private int internalNewGet(SortedSet<KeyValue> set, ServerGet sget,
       List<KeyValue> result, boolean multiFamily)
   throws IOException{
+    if (LOG.isDebugEnabled()) {
+      LOG.debug("Entering int_newget");
+    }
     if (set.isEmpty()){
       return -1;
     }
@@ -779,6 +788,17 @@ class Memcache {
     //TODO have to remember to check the order of the set, so that tailSet
     //returns the things that are smaller and not bigger
     
+    if (LOG.isDebugEnabled()) {
+      LOG.debug("MC:int_newGet : Compare, set size " +set.size());
+    }
+    if (LOG.isDebugEnabled()) {
+      for(KeyValue kv : set){
+        LOG.debug("kv " +kv);
+      }
+    }
+    if (LOG.isDebugEnabled()) {
+      LOG.debug("sget " +sget);
+    }
     int res = 0;
     // The cases that we need at this level:
     //0 next
@@ -787,6 +807,9 @@ class Memcache {
     //3 done
     for(KeyValue kv : set){
       res = sget.compareTo(kv, multiFamily);
+      if (LOG.isDebugEnabled()) {
+        LOG.debug("res " +res);
+      }
       switch(res) {
         //Do not include in result, look at next kv
         case 0: break;
@@ -801,6 +824,9 @@ class Memcache {
         case 3: return 1;
       
         default : return -1;
+      }
+      if (LOG.isDebugEnabled()) {
+        LOG.debug("MC:int_newGet : looped, res " +res);
       }
     }
     return -1;
