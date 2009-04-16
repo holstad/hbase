@@ -2,16 +2,12 @@ package org.apache.hadoop.hbase.regionserver;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
-import java.util.LinkedList;
 
 import org.apache.hadoop.hbase.filter.RowFilterInterface;
 
 import org.apache.hadoop.hbase.KeyValue;
-//import org.apache.hadoop.hbase.io.Column;
-//import org.apache.hadoop.hbase.io.Family;
 import org.apache.hadoop.hbase.io.Get;
 import org.apache.hadoop.hbase.io.TimeRange;
 import org.apache.hadoop.hbase.util.Bytes;
@@ -40,30 +36,40 @@ public abstract class AbstractServerGet implements ServerGet{
   //For GetFamilies and GetTop values are copied into this list. My tests show
   //that copying an array is faster than creating a new object, for example
   //a Tuple<KeyValue, Integer>.
-  //TODO This list should be a single linked list where the most important
-  //properties are that ability to add to iterate over it and insert at your
-  //current location. Going to use LinkedList for now, some overhead but that
-  //will be an optimization.
-//  List<byte[]> columns = null;
+  
+  //Created a new class, SingleLinkedList to compare with the LinkedList and the
+  //ArrayList and it turns out the the ArrayList is faster for puts and more
+  //memory efficient than the other 2. Remove is slower since the whole array
+  //needs to be copied, but since this is only happening in one place,
+  //ServerGetColumns.updateVersions and probably is not going to happen to often
+  //leaving it as it is.
+  //Another interesting thing is when using Arrays.asList it casts your list to
+  //an AbstractList so you can't use remove and it is also like 10x slower than
+  //doing it yourself in a for loop.
+  //So using ArrayLists for everything for now.
   List<byte[]> columns = null;
 
   
   //Same thing as above goes for this
-//  List<Key> deletes = new LinkedList<Key>();
   List<Key> deletes = new ArrayList<Key>();
 
   RowFilterInterface filter = null;
-//  Filter filter = null;
   
   long ttl = 0L;
   long now = 0L;
   
   public AbstractServerGet(Get get){
     this.get = get;
-//    this.columns = new LinkedList<byte []>();
-//    this.deletes = new LinkedList<Key>();
     this.columns = new ArrayList<byte []>();
     this.deletes = new ArrayList<Key>();
+  }
+  
+  public void clear(){
+    this.column = null;
+    this.columnIterator = null;
+    
+    this.delete = null;
+    this.deleteIterator = null;
   }
   
   public byte [] getFamily(){
@@ -98,7 +104,9 @@ public abstract class AbstractServerGet implements ServerGet{
 //  }
   @Override
   public void setColumns(byte [][] columns){
-    this.columns = Arrays.asList(columns); 
+    for(int i=0; i<columns.length; i++){
+      this.columns.add(columns[i]);
+    }
   }  
   public List<Key> getDeletes(){
     return deletes; 
@@ -334,8 +342,8 @@ public abstract class AbstractServerGet implements ServerGet{
     //TODO Add check for deleteFamily
     long deleteFamily = 0L;
     
-    List<Key> mergedDeletes = new LinkedList<Key>();
-//    List<Key> mergedDeletes = new ArrayList<Key>();
+//    List<Key> mergedDeletes = new LinkedList<Key>();
+    List<Key> mergedDeletes = new ArrayList<Key>();
 
     if(l1.isEmpty()){
       if(l2.isEmpty()){
@@ -581,18 +589,19 @@ public abstract class AbstractServerGet implements ServerGet{
     for(; i<columns.size()-1; i++){
       col = columns.get(i);
       len = col.length;
-      sb.append(new String(col, 0, len-1));
+      sb.append(new String(col, 0, len-2));
       sb.append("-");
       //The number of versions fetched
-      sb.append(col[len]);
+      sb.append(col[len-1]);
       sb.append(", ");
     }
     if(columns != null && columns.size() > 0){
       col = columns.get(i);
-      sb.append(new String(col, 0, col.length-1));
+      len = col.length;
+      sb.append(new String(col, 0, col.length-2));
       sb.append("-");
       //The number of versions fetched
-      sb.append(col[len]);
+      sb.append(col[len-1]);
     }
     sb.append("]");    
     

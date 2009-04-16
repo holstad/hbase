@@ -29,6 +29,25 @@ public class GetColumns extends AbstractGet{
    * 
    * @param row
    * @param family
+   * @param columns
+   * @param versions the maximum number of versions to be returned
+   * @param tr
+   */
+  public GetColumns(byte [] row, byte [] family, byte [][] columns,
+      byte versions, TimeRange tr){
+    super.row = row;
+    super.versions = versions;
+    super.families = new Family[]{new Family(family, columns)};
+    if (tr == null){
+      tr = new TimeRange();
+    }
+    super.tr = tr;
+  }
+  
+  /**
+   * 
+   * @param row
+   * @param family
    * @param column
    * @param versions the maximum number of versions to be returned
    * @param tr

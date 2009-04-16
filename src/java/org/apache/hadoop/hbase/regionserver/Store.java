@@ -1154,12 +1154,12 @@ public class Store implements HConstants {
    */
   void newget(ServerGet sget, List<KeyValue> result)
   throws IOException {
-    if (LOG.isDebugEnabled()) {
-      LOG.debug("Entering newGet");
-    }
-    if (LOG.isDebugEnabled()) {
-      LOG.debug("sget " +sget);
-    }
+//    if (LOG.isDebugEnabled()) {
+//      LOG.debug("Entering newGet");
+//    }
+//    if (LOG.isDebugEnabled()) {
+//      LOG.debug("sget " +sget);
+//    }
     this.lock.readLock().lock();
 //    SortedSet<KeyValue> deleteSet = new TreeSet<KeyValue>();
 //    sget.setDeletes(deleteSet);
@@ -1172,18 +1172,22 @@ public class Store implements HConstants {
     retCode = this.memcache.newget(sget, result, multiFamily);
     
     if(retCode == 1){
+//      if (LOG.isDebugEnabled()) {
+//        LOG.debug("newget: retCode == 1, Done");
+//      }
       return;
     }
-    
+//    if (LOG.isDebugEnabled()) {
+//      LOG.debug("newGet: Size of storeMap " +this.storefiles.size());
+//    }
     try {
       for(Map.Entry<Long, StoreFile> entry :
         this.storefiles.descendingMap().entrySet()){
+        sget.clear();
         retCode = newgetFromStoreFile(entry.getValue(), sget, result,
           multiFamily);
         if(retCode == 1){
           break;
-        } else if(retCode == -1){
-          throw new IOException("Internal error from store, retCode = -1");
         }
       }
     } finally {
@@ -1202,29 +1206,39 @@ public class Store implements HConstants {
   private int newgetFromStoreFile(StoreFile sf, ServerGet sget, 
       List<KeyValue> result, boolean multiFamily) 
   throws IOException {
-
+//    if (LOG.isDebugEnabled()) {
+//      LOG.debug("newGetFromStoreFile: Entering");
+//    }
     HFileScanner scanner = sf.getReader().getScanner();
     
     //TODO check how efficient the seekTo is and add an extra method for
     //building the the search key, keep it simple for now 
     int retCode = 0;
-    retCode = scanner.seekTo(new KeyValue(sget.getRow()).getBuffer());
+    boolean ret = false;
+    byte[] bs = new KeyValue(sget.getRow(), "".getBytes()).getBuffer();
+    retCode = scanner.seekTo(
+        new KeyValue(sget.getRow(), "".getBytes()).getBuffer());
     if(retCode == -1){
-      //Should not be happening
-      throw new IOException("Internal error from store, retCode = -1");
+      scanner.seekTo();
     }
     
+//    if (LOG.isDebugEnabled()) {
+//      LOG.debug("newgetFromStoreFile: Starting while loop");
+//    }
     KeyValue kv = null;
     // The cases that we need at this level:
     //0 next
     //1 include
     //2 next store
     //3 done
-    while(scanner.next()){
+    do{  
       kv = scanner.getKeyValue();
       //Should add a setting the the family descriptor that lets you know
       //if there are multiple families in this store
       retCode = sget.compareTo(kv, multiFamily);
+//      if (LOG.isDebugEnabled()) {
+//        LOG.debug("newgetFromStoreFile: retCode " +retCode);
+//      }
       switch(retCode) {
         //Do not include in result, look at next kv
         case 0: break;
@@ -1241,8 +1255,10 @@ public class Store implements HConstants {
         default : throw new IOException(
           "Internal error from store, retCode = " + retCode);
       }
-    }
-    return -1;
+    } while(scanner.next());
+//    }
+    
+    return 0;
   }
   
   

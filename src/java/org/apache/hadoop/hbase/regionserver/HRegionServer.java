@@ -1591,6 +1591,9 @@ public class HRegionServer implements HConstants, HRegionInterface, HBaseRPCErro
       region.newget(get, result, getLockFromId(lockId));
       
 //      return result.isEmpty() ? null : result;
+      if (LOG.isDebugEnabled()) {
+        LOG.debug("newGet: result.isEmpty " +result.isEmpty());
+      }
       return result.isEmpty() ? null : result.toArray(new KeyValue[0]);
 
     } catch (Throwable t) {

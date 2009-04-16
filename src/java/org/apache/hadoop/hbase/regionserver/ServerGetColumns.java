@@ -2,28 +2,18 @@ package org.apache.hadoop.hbase.regionserver;
 
 import java.util.ArrayList;
 import java.util.Iterator;
-import java.util.LinkedList;
 import java.util.List;
 
 import org.apache.hadoop.hbase.KeyValue;
 import org.apache.hadoop.hbase.io.Get;
-import org.apache.hadoop.hbase.io.TimeRange;
 import org.apache.hadoop.hbase.util.Bytes;
 
 
 public class ServerGetColumns extends AbstractServerGet {
   
-//  private List<Key> newDeletes = new LinkedList<Key>();
   private List<Key> newDeletes = new ArrayList<Key>();
 
-  private List<byte[]> columnsToDelete = new LinkedList<byte[]>();
-  
-//  private Iterator<Key> deleteIterator = null;
-//  private Key delete = null;
-//  private byte [] deleteFamilyBytes = null;
-  
-//  private Iterator<byte[]> columnIterator = null;
-//  private byte [] column = null;
+  private List<byte[]> columnsToDelete = new ArrayList<byte[]>();
   
   private static final int KEY_OFFSET = 2*Bytes.SIZEOF_INT;
 
@@ -106,21 +96,21 @@ public class ServerGetColumns extends AbstractServerGet {
     offset += famLen;
 
     //Getting column length
-    int colLen = KEY_OFFSET + keyLen - offset - Bytes.SIZEOF_LONG -
-    Bytes.SIZEOF_BYTE;
-
+    int colLen = KEY_OFFSET + keyLen - (offset-initialOffset) - 
+    Bytes.SIZEOF_LONG - Bytes.SIZEOF_BYTE;
+    //Could be switched to something like:
+    //initloffset + keylength - TIMESTAMP_TYPE_SIZE - loffset;
+    
     //Checking TTL and TimeRange before column so that if the entry turns out
     //to be a delete we can be sure that all the deletes in the delete list
     //are valid deletes
     int tsOffset = offset + colLen;
     long ts = Bytes.toLong(bytes, tsOffset);
-//    ret = super.checkTTL(bytes, tsOffset);
     ret = super.checkTTL(ts);
     if(ret == 0){
       return NEXT_KV;
     }
 
-//    ret = super.get.getTimeRange().withinTimeRange(bytes, tsOffset);
     ret = super.get.getTimeRange().withinTimeRange(ts);
     if(ret != 1){
       return NEXT_KV;
@@ -135,7 +125,9 @@ public class ServerGetColumns extends AbstractServerGet {
     //There is not going to be any ts in here, but all tss will be taken care
     //of in the TimeRange check
     ret = super.compareColumn(bytes, offset, colLen);
-    if(ret != 0){
+    if(ret <= -1){
+      return NEXT_SF;
+    } else if(ret >= 1){
       return NEXT_KV;
     }
     offset += colLen;
@@ -164,9 +156,7 @@ public class ServerGetColumns extends AbstractServerGet {
 * Helpers 
 *******************************************************************************/  
   private boolean isDone(){
-    if(columnsToDelete.size() >= super.columns.size()){
-//    if(super.columns.isEmpty()){
-
+    if(super.columns.isEmpty()){
       return true;
     }
     return false;
@@ -178,20 +168,10 @@ public class ServerGetColumns extends AbstractServerGet {
     int versionPos = super.column.length-1;
     byte versions = ++super.column[versionPos];
     if(versions >= super.getMaxVersions()){
-//      super.columnIterator.remove();
-      columnsToDelete.add(super.column);
+      super.columnIterator.remove();
     } else{
       super.column[versionPos] = versions;
     }
-  }
- 
-  
-  private void deleteColumns(){
-    Iterator<byte[]> iter = columnsToDelete.iterator();
-    while(iter.hasNext()){
-      
-    }
-    
   }
  
   

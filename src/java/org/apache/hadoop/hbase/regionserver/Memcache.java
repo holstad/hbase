@@ -738,17 +738,21 @@ class Memcache {
    */
   int newget(ServerGet sget, List<KeyValue> results, boolean multiFamily)
   throws IOException {
-    if (LOG.isDebugEnabled()) {
-      LOG.debug("Entering newget");
-    }
+//    if (LOG.isDebugEnabled()) {
+//      LOG.debug("Entering newget");
+//    }
     this.lock.readLock().lock();
     int retCode = 0;
     try {
       // Used to be synchronized but now with weak iteration, no longer needed.
       retCode = internalNewGet(this.memcache, sget, results, multiFamily);
+//      if (LOG.isDebugEnabled()) {
+//        LOG.debug("retCode " +retCode);
+//      }
       if(retCode == -1){
         throw new IOException("Internal error in get, return code = -1");
       } else if(retCode == 0){
+        sget.clear();
         retCode = internalNewGet(this.snapshot, sget, results, multiFamily);
         if(retCode == -1){
           throw new IOException("Internal error in get, return code = -1");
@@ -757,9 +761,10 @@ class Memcache {
     } finally {
       this.lock.readLock().unlock();
     }
-    if (LOG.isDebugEnabled()) {
-      LOG.debug("MC: Return code");
-    }
+//    if (LOG.isDebugEnabled()) {
+//      LOG.debug("newGet: Return code " + retCode + ", results.size " 
+//          + results.size());
+//    }
     return retCode;
   }  
   
@@ -773,11 +778,14 @@ class Memcache {
   private int internalNewGet(SortedSet<KeyValue> set, ServerGet sget,
       List<KeyValue> result, boolean multiFamily)
   throws IOException{
-    if (LOG.isDebugEnabled()) {
-      LOG.debug("Entering int_newget");
-    }
+//    if (LOG.isDebugEnabled()) {
+//      LOG.debug("Entering int_newget");
+//    }
     if (set.isEmpty()){
-      return -1;
+//      if (LOG.isDebugEnabled()) {
+//        LOG.debug("Set to look in is empty");
+//      }
+      return 0;
     }
     //Getting only the things that are related to this row
     //TODO add family and column in the future, right now it just adds
@@ -788,17 +796,17 @@ class Memcache {
     //TODO have to remember to check the order of the set, so that tailSet
     //returns the things that are smaller and not bigger
     
-    if (LOG.isDebugEnabled()) {
-      LOG.debug("MC:int_newGet : Compare, set size " +set.size());
-    }
-    if (LOG.isDebugEnabled()) {
-      for(KeyValue kv : set){
-        LOG.debug("kv " +kv);
-      }
-    }
-    if (LOG.isDebugEnabled()) {
-      LOG.debug("sget " +sget);
-    }
+//    if (LOG.isDebugEnabled()) {
+//      LOG.debug("MC:int_newGet : Compare, set size " +set.size());
+//    }
+//    if (LOG.isDebugEnabled()) {
+//      for(KeyValue kv : set){
+//        LOG.debug("kv " +kv);
+//      }
+//    }
+//    if (LOG.isDebugEnabled()) {
+//      LOG.debug("sget " +sget);
+//    }
     int res = 0;
     // The cases that we need at this level:
     //0 next
@@ -807,9 +815,9 @@ class Memcache {
     //3 done
     for(KeyValue kv : set){
       res = sget.compareTo(kv, multiFamily);
-      if (LOG.isDebugEnabled()) {
-        LOG.debug("res " +res);
-      }
+//      if (LOG.isDebugEnabled()) {
+//        LOG.debug("internalnewGet: res " +res);
+//      }
       switch(res) {
         //Do not include in result, look at next kv
         case 0: break;
@@ -825,11 +833,8 @@ class Memcache {
       
         default : return -1;
       }
-      if (LOG.isDebugEnabled()) {
-        LOG.debug("MC:int_newGet : looped, res " +res);
-      }
     }
-    return -1;
+    return 0;
   }  
   
   

@@ -10,7 +10,12 @@ import org.apache.hadoop.hbase.KeyValue;
 import org.apache.hadoop.hbase.io.TimeRange;
 
 public interface ServerGet {
-
+  /**
+   * Sets all the internal variables to original settings, needs to be done
+   * in between every storeFile
+   */
+  public void clear();
+  
   /**
    * 
    * Return codes that need to be implemented by method
