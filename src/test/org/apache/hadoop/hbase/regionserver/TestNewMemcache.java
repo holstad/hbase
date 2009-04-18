@@ -8,14 +8,14 @@ import junit.framework.TestCase;
 import java.util.Comparator;
 
 public class TestNewMemcache extends TestCase {
-  private final boolean PRINT = true;
+  private final boolean PRINT = false;
 
   private Memcache memcache;
 
   private boolean multiFamily;
   private KeyValue.KVComparator kvComparator;
 
-  private byte [] putRow1 = "row1".getBytes();//114,111,119,49,102,97,109,49
+  private byte [] putRow1 = "row1".getBytes();
   private byte [] putRow2 = "row2".getBytes();
   private byte [] putFam1 = "fam1".getBytes();
   private byte [] putFam2 = "fam2".getBytes();
@@ -207,8 +207,9 @@ public class TestNewMemcache extends TestCase {
     memcache.newAdd(put1, multiFamily);
     assertEquals(3, memcache.memcache.size()); 
     
-    printMemCache();
-    
+    if(PRINT){
+      printMemCache();
+    }
     //Adding delete for the same ts
     memcache.newAdd(del1, multiFamily);
     assertEquals(2, memcache.memcache.size()); 

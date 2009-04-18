@@ -52,9 +52,9 @@ public interface ServerGet {
   public TimeRange getTimeRange();
   
   public List<byte[]> getColumns();
-//  public void setColumns(List<byte[]> columns);
+  public void setColumns(List<byte[]> columns);
 //  public byte [][] getColumns();
-  public void setColumns(byte [][] columns);
+//  public void setColumns(byte [][] columns);
   
   
   public void setDeletes(List<Key> deletes);
@@ -66,6 +66,7 @@ public interface ServerGet {
   
   public long getNow();
   public void setNow();
+  public void setNow(long now);
   
   public long getTTL();
   public void setTTL(long ttl);

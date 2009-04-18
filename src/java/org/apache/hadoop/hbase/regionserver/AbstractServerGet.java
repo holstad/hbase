@@ -98,16 +98,16 @@ public abstract class AbstractServerGet implements ServerGet{
   public List<byte[]> getColumns(){
     return columns; 
   }
-//  @Override
-//  public void setColumns(List<byte[]> columns){
-//    this.columns = columns; 
-//  }
   @Override
-  public void setColumns(byte [][] columns){
-    for(int i=0; i<columns.length; i++){
-      this.columns.add(columns[i]);
-    }
-  }  
+  public void setColumns(List<byte[]> columns){
+    this.columns = columns; 
+  }
+//  @Override
+//  public void setColumns(byte [][] columns){
+//    for(int i=0; i<columns.length; i++){
+//      this.columns.add(columns[i]);
+//    }
+//  }  
   public List<Key> getDeletes(){
     return deletes; 
   }
@@ -131,7 +131,11 @@ public abstract class AbstractServerGet implements ServerGet{
   public void setNow(){
     this.now = System.currentTimeMillis();
   }
-
+  @Override
+  public void setNow(long now){
+    this.now = now;
+  }
+  
   @Override
   public long getTTL(){
     return ttl;

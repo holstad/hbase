@@ -39,10 +39,9 @@ import org.apache.hadoop.hbase.HTableDescriptor;
 import org.apache.hadoop.hbase.KeyValue;
 import org.apache.hadoop.hbase.filter.RowFilterInterface;
 import org.apache.hadoop.hbase.filter.RowFilterSet;
-import org.apache.hadoop.hbase.io.Get;
-import org.apache.hadoop.hbase.io.Family;
+//import org.apache.hadoop.hbase.io.Get;
 import org.apache.hadoop.hbase.io.HbaseMapWritable;
-import org.apache.hadoop.hbase.io.TimeRange;
+//import org.apache.hadoop.hbase.io.TimeRange;
 import org.apache.hadoop.io.MapWritable;
 import org.apache.hadoop.io.ObjectWritable;
 import org.apache.hadoop.io.Text;
@@ -139,20 +138,27 @@ public class HbaseObjectWritable implements Writable, Configurable {
     addToMap(BatchUpdate[].class, code++);
     
     
-    addToMap(Family.class, code++);
-    addToMap(TimeRange.class, code++);
+    //New from 0.20
+    addToMap(AbstractFamily.class, code++);
+    
+//    addToMap(AbstractGet.class, code++);//
+    
     addToMap(Get.class, code++);
-//    addToMap(AbstractGet.class, code++);
-//    addToMap(GetRow.class, code++);
-//    addToMap(GetFamilies.class, code++);
+    
 //    addToMap(GetColumns.class, code++);
+//    addToMap(GetFamilies.class, code++);
+//    addToMap(GetFamily.class, code++);
+//    addToMap(GetRow.class, code++);
 //    addToMap(GetTop.class, code++);
-
+    
+    addToMap(KeyValue.class, code++);
+    
+//    addToMap(PutFamily.class, code++);
+    
+    addToMap(RowUpdates.class, code++);
+    addToMap(TimeRange.class, code++);
 
 //  addToMap(Get[].class, code++);
-    addToMap(KeyValue.class, code++);
-//    addToMap(RowUpdates.class, code++);
-    
   }
   
   private Class<?> declaredClass;

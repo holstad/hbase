@@ -1,33 +1,70 @@
 package org.apache.hadoop.hbase.io;
 
-
+import java.io.DataInput;
+import java.io.DataOutput;
+import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.SortedMap;
 import java.util.TreeMap;
 
+import org.apache.hadoop.io.Writable;
+
 import org.apache.hadoop.hbase.HConstants;
 import org.apache.hadoop.hbase.KeyValue;
-import org.apache.hadoop.hbase.util.Bytes;;
+import org.apache.hadoop.hbase.util.Bytes;
 
 
 //TODO should be able to insert a list of KeyValue and get them sorted and
 //inserted into the familyMap before sending to the server, should be done in
 //commit
-public class RowUpdates implements HeapSize{
+public class RowUpdates implements Writable, HeapSize{
   byte [] row = null;
-  SortedMap<byte [] , List<KeyValue>> familyMap = null;
+//  SortedMap<byte [] , List<KeyValue>> familyMap = null;
+  List<Family> families = new ArrayList<Family>();
   
-  private long rowLock = -1l;
+  //TODO check if you want to get the timestamp of the send and not the time
+  //when the Object is created
+  private long ts = HConstants.LATEST_TIMESTAMP;
+  private long rowLock = -1L;
 
-  public RowUpdates(byte [] row, byte [] family, List<KeyValue> kvs){
-    validateInput(row, family);
-    familyMap = new TreeMap<byte [] , List<KeyValue>>(Bytes.BYTES_COMPARATOR);
-    familyMap.put(family, kvs);
+  public RowUpdates(byte [] row, byte [] family, byte[] column){
+    this.row = row;
+    this.families.add(new Family(family, column));
   }
   
+  public RowUpdates(byte [] row, byte [] family, List<byte[]> columns){
+    this.row = row;
+    this.families.add(new Family(family, columns));
+  }
+
+  public RowUpdates(byte [] row, byte [] family, List<byte[]> columns, long ts){
+    this.row = row;
+    this.families.add(new Family(family, columns));
+    this.ts = ts;
+  }
+
+  public RowUpdates(byte [] row, Family Family, long ts){
+    this.row = row;
+    this.families.add(Family);
+    this.ts = ts;
+  }
   
-  public SortedMap<byte [], List<KeyValue>> getFamilyMap(){
-    return familyMap;
+  public RowUpdates(byte [] row, List<Family> putFamilies, long ts){
+    this.row = row;
+    this.families = putFamilies;
+    this.ts = ts;
+  }
+  
+  public void add(Family Family){
+    this.families.add(Family);
+  }
+  public void add(List<Family> putFamilies){
+    this.families.addAll(putFamilies);
+  }
+  
+  public List<Family> getFamilies(){
+    return families;
   }
   
   public byte [] getRow(){
@@ -57,18 +94,36 @@ public class RowUpdates implements HeapSize{
     return 0;
   }
   
-  
-  //Checking if the length of row and family are within their bounds
-  private void validateInput(byte [] row, byte [] family)
-  throws IllegalArgumentException {
-    if(row.length > HConstants.MAX_ROW_LENGTH ||
-      family.length > HConstants.MAX_FAMILY_LENGTH){
-      throw new IllegalArgumentException("Row or family are too long to fit into" +
-      "a KeyValue, row.length " + row.length + " ecpected smaller" +
-                "than " +HConstants.MAX_ROW_LENGTH+ " and family.length " +
-                family.length + " expected smaller than " +
-                HConstants.MAX_FAMILY_LENGTH);
+  public void createKeyValuesFromColumns(){
+    for(Family family : families){
+      family.createKeyValuesFromColumns(row, ts);
     }
   }
+  
+  
+  //Writable
+  public void readFields(final DataInput in)
+  throws IOException {
+    this.row = Bytes.readByteArray(in);
+    int nFamilies = in.readInt();
+    this.families = new ArrayList<Family>(nFamilies);
+    for(int i=0; i<nFamilies; i++){
+      Family family = new Family();
+      family.readFields(in);
+      families.add(family);
+    }
+    this.rowLock = in.readLong();
+  }  
+  
+  public void write(final DataOutput out)
+  throws IOException {
+    Bytes.writeByteArray(out, this.row);
+    out.writeInt(families.size());
+    for(Family family : families){
+      family.write(out);
+    }
+    out.writeLong(this.rowLock);
+  }  
+  
 }
 

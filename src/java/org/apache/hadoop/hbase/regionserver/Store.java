@@ -396,12 +396,14 @@ public class Store implements HConstants {
   protected long add(final KeyValue kv) {
     lock.readLock().lock();
     try {
+//      System.out.println("Store " + System.nanoTime());
       return this.memcache.add(kv);
     } finally {
       lock.readLock().unlock();
     }
   }
 
+  
   /**
    * Adds a value to the memcache
    * 
@@ -411,6 +413,7 @@ public class Store implements HConstants {
   protected long newAdd(final KeyValue kv) {
     lock.readLock().lock();
     try {
+//      System.out.println("Store " + System.nanoTime());
       return this.memcache.newAdd(kv, family.getMultiFamily());
     } finally {
       lock.readLock().unlock();

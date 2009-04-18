@@ -3,6 +3,7 @@ package org.apache.hadoop.hbase.io;
 import java.io.DataInput;
 import java.io.DataOutput;
 import java.io.IOException;
+import java.util.List;
 
 import org.apache.hadoop.io.Writable;
 
@@ -14,8 +15,8 @@ import org.apache.hadoop.hbase.filter.RowFilterInterface;;
  */
 public interface Get extends Writable{
 
-  public Family[] getFamilies();
-  public void setFamilies(Family [] families);
+  public List<Family> getFamilies();
+  public void setFamilies(List<Family> families);
 
   public RowFilterInterface getFilter();
   public void setFilter(RowFilterInterface filter);

@@ -35,6 +35,41 @@ import org.apache.hadoop.hbase.util.Bytes;
 public class TestKeyValue extends TestCase {
   private final Log LOG = LogFactory.getLog(this.getClass().getName());
   
+  KeyValue kv1 = null;
+  KeyValue kv2 = null;
+  KeyValue kv3 = null;
+  KeyValue kv4 = null;
+  KeyValue kv5 = null;
+  KeyValue kv6 = null;
+  KeyValue kv7 = null;
+  KeyValue kv8 = null;
+  
+  byte[] row1 = "row1".getBytes();
+  byte[] row2 = "row2".getBytes();
+  byte[] fam1 = "fam1".getBytes();
+  byte[] fam2 = "fam2".getBytes();
+  byte[] col1 = "col1".getBytes();
+  byte[] col2 = "col2".getBytes();
+  byte[] val1 = "val1".getBytes();
+  byte[] val2 = "val2".getBytes();
+  long ts1 = System.nanoTime();
+  long ts2 = System.nanoTime();
+  
+  KeyValue.Type type1 = KeyValue.Type.Put;
+  KeyValue.Type type2 = KeyValue.Type.Delete;
+
+  protected void setUp() throws Exception {
+    super.setUp();
+    kv1 = new KeyValue(row1, fam1, col1, ts1, type1, val1);
+    kv2 = new KeyValue(row1, fam1, col1, ts1, type1, val1);
+    kv3 = new KeyValue(row2, fam1, col1, ts1, type1, val1);
+    kv4 = new KeyValue(row1, fam2, col1, ts1, type1, val1);
+    kv5 = new KeyValue(row1, fam1, col2, ts1, type1, val1);
+    kv6 = new KeyValue(row1, fam1, col1, ts2, type1, val1);
+    kv7 = new KeyValue(row1, fam1, col1, ts1, type2, val1);
+    kv8 = new KeyValue(row1, fam1, col1, ts1, type1, val2);
+  }
+  
   public void testBasics() throws Exception {
     LOG.info("LOWKEY: " + KeyValue.LOWESTKEY.toString());
     check(Bytes.toBytes(getName()),
@@ -247,4 +282,74 @@ public class TestKeyValue extends TestCase {
       assertTrue(count++ == k.getTimestamp());
     }
   }
+  
+  
+  public void testEquals(){
+    //Does not compare the value, but only the Key part of the KeyValue
+    assertTrue(kv1.equals(kv2));
+    
+    assertFalse(kv1.equals(kv3));
+
+    assertFalse(kv1.equals(kv4));    
+    
+    assertFalse(kv1.equals(kv5));
+
+    assertFalse(kv1.equals(kv6));
+    
+    assertFalse(kv1.equals(kv7));
+    
+    assertTrue(kv1.equals(kv8));
+  }
+
+  public void testKeyComparator(){
+    internalTestComparator(new KeyValue.KeyComparator());
+  }
+  
+  public void testMetaComparator(){
+    long now = System.nanoTime();
+    KeyValue kv1 = new KeyValue(".META.,users,0", now);
+    KeyValue kv2 = new KeyValue(".META.,items,0", now);
+    KeyValue kv3 = new KeyValue(".META.,stories,0", now);
+    
+    internalTestComparator(new KeyValue.MetaKeyComparator());
+  }
+  
+  public void testRootComparator(){}
+  
+  private void internalTestComparator(KeyValue.KeyComparator comp){
+    int res = 0;
+    
+    res = compare(comp, kv1.getBuffer(), kv2.getBuffer());
+    assertEquals(0, res);
+    
+    res = compare(comp, kv1.getBuffer(), kv3.getBuffer());
+    assertTrue(res <= -1);
+
+    res = compare(comp, kv1.getBuffer(), kv4.getBuffer());
+    assertTrue(res <= -1);
+    
+    res = compare(comp, kv1.getBuffer(), kv5.getBuffer());
+    assertTrue(res <= -1);
+    
+    res = compare(comp, kv1.getBuffer(), kv6.getBuffer());
+    assertTrue(res >= 1);
+    
+    res = compare(comp, kv1.getBuffer(), kv7.getBuffer());
+    assertTrue(res >= 1);
+    
+    res = compare(comp, kv1.getBuffer(), kv8.getBuffer());
+    assertEquals(0, res);
+    
+    res = compare(comp, kv3.getBuffer(), kv1.getBuffer());
+    assertTrue(res >= 1);
+  }
+  
+  
+  private int compare(KeyValue.KeyComparator comp, byte[] left, byte[] right){
+    int llength = Bytes.toInt(left);
+    int rlength = Bytes.toInt(right);
+    int offset = Bytes.SIZEOF_INT + Bytes.SIZEOF_INT; 
+    return comp.compare(left, offset, llength, right, offset, rlength);
+  }
+  
 }

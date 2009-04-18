@@ -12,7 +12,7 @@ public class GetTop extends AbstractGet {
   public GetTop(byte [] row, byte [] family, int fetches, TimeRange tr){
     super.row = row;
     this.fetches = fetches;
-    super.families = new Family[]{new Family(family)};
+    super.families.add(new Family(family));
     super.tr = tr;
   }
   

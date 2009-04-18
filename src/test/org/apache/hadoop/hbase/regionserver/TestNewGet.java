@@ -89,7 +89,6 @@ public class TestNewGet extends HBaseTestCase implements HConstants {
     BatchUpdate batchUpdate = null;
     // Map<byte [], Cell> results = null;
     List<KeyValue> results = new ArrayList<KeyValue>();
-    KeyValue.KVComparator comp = new KeyValue.KVComparator();
     // comp.getRawComparator().ignoreTimestamp = true;
 
     try {
@@ -179,7 +178,10 @@ public class TestNewGet extends HBaseTestCase implements HConstants {
 
       // Testing getting from memcache and storeFile 2 versions
       results = new ArrayList<KeyValue>();
-      byte [][] columns = {col2, col4};
+//      byte [][] columns = {col2, col4};
+      List<byte[]> columns = new ArrayList<byte[]>(2);
+      columns.add(col2);
+      columns.add(col4);
       get = new GetColumns(row, getFam, columns, (byte)3, null);
 
       long start = 0L;

@@ -8,9 +8,9 @@ import java.util.List;
 import java.util.ListIterator;
 
 import org.apache.hadoop.hbase.KeyValue;
-import org.apache.hadoop.hbase.io.Family;
 import org.apache.hadoop.hbase.io.Get;
 import org.apache.hadoop.hbase.io.GetColumns;
+import org.apache.hadoop.hbase.io.Family;
 import org.apache.hadoop.hbase.io.TimeRange;
 import org.apache.hadoop.hbase.util.Bytes;
 
@@ -39,12 +39,12 @@ public class TestServerGetColumns extends TestCase {
   byte [] col4 = null;
   byte [] val4 = null;
   
-  Family [] families1 = null;
+  List<Family> families1 = null;
   long ts = 0L;
   long ts1 = 0L;
   long ts2 = 0L;
   long ts3 = 0L;
-  int versions = 0;
+  byte versions = 0;
 
   KeyValue putKv1 = null;
   KeyValue putKv2 = null;
@@ -85,7 +85,8 @@ public class TestServerGetColumns extends TestCase {
     col4 = "col4".getBytes();
     val4 = "val4".getBytes();
     
-    families1 = new Family[]{new Family(fam1, col1)};
+    families1 = new ArrayList<Family>();
+    families1.add(new Family(fam1, col1));
     ts1 = System.nanoTime();
     versions = 1;
     
@@ -110,8 +111,10 @@ public class TestServerGetColumns extends TestCase {
     
     Get get = new GetColumns(row1, families1, versions, ts1);
     sget = new ServerGetColumns(get);
-    sget.setFamily(families1[0].getFamily());
-    sget.setColumns(families1[0].getColumns());
+    sget.setFamily(families1.get(0).getFamily());
+    sget.setColumns(families1.get(0).getColumns());
+    sget.setNow(System.nanoTime());
+    sget.setTTL(-1L);
   }
 
 
@@ -125,7 +128,7 @@ public class TestServerGetColumns extends TestCase {
   
   //Key
   public void testUpdateKeyValue(){
-    byte [] row1 = "erik1".getBytes();
+    byte [] row1 = "row1".getBytes();
     byte [] fam1 = "fam1:".getBytes();
     
     Key ok = new Key(new KeyValue(row1, fam1));
@@ -135,7 +138,7 @@ public class TestServerGetColumns extends TestCase {
     assertNotSame(ok, k);
   }
   private void updateKey(Key k){
-    byte [] row = "erik2".getBytes();
+    byte [] row = "row2".getBytes();
     byte [] fam = "fam2:".getBytes();
     k.set(new KeyValue(row, fam));
   }
@@ -157,7 +160,7 @@ public class TestServerGetColumns extends TestCase {
     int ret = sget.compareTo(putKv2, false);
 
     //1 means that they were the same and that it should be added
-    assertEquals(0, ret);
+    assertEquals(2, ret);
   }
  
   public void testCompare_multiColumns()
@@ -168,12 +171,15 @@ public class TestServerGetColumns extends TestCase {
     Family family = new Family(fam1, col1);
     family.add(col3);
     
-    Family[] families = {family};
+    List<Family> families = new ArrayList<Family>();
+    families.add(family);
     
     get = new GetColumns(row1, families, versions, ts1);
     sget = new ServerGetColumns(get);
-    sget.setFamily(families[0].getFamily());
-    sget.setColumns(families[0].getColumns());
+    sget.setFamily(families.get(0).getFamily());
+    sget.setColumns(families.get(0).getColumns());
+    sget.setNow(System.nanoTime());
+    sget.setTTL(-1L);
     
     //Create a KeyValue object
     List<KeyValue> kvs = new ArrayList<KeyValue>();
@@ -212,12 +218,15 @@ public class TestServerGetColumns extends TestCase {
     family.add(col2);
     family.add(col3);
     
-    Family[] families = {family};
+    List<Family> families = new ArrayList<Family>();
+    families.add(family);
     
     get = new GetColumns(row1, families, versions, ts1);
     sget = new ServerGetColumns(get);
-    sget.setFamily(families[0].getFamily());
-    sget.setColumns(families[0].getColumns());
+    sget.setFamily(families.get(0).getFamily());
+    sget.setColumns(families.get(0).getColumns());
+    sget.setNow(System.nanoTime());
+    sget.setTTL(-1L);
     
     //Create a KeyValue object
     List<KeyValue> kvs = new ArrayList<KeyValue>();
@@ -264,12 +273,13 @@ public class TestServerGetColumns extends TestCase {
     family.add(col2);
     family.add(col3);
     
-    Family[] families = {family};
+    List<Family> families = new ArrayList<Family>();
+    families.add(family);
     
     get = new GetColumns(row1, families, versions, ts);
     sget = new ServerGetColumns(get);
-    sget.setFamily(families[0].getFamily());
-    sget.setColumns(families[0].getColumns());
+    sget.setFamily(families.get(0).getFamily());
+    sget.setColumns(families.get(0).getColumns());
     
     //Create a KeyValue object
     List<KeyValue> kvs = new ArrayList<KeyValue>();
@@ -502,8 +512,10 @@ public class TestServerGetColumns extends TestCase {
     tr = new TimeRange(ts, ts1);
     get = new GetColumns(row1, families1, versions, tr);
     sget = new ServerGetColumns(get);
-    sget.setFamily(families1[0].getFamily());
-    sget.setColumns(families1[0].getColumns());
+    sget.setFamily(families1.get(0).getFamily());
+    sget.setColumns(families1.get(0).getColumns());
+    sget.setNow(System.nanoTime());
+    sget.setTTL(-1L);
     
     List<KeyValue> kvs = new ArrayList<KeyValue>();
     kvs.add(putKv5);
@@ -558,8 +570,10 @@ public class TestServerGetColumns extends TestCase {
     tr = new TimeRange(ts2, ts1);
     get = new GetColumns(row1, families1, versions, tr);
     sget = new ServerGetColumns(get);
-    sget.setFamily(families1[0].getFamily());
-    sget.setColumns(families1[0].getColumns());
+    sget.setFamily(families1.get(0).getFamily());
+    sget.setColumns(families1.get(0).getColumns());
+    sget.setNow(System.nanoTime());
+    sget.setTTL(-1L);
 
     iter = kvs.iterator();
     
@@ -590,11 +604,17 @@ public class TestServerGetColumns extends TestCase {
     
     //Getting 2 value
     tr = new TimeRange(ts3, ts1);
-    families1 = new Family[]{new Family(fam1, col1)};
+    Family family = new Family(fam1, col1);
+    families1 = new ArrayList<Family>();
+    families1.add(family);
+//    families1 = new Family[]{new Family(fam1, col1)};
+
     get = new GetColumns(row1, families1, versions, tr);
     sget = new ServerGetColumns(get);
-    sget.setFamily(families1[0].getFamily());
-    sget.setColumns(families1[0].getColumns());
+    sget.setFamily(families1.get(0).getFamily());
+    sget.setColumns(families1.get(0).getColumns());
+    sget.setNow(System.nanoTime());
+    sget.setTTL(-1L);
     
     iter = kvs.iterator();
     
@@ -626,11 +646,13 @@ public class TestServerGetColumns extends TestCase {
     //Getting 3 value
     ts = System.nanoTime();
     tr = new TimeRange(ts, ts1);
-    families1 = new Family[]{new Family(fam1, col1)};
+//    families1 = new Family[]{new Family(fam1, col1)};
     get = new GetColumns(row1, families1, versions, tr);
     sget = new ServerGetColumns(get);
-    sget.setFamily(families1[0].getFamily());
-    sget.setColumns(families1[0].getColumns());
+    sget.setFamily(families1.get(0).getFamily());
+    sget.setColumns(families1.get(0).getColumns());
+    sget.setNow(System.nanoTime());
+    sget.setTTL(-1L);
     
     iter = kvs.iterator();
     

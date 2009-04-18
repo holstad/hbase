@@ -28,9 +28,7 @@ import org.apache.hadoop.io.Writable;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-import org.apache.hadoop.hbase.io.Family;
 import org.apache.hadoop.hbase.util.Bytes;
-import org.apache.hadoop.hbase.util.Writables;
 
 
 /**
@@ -465,6 +463,113 @@ public class KeyValue implements Writable{
     return bytes;
   }
 
+  
+  public KeyValue(final byte[] row, final byte[] family,
+      final byte[] qualifier, final long timestamp, Type type,
+      final byte[] value) {
+    this(row, family, qualifier, 0, qualifier==null ? 0 : qualifier.length, 
+        timestamp, type, value, 0, value==null ? 0 : value.length);
+  }
+  
+  public KeyValue(final byte[] row, final byte[] family,
+      final byte[] qualifier, final int qoffset, int qlength, 
+      final long timestamp, Type type,
+      final byte[] value, final int voffset, int vlength) {
+    this.bytes = createByteArray(row, 0, row==null ? 0 : row.length, family, 0,
+        family==null ? 0 : family.length, qualifier, qoffset, qlength, 
+        Bytes.toBytes(timestamp), type, value, voffset, vlength);
+//    this.bytes = createByteArray(row, family, qualifier,
+//        Bytes.toBytes(timestamp), type, value);
+  }
+  
+//  public KeyValue(final byte [] row, final byte [] family,
+//      final byte [] qualifier, final byte [] timestamp, Type type,
+//      final byte [] value) {
+//    this.bytes = createByteArray(row, 0, row.length, family, 0, family.length,
+//        qualifier, 0, qualifier.length, timestamp, type, value, 0,
+//        value.length);
+//    this.length = bytes.length;
+//    this.offset = 0;
+//  }
+
+  static byte [] createByteArray(final byte [] row, final int roffset,
+      int rlength, final byte [] family, final int foffset, int flength,
+      final byte [] qualifier, final int qoffset, int qlength,
+      final byte [] timestamp, final Type type, final byte [] value,
+      final int voffset, int vlength) {
+//  static byte [] createByteArray(final byte [] row, final byte [] family,
+//      final byte [] qualifier, final byte [] timestamp, final Type type,
+//      final byte [] value) {
+
+    //Checking for null values
+    if(row == null) {
+      throw new IllegalArgumentException("Row is null");
+    }
+    if(family == null) {
+      throw new IllegalArgumentException("family is null");
+    }
+    if(qualifier == null) {
+      throw new IllegalArgumentException("qualifier is null");
+    }
+    if(value == null) {
+      throw new IllegalArgumentException("value is null");
+    }
+
+    //Setting up and checking lengths
+//    rlength = row.length;
+    if (rlength > Short.MAX_VALUE) {
+      throw new IllegalArgumentException("Row > " + Short.MAX_VALUE);
+    }
+    
+//    flength = family.length;
+    if (flength > Byte.MAX_VALUE) {
+      throw new IllegalArgumentException("family > " + Byte.MAX_VALUE);
+    }
+    
+//    qlength = qualifier.length;
+
+    long longkeylength = KEY_INFRASTRUCTURE_SIZE + rlength + flength + qlength;
+    if (longkeylength > Integer.MAX_VALUE) {
+      throw new IllegalArgumentException("keylength " + longkeylength + " > " + Integer.MAX_VALUE);
+    }
+    int keylength = (int)longkeylength;  
+    
+//    long longvlength = value.length;
+//    if (longvlength > Integer.MAX_VALUE) {
+//      throw new IllegalArgumentException("value > " + Integer.MAX_VALUE);
+//    }
+//    vlength = (int)longvlength;
+    
+    // Allocate right-sized byte array.
+    byte [] bytes = new byte[KEYVALUE_INFRASTRUCTURE_SIZE + keylength + vlength];
+
+    // Write key, value and key row length.
+    int pos = 0;
+    pos = Bytes.putInt(bytes, pos, keylength);
+    pos = Bytes.putInt(bytes, pos, vlength);
+
+    pos = Bytes.putShort(bytes, pos, (short)(rlength & 0x0000ffff));
+    pos = Bytes.putBytes(bytes, pos, row, roffset, rlength);
+
+    pos = Bytes.putByte(bytes, pos, (byte)(flength & 0x0000ff));
+    pos = Bytes.putBytes(bytes, pos, family, foffset, flength);
+
+    pos = Bytes.putBytes(bytes, pos, qualifier, qoffset, qlength);
+
+    pos = Bytes.putBytes(bytes, pos, timestamp, 0, Bytes.SIZEOF_LONG);
+
+    pos = Bytes.putByte(bytes, pos, type.getCode());
+    
+    pos = Bytes.putBytes(bytes, pos, value, voffset, vlength);
+    return bytes;
+  } 
+  
+  
+  
+  
+  
+  
+  
   public boolean equals(Object other) {
     KeyValue kv = (KeyValue)other;
     // Comparing bytes should be fine doing equals test.  Shouldn't have to
@@ -598,7 +703,7 @@ public class KeyValue implements Writable{
   public byte [] getKey() {
     int keylength = getKeyLength();
     byte [] key = new byte[keylength];
-    System.arraycopy(getBuffer(), ROW_OFFSET, key, 0, keylength);
+    System.arraycopy(getBuffer(), getKeyOffset(), key, 0, keylength);
     return key;
   }
 
@@ -1355,7 +1460,8 @@ public class KeyValue implements Writable{
         // Compare types. Let the delete types sort ahead of puts.
         byte ltype = left[loffset];
         byte rtype = right[roffset];
-        return (0xff & rtype) - (0xff & ltype);
+        int ret = (0xff & rtype) - (0xff & ltype);
+        return ret;
       }
       return 0;
     }

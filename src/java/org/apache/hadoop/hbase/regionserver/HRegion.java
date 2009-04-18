@@ -62,8 +62,10 @@ import org.apache.hadoop.hbase.io.Family;
 import org.apache.hadoop.hbase.io.Get;
 import org.apache.hadoop.hbase.io.GetColumns;
 import org.apache.hadoop.hbase.io.GetFamilies;
+import org.apache.hadoop.hbase.io.GetFamily;
 import org.apache.hadoop.hbase.io.GetRow;
 import org.apache.hadoop.hbase.io.HbaseMapWritable;
+import org.apache.hadoop.hbase.io.PutFamily;
 import org.apache.hadoop.hbase.io.RowResult;
 import org.apache.hadoop.hbase.io.RowUpdates;
 import org.apache.hadoop.hbase.io.Reference.Range;
@@ -1323,6 +1325,8 @@ public class HRegion implements HConstants {
    */
   public void batchUpdate(BatchUpdate b, Integer lockid, boolean writeToWAL)
   throws IOException {
+//    System.out.println("hreBU " + System.nanoTime());
+
     checkReadOnly();
     validateValuesLength(b);
 
@@ -1398,6 +1402,8 @@ public class HRegion implements HConstants {
   
   public void updateRow(RowUpdates rups, Integer lockid, boolean writeToWAL)
   throws IOException {
+//    System.out.println("hreUR " + System.nanoTime());
+
     checkReadOnly();
     
     //Think that this should be moved to the client
@@ -1419,11 +1425,14 @@ public class HRegion implements HConstants {
       // If we did not pass an existing row lock, obtain a new one
       Integer lid = getLock(lockid, row);
       try {
-        for(Map.Entry<byte[], List<KeyValue>> entry :
-          rups.getFamilyMap().entrySet()){
-          byte [] family = entry.getKey();
-          checkFamily(family);
-          newUpdate(family, entry.getValue(), writeToWAL);
+//        for(PutFamily family : rups.getFamilies()){
+        for(Family family : rups.getFamilies()){
+          byte[] familyName = family.getFamily();
+          checkFamily(familyName);
+//          if (LOG.isDebugEnabled()) {
+//            LOG.debug("updateRow: updating family " + new String(familyName));
+//          }
+          newUpdate(familyName, family.getColumns(), writeToWAL);
         }
       }
       
@@ -1844,6 +1853,7 @@ public class HRegion implements HConstants {
    */
   private void update(final List<KeyValue> edits, boolean writeToWAL)
   throws IOException {
+//    System.out.println("hre_U " + System.nanoTime());
     if (edits == null || edits.isEmpty()) {
       return;
     }
@@ -1858,6 +1868,7 @@ public class HRegion implements HConstants {
       long size = 0;
       for (KeyValue kv: edits) {
         // TODO: Fix -- do I have to do a getColumn here?
+//        System.out.println("regio " +System.nanoTime());
         size = this.memcacheSize.addAndGet(getStore(kv.getColumn()).add(kv));
       }
       flush = isFlushSize(size);
@@ -1870,11 +1881,16 @@ public class HRegion implements HConstants {
     }
   }
 
-  
-  public void newUpdate(byte [] family, List<KeyValue> kvs, boolean writeToWAL)
+  public void newUpdate(byte [] family, List<byte[]> bss, boolean writeToWAL)
   throws IOException {
+//    System.out.println("hreNU " + System.nanoTime());
     boolean flush = false;
     this.updatesLock.readLock().lock();
+    List<KeyValue> kvs = new ArrayList<KeyValue>(bss.size());
+    for(byte[] bs : bss){
+      kvs.add(new KeyValue(bs));
+    }
+    
     try {
       if (writeToWAL) {
         this.log.append(regionInfo.getRegionName(),
@@ -1884,6 +1900,9 @@ public class HRegion implements HConstants {
       long size = 0;
       Store store = getStore(family);
       for (KeyValue kv: kvs) {
+        //This instantiation of a new KeyValue can probably be skipped but it
+        //takes some rewriting of the code that follows
+//        System.out.println("regio " +System.nanoTime());
         size = this.memcacheSize.addAndGet(store.newAdd(kv));
       }
       flush = isFlushSize(size);
@@ -1895,6 +1914,32 @@ public class HRegion implements HConstants {
       requestFlush();
     }
   }
+  
+  
+//  public void newUpdate(byte [] family, List<KeyValue> kvs, boolean writeToWAL)
+//  throws IOException {
+//    boolean flush = false;
+//    this.updatesLock.readLock().lock();
+//    try {
+//      if (writeToWAL) {
+//        this.log.append(regionInfo.getRegionName(),
+//          regionInfo.getTableDesc().getName(), kvs,
+//          (regionInfo.isMetaRegion() || regionInfo.isRootRegion()));
+//      }
+//      long size = 0;
+//      Store store = getStore(family);
+//      for (KeyValue kv: kvs) {
+//        size = this.memcacheSize.addAndGet(store.newAdd(kv));
+//      }
+//      flush = isFlushSize(size);
+//    } finally {
+//      this.updatesLock.readLock().unlock();
+//    }
+//    if (flush) {
+//      // Request a cache flush.  Do it outside update lock.
+//      requestFlush();
+//    }
+//  }
   
   
   

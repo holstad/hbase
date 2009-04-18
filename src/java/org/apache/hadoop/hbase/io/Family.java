@@ -3,48 +3,57 @@ package org.apache.hadoop.hbase.io;
 import java.io.DataInput;
 import java.io.DataOutput;
 import java.io.IOException;
-import java.util.LinkedList;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Comparator;
 import java.util.List;
-import java.util.SortedSet;
-import java.util.TreeSet;
+import java.util.Map;
 
+import org.apache.hadoop.hbase.KeyValue;
+import org.apache.hadoop.hbase.util.Bytes;
+//import org.apache.hadoop.io.RawComparator;
 import org.apache.hadoop.io.Writable;
 
-import org.apache.hadoop.hbase.HTableDescriptor;
-import org.apache.hadoop.hbase.util.Bytes;
-import org.apache.hadoop.hbase.util.Writables;
 
-
-/**
- * The number of versions to fetch are kept in the Get class but the current
- * count is kept as the last byte in every column, and is set to 0 when adding
- * the columns. 
- *
- */
 public class Family implements Writable{
-  private byte [] family = new byte [0];
-  private byte [][] columns = new byte [0][];
+  protected byte [] family = new byte [0];
+  protected List<byte[]> columns = new ArrayList<byte[]>();
+  protected final byte[] ZERO_BYTES = new byte[]{(byte)0};
   
   public Family(){}
-  
-  public Family(byte [] family){
+  public Family(byte[] family){
     this.family = family;
   }
-  /**
-   * 
-   * @param family
-   * @param column
-   */
-  public Family(byte [] family, byte [] column) {
-    this(family, new byte[][] {column});
-  }
-
-  public Family(byte [] family, byte [][] columns) {
+  public Family(byte[] family, byte[] column) {
     this.family = family;
-    this.columns = new byte [columns.length][];
-    this.columns = addVersionsToTheEndOfColumns(columns);
+    this.columns.add(buildColumn(column, ZERO_BYTES));
+  }
+  public Family(byte[] family, List<byte[]> columns) {
+    this.family = family;
+    for(byte[] column : columns){
+      this.columns.add(buildColumn(column, ZERO_BYTES));
+    }
   }
   
+  //Puts
+  public Family(byte[] family, byte[] column, byte[] value) {
+    this.family = family;
+    this.columns.add(buildColumn(column, value));
+  }
+  public Family(byte[] family, Map<byte[], byte[]> map) {
+    this.family = family;
+    for(Map.Entry<byte[], byte[]> entry : map.entrySet()){
+      this.columns.add(buildColumn(entry.getKey(), entry.getValue()));
+    }
+  }
+  
+  public void add(byte[] column){
+    this.columns.add(buildColumn(column, ZERO_BYTES));
+  }
+  
+  public void add(byte[] column, byte[] value){
+    this.columns.add(buildColumn(column, value));
+  }
   
   /**
    * 
@@ -61,44 +70,42 @@ public class Family implements Writable{
     this.family = family;
   }
   
-  public byte [][] getColumns() {
+  public List<byte[]> getColumns() {
     return columns;
   }
- 
-  public void setColumns(byte [][] columns) {
-    this.columns = new byte [columns.length][];
-    this.columns = addVersionsToTheEndOfColumns(columns);
-  }
   
-  /**
-   * 
-   * @return boolean
-   */
-  public boolean isEmpty(){
-    return columns == null || columns.length == 0;
-  }
-
   
-  private byte [][] addVersionsToTheEndOfColumns(byte [][] columns){
-    int len = columns.length;
-    byte [][] fixedColumns = new byte [len][];
-    for(int i=0; i<len; i++){
-      fixedColumns[i] = appendVersionsFetched(columns[i]);
+  //TODO have to check how thos sorts
+  public void sortColumns(){
+    byte[][] cols = new byte[columns.size()][];
+    cols = columns.toArray(new byte[0][]);
+    Arrays.sort(cols, new FamilyComparator());
+    columns.clear();
+    for(byte[] bytes : cols){
+      columns.add(bytes);
     }
-    return fixedColumns;
   }
   
-  private byte [] appendVersionsFetched(byte [] column){
-    return appendByte(column, (byte)0);
+  public void createKeyValuesFromColumns(byte[] row, final long ts){
+    List<byte[]> updatedColumns = new ArrayList<byte[]>(columns.size());
+    byte[] col = null;
+    int colLen = 0;
+    byte[] val = null;
+    int valOffset = 0;
+    for(byte[] column : columns){
+      colLen = Bytes.toInt(column);
+      valOffset = Bytes.SIZEOF_INT + colLen; 
+      updatedColumns.add(new KeyValue(row, this.family, column, Bytes.SIZEOF_INT, 
+        colLen, ts, KeyValue.Type.Put,
+        column, valOffset, column.length - valOffset).getBuffer());
+    }
+    columns = updatedColumns;
   }
   
-  private byte[] appendByte(byte [] column, byte b){
-   int len = column.length;
-   byte [] ret = new byte [len + 1];
-   System.arraycopy(column, 0, ret, 0, len);
-   ret[len] = b;
-   return ret;
+  private byte[] buildColumn(byte[] column, byte[] value){
+    return Bytes.add(Bytes.toBytes(column.length), column, value);
   }
+  
   
   @Override
   public String toString(){
@@ -108,14 +115,40 @@ public class Family implements Writable{
     sb.append(new String(family));
     sb.append(", columns [");
     int i = 0;
-    for(; i<columns.length-1; i++){
-      sb.append(new String(columns[i], 0, columns[i].length -1));
-      sb.append(", ");      
+    byte [] column = null;
+    int colLen = 0;
+    int pos = 0;
+    for(; i<columns.size()-1; i++){
+      appendToBuffer(columns.get(i), sb);
+//      column = columns.get(i);
+//      sb.append("(column size ");
+//      colLen = Bytes.toInt(column, pos, Bytes.SIZEOF_INT);
+//      pos += Bytes.SIZEOF_INT;
+//      sb.append(colLen);
+//      sb.append(" ,column ");
+//      sb.append(new String(column, pos, colLen));
+//      pos += colLen;
+//      sb.append(" ,value ");
+//      sb.append(new String(column, pos, column.length -1 - pos));
+      sb.append("), ");      
     }
 
-    sb.append(new String(columns[i], 0, columns[i].length -1));
+//    sb.append(new String(columns.get(i)));//, 0, columns.get(i).length -1));
+    appendToBuffer(columns.get(i), sb);
     sb.append("]"); 
     return sb.toString();
+  }
+  private void appendToBuffer(byte[] column, StringBuffer sb){
+    sb.append("(column size ");
+    int colLen = Bytes.toInt(column);
+    int pos = Bytes.SIZEOF_INT;
+    sb.append(colLen);
+    sb.append(" ,column ");
+    sb.append(new String(column, pos, colLen));
+    pos += colLen;
+    sb.append(" ,value ");
+    sb.append(new String(column, pos, column.length - pos));
+//    sb.append("), "); 
   }
   
   //Writable
@@ -123,18 +156,38 @@ public class Family implements Writable{
   throws IOException {
     this.family = Bytes.readByteArray(in);
     int nColumns = in.readInt();
-    this.columns = new byte [nColumns][];
+    this.columns = new ArrayList<byte[]>(nColumns);
     for(int i=0; i<nColumns; i++){
-      columns[i] = Bytes.readByteArray(in);
+      columns.add(Bytes.readByteArray(in));
     }
   }  
   
   public void write(final DataOutput out)
   throws IOException {
     Bytes.writeByteArray(out, this.family);
-    out.writeInt(columns.length);
+    out.writeInt(columns.size());
     for(byte [] column : columns){
       Bytes.writeByteArray(out, column);
+    }
+  }
+  
+  /**
+   * Byte array comparator class.
+   */
+  public static class FamilyComparator implements Comparator<byte[]> {
+    public FamilyComparator() {
+      super();
+    }
+    @Override
+    public int compare(byte [] left, byte [] right) {
+      return compareTo(left, right);
+    }
+    
+    private int compareTo(byte[] left, byte[] right){
+      int leftLen = Bytes.toInt(left, 0, Bytes.SIZEOF_INT);
+      int rightLen = Bytes.toInt(right, 0, Bytes.SIZEOF_INT);
+      return Bytes.compareTo(left, Bytes.SIZEOF_INT, leftLen,
+          right, Bytes.SIZEOF_INT, rightLen);
     }
   }
   

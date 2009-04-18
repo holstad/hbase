@@ -1424,6 +1424,7 @@ public class HTable {
     if(rl != null) {
       updates.setRowLock(rl.getLockId());
     }
+    updates.createKeyValuesFromColumns();
     newWriteBuffer.add(updates);
     newCurrentWriteBufferSize += updates.heapSize();
     if (autoFlush || newCurrentWriteBufferSize > writeBufferSize) {
@@ -1440,6 +1441,7 @@ public class HTable {
   public synchronized void newCommit(final List<RowUpdates> updatesList)
   throws IOException {
     for (RowUpdates updates : updatesList) {
+      updates.createKeyValuesFromColumns();
       newWriteBuffer.add(updates);
       newCurrentWriteBufferSize += updates.heapSize();
     }
