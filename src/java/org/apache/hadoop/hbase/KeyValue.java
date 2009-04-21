@@ -192,6 +192,16 @@ public class KeyValue implements Writable{
   private int offset;
   private int length;
   
+  /**
+   * Creates a KeyValue from another KeyValue
+   * @param kv
+   */
+  public KeyValue(final KeyValue kv){
+    this.bytes = kv.getBuffer();
+    this.offset = kv.getOffset();
+    this.length = kv.getLength();
+  }
+  
 
   /**
    * Creates a KeyValue from the start of the specified byte array.
@@ -565,8 +575,15 @@ public class KeyValue implements Writable{
   } 
   
   
-  
-  
+  /**
+   * Sets the current variables to the values in the passed KeyValue
+   * @param kv
+   */
+  public void set(final KeyValue kv){
+    this.bytes = kv.getBuffer();
+    this.offset = kv.getOffset();
+    this.length = kv.getLength();
+  } 
   
   
   

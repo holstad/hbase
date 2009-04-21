@@ -51,14 +51,16 @@ public interface ServerGet {
   
   public TimeRange getTimeRange();
   
-  public List<byte[]> getColumns();
+  public List<KeyValue> getColumns();
   public void setColumns(List<byte[]> columns);
+  public List<Short> getVersions();
 //  public byte [][] getColumns();
 //  public void setColumns(byte [][] columns);
   
+  public List<KeyValue> getDeletes();
+  public void setDeletes(List<KeyValue> deletes);
+  public List<KeyValue> getNewDeletes();
   
-  public void setDeletes(List<Key> deletes);
-
   public byte [] getFamily();
   public void setFamily(byte [] family);
   
@@ -71,8 +73,9 @@ public interface ServerGet {
   public long getTTL();
   public void setTTL(long ttl);
   
-  public Deletes mergeDeletes(List<Key> l1, List<Key> l2);
-  public Deletes mergeDeletes(List<Key> l1, List<Key> l2, boolean multiFamily);
+  public Deletes mergeDeletes(List<KeyValue> l1, List<KeyValue> l2);
+  public Deletes mergeDeletes(List<KeyValue> l1, List<KeyValue> l2,
+      boolean multiFamily);
   
   public String toString();
   

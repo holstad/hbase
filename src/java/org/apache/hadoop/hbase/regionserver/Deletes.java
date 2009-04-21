@@ -2,13 +2,15 @@ package org.apache.hadoop.hbase.regionserver;
 
 import java.util.List;
 
+import org.apache.hadoop.hbase.KeyValue;
+
 /**
  * Class that holds a list of deletes and a timestamp of a DeleteFamily entry
  * The DeleteFamily timestamp is 0 if there is now such entry in the list 
  *
  */
 public class Deletes {
-  List<Key> deletes = null;
+  List<KeyValue> deletes = null;
   long deleteFamily = 0L;
   
   /**
@@ -16,7 +18,7 @@ public class Deletes {
    * @param deletes
    * @param deleteFamily
    */
-  public Deletes(List<Key> deletes, long deleteFamily){
+  public Deletes(List<KeyValue> deletes, long deleteFamily){
     this.deletes = deletes;
     this.deleteFamily = deleteFamily;
   }
@@ -36,9 +38,8 @@ public class Deletes {
    * 
    * @return the list of deletes
    */
-  public List<Key> getDeletes(){
+  public List<KeyValue> getDeletes(){
     return deletes;
   }
-  
   
 }

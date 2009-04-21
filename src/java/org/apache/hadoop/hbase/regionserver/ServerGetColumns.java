@@ -11,7 +11,7 @@ import org.apache.hadoop.hbase.util.Bytes;
 
 public class ServerGetColumns extends AbstractServerGet {
   
-  private List<Key> newDeletes = new ArrayList<Key>();
+//  private List<Key> newDeletes = new ArrayList<Key>();
 
   private List<byte[]> columnsToDelete = new ArrayList<byte[]>();
   
@@ -19,18 +19,18 @@ public class ServerGetColumns extends AbstractServerGet {
 
   private boolean outOfTimeRange = false;
   
-  private final int NEXT_KV = 0;
-  private final int ADD = 1;
-  private final int NEXT_SF = 2;
-  private final int DONE = 3;
+//  private static final int NEXT_KV = 0;
+//  private static final int ADD = 1;
+//  private static final int NEXT_SF = 2;
+//  private static final int DONE = 3;
   
   public ServerGetColumns(Get get){
     super(get);
   }
   
-  public List<Key> getNewDeletes(){
-    return newDeletes;
-  }  
+//  public List<Key> getNewDeletes(){
+//    return newDeletes;
+//  }  
   
 
   /**
@@ -43,11 +43,9 @@ public class ServerGetColumns extends AbstractServerGet {
   
   public int compareTo(KeyValue kv, boolean multiFamily){
     if(isDone()){
-      return DONE;
+      return super.DONE;
     }
     
-    final boolean HAVE_DELETES = !deletes.isEmpty();
-
     int initialOffset = kv.getOffset();
     int offset = initialOffset;
     byte [] bytes = kv.getBuffer();
@@ -67,11 +65,11 @@ public class ServerGetColumns extends AbstractServerGet {
     int ret = Bytes.compareTo(row, 0, row.length, bytes, offset, rowLen);
     if(ret <= -1){
       if(outOfTimeRange){
-        return DONE;
+        return super.DONE;
       }
-      return NEXT_SF;
+      return super.NEXT_SF;
     } else if(ret >= 1){
-      return NEXT_KV; 
+      return super.NEXT_KV; 
     }
     offset += rowLen;
 
@@ -86,11 +84,11 @@ public class ServerGetColumns extends AbstractServerGet {
       ret = Bytes.compareTo(family, 0, family.length, bytes, offset, rowLen);
       if(ret <= -1){
         if(outOfTimeRange){
-          return DONE;
+          return super.DONE;
         }
-        return NEXT_SF;
+        return super.NEXT_SF;
       } else if(ret >= 1){
-        return NEXT_KV; 
+        return super.NEXT_KV; 
       }
     }
     offset += famLen;
@@ -108,38 +106,38 @@ public class ServerGetColumns extends AbstractServerGet {
     long ts = Bytes.toLong(bytes, tsOffset);
     ret = super.checkTTL(ts);
     if(ret == 0){
-      return NEXT_KV;
+      return super.NEXT_KV;
     }
 
     ret = super.get.getTimeRange().withinTimeRange(ts);
     if(ret != 1){
-      return NEXT_KV;
+      return super.NEXT_KV;
     }
 
     //Check if kv is a delete
     if(super.isDelete(bytes, initialOffset, keyLen)){
-      newDeletes.add(new Key(kv));
-      return NEXT_KV;
+      super.newDeletes.add(kv);
+      return super.NEXT_KV;
     }     
 
     //There is not going to be any ts in here, but all tss will be taken care
     //of in the TimeRange check
-    ret = super.compareColumn(bytes, offset, colLen);
+    ret = compareColumn(bytes, offset, colLen);
     if(ret <= -1){
-      return NEXT_SF;
+      return super.NEXT_SF;
     } else if(ret >= 1){
-      return NEXT_KV;
+      return super.NEXT_KV;
     }
     offset += colLen;
 
-    if(HAVE_DELETES){
+    if(!super.deletes.isEmpty()){
       ret = super.isDeleted(bytes, initialOffset, rowLen, famLen,
           colLen, multiFamily);
       if(ret != 0){
         if(ret >= 1){
           outOfTimeRange = true;
         }
-        return NEXT_KV;
+        return super.NEXT_KV;
       }
     }
     
@@ -147,31 +145,76 @@ public class ServerGetColumns extends AbstractServerGet {
     //ret = compareFilter(kv);
 
     //Includes remove from getList, TODO change for other calls
-    updateVersions();
-
-    return ADD;
+    return updateVersions();
   }
   
 /*******************************************************************************
 * Helpers 
 *******************************************************************************/  
+  //TODO These methods needs to be changed depending on the type of get you are
+  //dealing with
+  
   private boolean isDone(){
+    int len = super.columns.size();
     if(super.columns.isEmpty()){
       return true;
     }
     return false;
   }
+
   
-  
-//TODO this is one method that needs to be changed for the other gets
-  private void updateVersions(){
-    int versionPos = super.column.length-1;
-    byte versions = ++super.column[versionPos];
-    if(versions >= super.getMaxVersions()){
-      super.columnIterator.remove();
-    } else{
-      super.column[versionPos] = versions;
+  /**
+   * This method are very different than the other compares, because it will
+   * loop through the columns in the column list until the current kv is found
+   * or the column is smaller than the kv.
+   * 
+   */
+  private int compareColumn(byte[] bytes, int offset, int length){
+    if(columns != null){
+      if(super.column == null){
+        super.column = super.columns.get(super.columnPos);
+      }
     }
+    int res = 0;
+    while(true){
+      res = Bytes.compareTo(column.getBuffer(), column.getOffset(),
+          column.getLength(), bytes, offset, length);
+      if(res >= 0){
+        return res;
+      }
+//      int size = columns.size();
+      if(columnPos < columns.size()-1){
+        column = columns.get(super.columnPos++);
+      } else {
+        return res;
+      }
+    }
+  }
+  
+  
+  
+  
+  private int updateVersions(){
+    short version = 0;
+    int size = 0;
+    try{
+      size = super.versions.size();
+      version = super.versions.get(super.columnPos);
+    } catch (Exception e){
+      super.versions.add(version);
+      size = super.versions.size();
+//      return super.ADD;
+    }
+    int pos = super.columnPos;
+    version++;
+    if(version >= super.getMaxVersions()){
+      //Remove this position from list, for now, might do something else later
+      super.columns.remove(super.columnPos);
+    } else {
+      ((ArrayList<Short>)super.versions).set(super.columnPos, version);
+    }
+    size = super.versions.size();
+    return super.ADD;
   }
  
   

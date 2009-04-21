@@ -3,18 +3,14 @@ package org.apache.hadoop.hbase.regionserver;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Iterator;
-import java.util.LinkedList;
 import java.util.List;
-import java.util.ListIterator;
 
 import org.apache.hadoop.hbase.KeyValue;
 import org.apache.hadoop.hbase.io.Get;
 import org.apache.hadoop.hbase.io.GetColumns;
 import org.apache.hadoop.hbase.io.Family;
 import org.apache.hadoop.hbase.io.TimeRange;
-import org.apache.hadoop.hbase.util.Bytes;
 
-import org.apache.hadoop.hbase.regionserver.AbstractServerGet;
 
 import junit.framework.TestCase;
 
@@ -44,7 +40,7 @@ public class TestServerGetColumns extends TestCase {
   long ts1 = 0L;
   long ts2 = 0L;
   long ts3 = 0L;
-  byte versions = 0;
+  short versionsToFetch = 0;
 
   KeyValue putKv1 = null;
   KeyValue putKv2 = null;
@@ -88,7 +84,7 @@ public class TestServerGetColumns extends TestCase {
     families1 = new ArrayList<Family>();
     families1.add(new Family(fam1, col1));
     ts1 = System.nanoTime();
-    versions = 1;
+    versionsToFetch = 1;
     
     putKv1 = new KeyValue(row1, fam1, col1, ts1, KeyValue.Type.Put, val1);
     putKv2 = new KeyValue(row1, fam1, col2, ts1, KeyValue.Type.Put, val2);
@@ -109,7 +105,7 @@ public class TestServerGetColumns extends TestCase {
     putKv5 = new KeyValue(row1, fam1, col1, ts3, KeyValue.Type.Put, val1);
     delKv5 = new KeyValue(row1, fam1, col3, ts3, KeyValue.Type.Delete, val1);
     
-    Get get = new GetColumns(row1, families1, versions, ts1);
+    Get get = new GetColumns(row1, families1, versionsToFetch, ts1);
     sget = new ServerGetColumns(get);
     sget.setFamily(families1.get(0).getFamily());
     sget.setColumns(families1.get(0).getColumns());
@@ -131,13 +127,13 @@ public class TestServerGetColumns extends TestCase {
     byte [] row1 = "row1".getBytes();
     byte [] fam1 = "fam1:".getBytes();
     
-    Key ok = new Key(new KeyValue(row1, fam1));
-    Key k = new Key(ok);
+    KeyValue ok = new KeyValue(row1, fam1);
+    KeyValue k = new KeyValue(ok);
     
     updateKey(k);
     assertNotSame(ok, k);
   }
-  private void updateKey(Key k){
+  private void updateKey(KeyValue k){
     byte [] row = "row2".getBytes();
     byte [] fam = "fam2:".getBytes();
     k.set(new KeyValue(row, fam));
@@ -174,7 +170,7 @@ public class TestServerGetColumns extends TestCase {
     List<Family> families = new ArrayList<Family>();
     families.add(family);
     
-    get = new GetColumns(row1, families, versions, ts1);
+    get = new GetColumns(row1, families, versionsToFetch, ts1);
     sget = new ServerGetColumns(get);
     sget.setFamily(families.get(0).getFamily());
     sget.setColumns(families.get(0).getColumns());
@@ -221,7 +217,7 @@ public class TestServerGetColumns extends TestCase {
     List<Family> families = new ArrayList<Family>();
     families.add(family);
     
-    get = new GetColumns(row1, families, versions, ts1);
+    get = new GetColumns(row1, families, versionsToFetch, ts1);
     sget = new ServerGetColumns(get);
     sget.setFamily(families.get(0).getFamily());
     sget.setColumns(families.get(0).getColumns());
@@ -234,8 +230,8 @@ public class TestServerGetColumns extends TestCase {
     kvs.add(putKv2);
     
     //Creating a deleteList
-    List<Key> deletes = new LinkedList<Key>();
-    deletes.add(new Key(delKv1));
+    List<KeyValue> deletes = new ArrayList<KeyValue>();
+    deletes.add(delKv1);
     
     //Adding deleteList to serverGet
     sget.setDeletes(deletes);
@@ -276,7 +272,7 @@ public class TestServerGetColumns extends TestCase {
     List<Family> families = new ArrayList<Family>();
     families.add(family);
     
-    get = new GetColumns(row1, families, versions, ts);
+    get = new GetColumns(row1, families, versionsToFetch, ts);
     sget = new ServerGetColumns(get);
     sget.setFamily(families.get(0).getFamily());
     sget.setColumns(families.get(0).getColumns());
@@ -318,6 +314,7 @@ public class TestServerGetColumns extends TestCase {
     List<KeyValue> kvs = new ArrayList<KeyValue>();
     kvs.add(putKv1);
     kvs.add(putKv2);
+    kvs.add(putKv3);
     
     Iterator<KeyValue> iter = kvs.iterator();
     //Compare
@@ -345,17 +342,15 @@ public class TestServerGetColumns extends TestCase {
 
   public void testMergeDeletes_Delete_Delete(){
     //Create delete keyLists to merge
-    List<Key> l1 = new LinkedList<Key>();
-    List<Key> l2 = new LinkedList<Key>();
+    List<KeyValue> l1 = new ArrayList<KeyValue>();
+    List<KeyValue> l2 = new ArrayList<KeyValue>();
     
-    Key key1 = new Key(delKv1);
-    l1.add(key1);
+    l1.add(delKv1);
     if(PRINT){
       printList(l1);
     }
     
-    Key key2 = new Key(delKv3);
-    l2.add(key2);
+    l2.add(delKv3);
     if(PRINT){
       printList(l2);
     }
@@ -365,8 +360,8 @@ public class TestServerGetColumns extends TestCase {
     mergedDeletes = sget.mergeDeletes(l1, l2);
     
     //check result
-    for(Key key : mergedDeletes.getDeletes()){
-      assertSame(key, key2);
+    for(KeyValue key : mergedDeletes.getDeletes()){
+      assertSame(key, delKv3);
       if(PRINT) System.out.println("key " +key);
     }
     
@@ -375,8 +370,8 @@ public class TestServerGetColumns extends TestCase {
     mergedDeletes = sget.mergeDeletes(l2, l1);
     
     //check result
-    for(Key key : mergedDeletes.getDeletes()){
-      assertSame(key, key2);
+    for(KeyValue key : mergedDeletes.getDeletes()){
+      assertSame(key, delKv3);
       if(PRINT) System.out.println("key " +key);
     }
   }
@@ -384,17 +379,15 @@ public class TestServerGetColumns extends TestCase {
   
   public void testMergeDeletes_Delete_DeleteColumn(){
     //Create delete keyLists to merge
-    List<Key> l1 = new LinkedList<Key>();
-    List<Key> l2 = new LinkedList<Key>();
+    List<KeyValue> l1 = new ArrayList<KeyValue>();
+    List<KeyValue> l2 = new ArrayList<KeyValue>();
     
-    Key key1 = new Key(delKv2);
-    l1.add(key1);
+    l1.add(delKv2);
     if(PRINT){
       printList(l1);
     }
     
-    Key key2 = new Key(delKv4);
-    l2.add(key2);
+    l2.add(delKv4);
     if(PRINT){
       printList(l2);
     }
@@ -404,8 +397,8 @@ public class TestServerGetColumns extends TestCase {
     mergedDeletes = sget.mergeDeletes(l1, l2);
     
     //check result
-    for(Key key : mergedDeletes.getDeletes()){
-      assertSame(key, key2);
+    for(KeyValue key : mergedDeletes.getDeletes()){
+      assertSame(key, delKv4);
       if(PRINT){
         System.out.println("key " +key);
       }
@@ -416,8 +409,8 @@ public class TestServerGetColumns extends TestCase {
     mergedDeletes = sget.mergeDeletes(l2, l1);
     
     //check result
-    for(Key key : mergedDeletes.getDeletes()){
-      assertSame(key, key2);
+    for(KeyValue key : mergedDeletes.getDeletes()){
+      assertSame(key, delKv4);
       if(PRINT){
         System.out.println("key " +key);
       }
@@ -427,17 +420,15 @@ public class TestServerGetColumns extends TestCase {
 
   public void testMergeDeletes_DeleteColumn_DeleteColumn(){
     //Create delete keyLists to merge
-    List<Key> l1 = new LinkedList<Key>();
-    List<Key> l2 = new LinkedList<Key>();
+    List<KeyValue> l1 = new ArrayList<KeyValue>();
+    List<KeyValue> l2 = new ArrayList<KeyValue>();
     
-    Key key1 = new Key(delKv21);
-    l1.add(key1);
+    l1.add(delKv21);
     if(PRINT){
       printList(l1);
     }
     
-    Key key2 = new Key(delKv41);
-    l2.add(key2);
+    l2.add(delKv41);
     if(PRINT){
       printList(l2);
     }
@@ -447,8 +438,8 @@ public class TestServerGetColumns extends TestCase {
     mergedDeletes = sget.mergeDeletes(l1, l2);
     
     //check result
-    for(Key key : mergedDeletes.getDeletes()){
-      assertSame(key, key2);
+    for(KeyValue key : mergedDeletes.getDeletes()){
+      assertSame(key, delKv41);
       if(PRINT) System.out.println("key " +key);
     }
     
@@ -457,8 +448,8 @@ public class TestServerGetColumns extends TestCase {
     mergedDeletes = sget.mergeDeletes(l2, l1);
     
     //check result
-    for(Key key : mergedDeletes.getDeletes()){
-      assertSame(key, key2);
+    for(KeyValue key : mergedDeletes.getDeletes()){
+      assertSame(key, delKv41);
       if(PRINT) System.out.println("key " +key);
     }
   }  
@@ -466,20 +457,20 @@ public class TestServerGetColumns extends TestCase {
   
   public void testMergeDeletes(){
     //Create delete keyLists to merge
-    List<Key> l1 = new LinkedList<Key>();
-    List<Key> l2 = new LinkedList<Key>();
+    List<KeyValue> l1 = new ArrayList<KeyValue>();
+    List<KeyValue> l2 = new ArrayList<KeyValue>();
     
-    Key oldKey1 = new Key(delKv1);
-    Key oldKey2 = new Key(delKv4);
+    KeyValue oldKey1 = delKv1;
+    KeyValue oldKey2 = delKv4;
     l1.add(oldKey1);
     l1.add(oldKey2);
     if(PRINT){
       printList(l1);
     }
     
-    Key newKey1 = new Key(delKv3);
-    Key newKey2 = new Key(delKv2);
-    Key newKey3 = new Key(delKv5);
+    KeyValue newKey1 = delKv3;
+    KeyValue newKey2 = delKv2;
+    KeyValue newKey3 = delKv5;
     l2.add(newKey1);
     l2.add(newKey2);
     l2.add(newKey3);
@@ -487,7 +478,7 @@ public class TestServerGetColumns extends TestCase {
       printList(l2);
     }
     
-    Key [] resultArr = new Key[3];
+    KeyValue [] resultArr = new KeyValue[3];
     resultArr[0] = newKey1;
     resultArr[1] = oldKey2;
     resultArr[2] = newKey3;
@@ -497,7 +488,7 @@ public class TestServerGetColumns extends TestCase {
     
     //check result
     int i = 0;
-    for(Key key : mergedDeletes.getDeletes()){
+    for(KeyValue key : mergedDeletes.getDeletes()){
       assertSame(key, resultArr[i++]);
       if(PRINT) System.out.println("key " +key);
     }
@@ -507,10 +498,10 @@ public class TestServerGetColumns extends TestCase {
   
   public void testCompare_updateVersions()
   throws IOException{
-    versions = 4;
+    versionsToFetch = 4;
     ts = System.nanoTime();
     tr = new TimeRange(ts, ts1);
-    get = new GetColumns(row1, families1, versions, tr);
+    get = new GetColumns(row1, families1, versionsToFetch, tr);
     sget = new ServerGetColumns(get);
     sget.setFamily(families1.get(0).getFamily());
     sget.setColumns(families1.get(0).getColumns());
@@ -542,17 +533,16 @@ public class TestServerGetColumns extends TestCase {
       if(PRINT) System.out.println("fetching next value from store\n");
     }
 
-    List<byte[]> columns = sget.getColumns();
-    int len = 0;
-    for(byte [] column : columns){
-      len = column.length;
-      assertEquals(3, column[len - 1]);
+    List<Short> versions = sget.getVersions();
+    for(short version : versions){
+      if(PRINT) System.out.println("versions fetched " +version);
+      assertEquals(3, version);
     }
   }
   
   public void testCompare_timeRange()
   throws IOException{
-    versions = 4;
+    versionsToFetch = 4;
     List<KeyValue> kvs = new ArrayList<KeyValue>();
     kvs.add(putKv5);
     kvs.add(putKv4);
@@ -568,7 +558,7 @@ public class TestServerGetColumns extends TestCase {
     
     //Getting 1 value
     tr = new TimeRange(ts2, ts1);
-    get = new GetColumns(row1, families1, versions, tr);
+    get = new GetColumns(row1, families1, versionsToFetch, tr);
     sget = new ServerGetColumns(get);
     sget.setFamily(families1.get(0).getFamily());
     sget.setColumns(families1.get(0).getColumns());
@@ -594,13 +584,11 @@ public class TestServerGetColumns extends TestCase {
       if(PRINT) System.out.println("fetching next value from store\n");
     }
     
-    columns = sget.getColumns();
-    for(byte [] column : columns){
-      len = column.length;
-      if(PRINT) System.out.println("versions fetched " + column[len - 1]);
-      assertEquals(1, column[len - 1]);
-    }   
-    
+    List<Short> versions = sget.getVersions();
+    for(short version : versions){
+      if(PRINT) System.out.println("versions fetched " +version);
+      assertEquals(1, version);
+    }
     
     //Getting 2 value
     tr = new TimeRange(ts3, ts1);
@@ -609,7 +597,7 @@ public class TestServerGetColumns extends TestCase {
     families1.add(family);
 //    families1 = new Family[]{new Family(fam1, col1)};
 
-    get = new GetColumns(row1, families1, versions, tr);
+    get = new GetColumns(row1, families1, versionsToFetch, tr);
     sget = new ServerGetColumns(get);
     sget.setFamily(families1.get(0).getFamily());
     sget.setColumns(families1.get(0).getColumns());
@@ -635,19 +623,18 @@ public class TestServerGetColumns extends TestCase {
       if(PRINT) System.out.println("fetching next value from store\n");
     }
     
-    columns = sget.getColumns();
-    for(byte [] column : columns){
-      len = column.length;
-      if(PRINT) System.out.println("versions fetched " + column[len - 1]);
-      assertEquals(2, column[len - 1]);
-    }     
+    versions = sget.getVersions();
+    for(short version : versions){
+      if(PRINT) System.out.println("versions fetched " +version);
+      assertEquals(2, version);
+    }  
     
     
     //Getting 3 value
     ts = System.nanoTime();
     tr = new TimeRange(ts, ts1);
 //    families1 = new Family[]{new Family(fam1, col1)};
-    get = new GetColumns(row1, families1, versions, tr);
+    get = new GetColumns(row1, families1, versionsToFetch, tr);
     sget = new ServerGetColumns(get);
     sget.setFamily(families1.get(0).getFamily());
     sget.setColumns(families1.get(0).getColumns());
@@ -673,11 +660,10 @@ public class TestServerGetColumns extends TestCase {
       if(PRINT) System.out.println("fetching next value from store\n");
     }
     
-    columns = sget.getColumns();
-    for(byte [] column : columns){
-      len = column.length;
-      if(PRINT) System.out.println("versions fetched " + column[len - 1]);
-      assertEquals(3, column[len - 1]);
+    versions = sget.getVersions();
+    for(short version : versions){
+      if(PRINT) System.out.println("versions fetched " +version);
+      assertEquals(3, version);
     }
   }
   

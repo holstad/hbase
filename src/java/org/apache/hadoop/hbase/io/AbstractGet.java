@@ -16,7 +16,7 @@ public abstract class AbstractGet implements Get {
   //if this is changed to support more versions than this it also needs to be
   //changed in the family class and in the updates of the versions in the 
   //serverGets
-  byte versions = 0;
+  short versions = 0;
   TimeRange tr = new TimeRange();
   RowFilterInterface filter = null;
   
@@ -50,11 +50,11 @@ public abstract class AbstractGet implements Get {
   }
   
   @Override
-  public byte getVersions(){
+  public short getVersions(){
     return this.versions;
   }
   @Override
-  public void setVersions(byte versions){
+  public void setVersions(short versions){
     this.versions = versions;
   }
   

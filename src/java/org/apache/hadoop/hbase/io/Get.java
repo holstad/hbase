@@ -25,8 +25,8 @@ public interface Get extends Writable{
   
   public TimeRange getTimeRange();
   
-  public byte getVersions();
-  public void setVersions(byte versions);
+  public short getVersions();
+  public void setVersions(short versions);
   
   //Writable
   public void readFields(final DataInput in) throws IOException;

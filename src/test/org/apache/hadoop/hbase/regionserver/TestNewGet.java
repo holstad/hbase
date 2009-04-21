@@ -128,7 +128,7 @@ public class TestNewGet extends HBaseTestCase implements HConstants {
 
       // Testing getting from storeFile
       results = new ArrayList<KeyValue>();
-      get = new GetColumns(row, getFam, col2, (byte) 1, null);
+      get = new GetColumns(row, getFam, col2, (short)1, null);
 
       results = region.newget(get, results, null);
       System.out.println("got result with size " + results.size());
@@ -152,7 +152,7 @@ public class TestNewGet extends HBaseTestCase implements HConstants {
 
       // Testing getting from memcache and storeFile 2 versions
       results = new ArrayList<KeyValue>();
-      get = new GetColumns(row, getFam, col2, (byte)2, null);
+      get = new GetColumns(row, getFam, col2, (short)2, null);
 
       results = region.newget(get, results, null);
       System.out.println("got result with size " + results.size());
@@ -182,7 +182,7 @@ public class TestNewGet extends HBaseTestCase implements HConstants {
       List<byte[]> columns = new ArrayList<byte[]>(2);
       columns.add(col2);
       columns.add(col4);
-      get = new GetColumns(row, getFam, columns, (byte)3, null);
+      get = new GetColumns(row, getFam, columns, (short)3, null);
 
       long start = 0L;
       long stop = 0L;

@@ -13,20 +13,18 @@ import org.apache.hadoop.hbase.io.TimeRange;
 import org.apache.hadoop.hbase.util.Bytes;
 
 public abstract class AbstractServerGet implements ServerGet{
+  
+  protected static final int NEXT_KV = 0;
+  protected static final int ADD = 1;
+  protected static final int NEXT_SF = 2;
+  protected static final int DONE = 3;
+  
+  
 //  byte[] row = null;
 //  Family family = null;
 //  TimeRange tr = null;
   protected Get get = null;
   private byte [] family = null;
-  
-  private Iterator<Key> deleteIterator = null;
-  private Key delete = null;
-  private byte [] deleteFamilyBytes = null;
-
-
-  protected Iterator<byte[]> columnIterator = null;
-  protected byte [] column = null;
-  
   
   private static final int KEY_OFFSET = 2*Bytes.SIZEOF_INT;
   private static final int KEY_SIZES = Bytes.SIZEOF_SHORT + Bytes.SIZEOF_BYTE +
@@ -47,11 +45,22 @@ public abstract class AbstractServerGet implements ServerGet{
   //an AbstractList so you can't use remove and it is also like 10x slower than
   //doing it yourself in a for loop.
   //So using ArrayLists for everything for now.
-  List<byte[]> columns = null;
-
+//  protected List<byte[]> columns = null;
+//  protected Iterator<byte[]> columnIterator = null;
+//  protected byte [] column = null;
+  protected List<KeyValue> columns = null;
+//  protected Iterator<KeyValue> columnIterator = null;
+  protected int columnPos = 0; 
+  protected KeyValue column = null;
+  protected List<Short> versions = null;
+  
   
   //Same thing as above goes for this
-  List<Key> deletes = new ArrayList<Key>();
+  protected List<KeyValue> deletes = new ArrayList<KeyValue>();
+  private Iterator<KeyValue> deleteIterator = null;
+  private KeyValue delete = null;
+  private byte [] deleteFamilyBytes = null;
+  protected List<KeyValue> newDeletes = new ArrayList<KeyValue>();
 
   RowFilterInterface filter = null;
   
@@ -60,14 +69,15 @@ public abstract class AbstractServerGet implements ServerGet{
   
   public AbstractServerGet(Get get){
     this.get = get;
-    this.columns = new ArrayList<byte []>();
-    this.deletes = new ArrayList<Key>();
+//    this.columns = new ArrayList<byte []>();
+    this.columns = new ArrayList<KeyValue>();
+    this.deletes = new ArrayList<KeyValue>();
+    this.versions = new ArrayList<Short>();
   }
   
   public void clear(){
     this.column = null;
-    this.columnIterator = null;
-    
+//    this.columnIterator = null;
     this.delete = null;
     this.deleteIterator = null;
   }
@@ -95,26 +105,40 @@ public abstract class AbstractServerGet implements ServerGet{
   }
 
   @Override
-  public List<byte[]> getColumns(){
+  public List<KeyValue> getColumns(){
     return columns; 
   }
   @Override
   public void setColumns(List<byte[]> columns){
-    this.columns = columns; 
+    this.columns.clear();
+    for(byte[] column : columns){
+      this.columns.add(new KeyValue(column, 0, column.length));
+    }
   }
+  @Override
+  public List<Short> getVersions(){
+    return this.versions;
+  }
+  
 //  @Override
 //  public void setColumns(byte [][] columns){
 //    for(int i=0; i<columns.length; i++){
 //      this.columns.add(columns[i]);
 //    }
-//  }  
-  public List<Key> getDeletes(){
+//  }
+  @Override
+  public List<KeyValue> getDeletes(){
     return deletes; 
   }
   
   @Override
-  public void setDeletes(List<Key> deletes) {
+  public void setDeletes(List<KeyValue> deletes) {
     this.deletes = deletes;
+  }
+  
+  @Override
+  public List<KeyValue> getNewDeletes(){
+    return newDeletes;
   }
  
   @Override
@@ -151,21 +175,11 @@ public abstract class AbstractServerGet implements ServerGet{
     return compareTo(kv, false);
   }
   
-//  public byte getVersion(){
-//    byte [] currentColumn = columns.getCurrent();
-//    return currentColumn[currentColumn.length-1];
-//  }
-//  
-//  public void setVersion(byte version){
-//    byte [] currentColumn = columns.getCurrent();
-//    currentColumn[currentColumn.length-1] = version;
-//  }
   
   public int getMaxVersions(){
     return get.getVersions();
   }
   
-
   protected int checkTTL(byte [] bytes, int offset){
     //Check if KeyValue is still alive
     if((this.now - this.ttl) > Bytes.toLong(bytes, offset)){
@@ -190,28 +204,40 @@ public abstract class AbstractServerGet implements ServerGet{
    * This method are very different than the other compares, because it will
    * loop through the columns in the column list until the current kv is found
    * or the column is smaller than the kv.
+   * 
+   * The structure of the column is byte[int columnSize, byte[] column,
+   * byte versions fetched]
    */
-  protected int compareColumn(byte [] bytes, int offset, int colLen){
-    if(columnIterator == null){
-      columnIterator = columns.iterator();
-      if(columnIterator.hasNext()){
-        column = columnIterator.next();
-      }
-    }
+//  protected int compareColumn(byte [] bytes, int offset, int length){
+//    if(columnIterator == null){
+//      columnIterator = columns.iterator();
+//      if(columnIterator.hasNext()){
+//        column = columnIterator.next();
+//      }
+//    }
+//
+//    int res = 0;
+//    while(true){
+//      res = Bytes.compareTo(column.getBuffer(), column.getOffset(),
+//          column.getLength(), bytes, offset, length);
+//      if(res >= 0){
+//        return res;
+//      }
+//      if(columnIterator.hasNext()){
+//        column = columnIterator.next();
+//      } else {
+//        return res;
+//      }
+//    }
+//  }
 
-    int res = 0;
-    while(true){
-      res = Bytes.compareTo(column, 0, column.length-1, bytes, offset, colLen);
-      if(res >= 0){
-        return res;
-      }
-      if(columnIterator.hasNext()){
-        column = columnIterator.next();
-      } else {
-        return res;
-      }
-    }
-  }
+  
+  
+  
+
+  
+  
+  
   
   protected int isDeleted(byte [] currBytes, int initCurrOffset,
     short currRowLen, byte currFamLen, int currColLen, boolean multiFamily){
@@ -335,19 +361,20 @@ public abstract class AbstractServerGet implements ServerGet{
   
 
   @Override
-  public Deletes mergeDeletes(List<Key> l1, List<Key> l2){
+  public Deletes mergeDeletes(List<KeyValue> l1, List<KeyValue> l2){
     return mergeDeletes(l1, l2, false);
   }
   
   
   //This method should not be here
   @Override
-  public Deletes mergeDeletes(List<Key> l1, List<Key> l2, boolean multiFamily){
+  public Deletes mergeDeletes(List<KeyValue> l1, List<KeyValue> l2,
+      boolean multiFamily){
     //TODO Add check for deleteFamily
     long deleteFamily = 0L;
     
 //    List<Key> mergedDeletes = new LinkedList<Key>();
-    List<Key> mergedDeletes = new ArrayList<Key>();
+    List<KeyValue> mergedDeletes = new ArrayList<KeyValue>();
 
     if(l1.isEmpty()){
       if(l2.isEmpty()){
@@ -357,10 +384,10 @@ public abstract class AbstractServerGet implements ServerGet{
       return new Deletes(l1, 0);
     }
     
-    Iterator<Key> l1Iter = l1.iterator();
-    Key k1 = null;
-    Iterator<Key> l2Iter = l2.iterator();
-    Key k2  = l2Iter.next();
+    Iterator<KeyValue> l1Iter = l1.iterator();
+    KeyValue k1 = null;
+    Iterator<KeyValue> l2Iter = l2.iterator();
+    KeyValue k2  = l2Iter.next();
     
     //Check for deleteFamily, only need to do on the second argument since the
     //first one is already checked
@@ -386,7 +413,8 @@ public abstract class AbstractServerGet implements ServerGet{
     while(l1Iter.hasNext()){
       k1 = l1Iter.next();
       while(true){
-        ret = compareDeleteKeys(k1, k2, multiFamily);
+//        ret = compareDeleteKeys(k1, k2, multiFamily);
+        ret = compare(k1, k2, multiFamily);
         if(ret == -3){
           if(l2Iter.hasNext()){
             k2 = l2Iter.next();
@@ -474,7 +502,9 @@ public abstract class AbstractServerGet implements ServerGet{
    * @return -2 if k1 was a deleteColumn, -1 if k1 should be kept, 0 if same, 
    * 1 if k2 should be kept and 2 if k2 was a deleteColumn
    */
-  private int compareDeleteKeys(Key k1, Key k2, boolean multiFamily){
+//  protected int compareDeleteKeys(Key k1, Key k2, boolean multiFamily){
+  protected int compare(KeyValue k1, KeyValue k2, boolean multiFamily){
+
     byte [] k1Bytes = k1.getBuffer();
     int k1Offset = k1.getOffset();
 
@@ -582,34 +612,34 @@ public abstract class AbstractServerGet implements ServerGet{
    * 
    * @return a string representation of the object
    */
-  public String toString(){
-    StringBuffer sb = new StringBuffer();
-    sb.append("/");
-    sb.append(new String(this.family));
-    sb.append(", columns[");
-    int i=0;
-    byte [] col = null;
-    int len = 0;
-    for(; i<columns.size()-1; i++){
-      col = columns.get(i);
-      len = col.length;
-      sb.append(new String(col, 0, len-2));
-      sb.append("-");
-      //The number of versions fetched
-      sb.append(col[len-1]);
-      sb.append(", ");
-    }
-    if(columns != null && columns.size() > 0){
-      col = columns.get(i);
-      len = col.length;
-      sb.append(new String(col, 0, col.length-2));
-      sb.append("-");
-      //The number of versions fetched
-      sb.append(col[len-1]);
-    }
-    sb.append("]");    
-    
-   return sb.toString(); 
-  }
+//  public String toString(){
+//    StringBuffer sb = new StringBuffer();
+//    sb.append("/");
+//    sb.append(new String(this.family));
+//    sb.append(", columns[");
+//    int i=0;
+//    byte [] col = null;
+//    int len = 0;
+//    for(; i<columns.size()-1; i++){
+//      col = columns.get(i);
+//      len = col.length;
+//      sb.append(new String(col, 0, len-2));
+//      sb.append("-");
+//      //The number of versions fetched
+//      sb.append(col[len-1]);
+//      sb.append(", ");
+//    }
+//    if(columns != null && columns.size() > 0){
+//      col = columns.get(i);
+//      len = col.length;
+//      sb.append(new String(col, 0, col.length-2));
+//      sb.append("-");
+//      //The number of versions fetched
+//      sb.append(col[len-1]);
+//    }
+//    sb.append("]");    
+//    
+//   return sb.toString(); 
+//  }
   
 }
