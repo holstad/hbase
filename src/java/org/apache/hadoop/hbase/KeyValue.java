@@ -28,16 +28,17 @@ import org.apache.hadoop.io.Writable;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+
 import org.apache.hadoop.hbase.util.Bytes;
 
 
 /**
  * An HBase Key/Value.  Instances of this class are immutable.  They are not
  * comparable but Comparators are provided  Comparators change with context,
- * whether its user table context or a catalog table comparison context.  Its
+ * whether user table or a catalog table comparison context.  Its
  * important that you use the appropriate comparator comparing rows in
  * particular.  There are Comparators for KeyValue instances and then for
- * just the Key port of a KV for use mostly in {@link HFile}.
+ * just the Key portion of a KeyValue used mostly in {@link HFile}.
  * 
  * <p>KeyValue wraps a byte array and has offset and length for passed array
  * at where to start interpreting the content as a KeyValue blob.  The KeyValue
@@ -48,6 +49,9 @@ import org.apache.hadoop.hbase.util.Bytes;
  * Rowlength maximum is Short.MAX_SIZE, column family length maximum is
  * Byte.MAX_SIZE, and column qualifier + key length must be < Integer.MAX_SIZE.
  * The column does not contain the family/qualifier delimiter.
+ * 
+ * <p>TODO: Group Key-only compartors and operations into a Key class, just
+ * for neatness sake, if can figure what to call it.
  */
 public class KeyValue implements Writable{
   static final Log LOG = LogFactory.getLog(KeyValue.class);
@@ -63,7 +67,12 @@ public class KeyValue implements Writable{
   public static KVComparator COMPARATOR = new KVComparator();
 
   /**
+<<<<<<< HEAD:src/java/org/apache/hadoop/hbase/KeyValue.java
    * Comparator for plain key; i.e. non-catalog table key.
+=======
+   * Comparator for plain key; i.e. non-catalog table key.  Works on Key portion
+   * of KeyValue only.
+>>>>>>> hbase/trunk:src/java/org/apache/hadoop/hbase/KeyValue.java
    */
   public static KeyComparator KEY_COMPARATOR = new KeyComparator();
 
@@ -93,6 +102,11 @@ public class KeyValue implements Writable{
 
   /**
    * Comparator that compares the family portion of columns only.
+<<<<<<< HEAD:src/java/org/apache/hadoop/hbase/KeyValue.java
+=======
+   * Use this making NavigableMaps of Stores or when you need to compare
+   * column family portion only of two column names.
+>>>>>>> hbase/trunk:src/java/org/apache/hadoop/hbase/KeyValue.java
    */
   public static final RawComparator<byte []> FAMILY_COMPARATOR =
     new RawComparator<byte []> () {
@@ -135,8 +149,13 @@ public class KeyValue implements Writable{
 
   /**
    * Key type.
+<<<<<<< HEAD:src/java/org/apache/hadoop/hbase/KeyValue.java
    * Has space to allow other key types to be added later.  Cannot rely on
    * enum ordinals.. they change if item is removed or moved.  Do our own codes.
+=======
+   * Has space for other key types to be added later.  Cannot rely on
+   * enum ordinals . They change if item is removed or moved.  Do our own codes.
+>>>>>>> hbase/trunk:src/java/org/apache/hadoop/hbase/KeyValue.java
    */
   public static enum Type {
     Put((byte)4),
@@ -157,8 +176,10 @@ public class KeyValue implements Writable{
     }
 
     /**
+     * Cannot rely on enum ordinals . They change if item is removed or moved.
+     * Do our own codes.
      * @param b
-     * @return
+     * @return Type associated with passed code.
      */
     public static Type codeToType(final byte b) {
       // This is messy repeating each type here below but no way around it; we
@@ -180,13 +201,15 @@ public class KeyValue implements Writable{
 
   /**
    * Lowest possible key.
+<<<<<<< HEAD:src/java/org/apache/hadoop/hbase/KeyValue.java
+=======
+   * Makes a Key with highest possible Timestamp, empty row and column.  No
+   * key can be equal or lower than this one in memcache or in store file.
+>>>>>>> hbase/trunk:src/java/org/apache/hadoop/hbase/KeyValue.java
    */
   public static final KeyValue LOWESTKEY = 
     new KeyValue(HConstants.EMPTY_BYTE_ARRAY, HConstants.LATEST_TIMESTAMP);
   
-//  private final byte [] bytes;
-//  private final int offset;
-//  private final int length;
   
   private byte [] bytes;
   private int offset;
@@ -418,6 +441,21 @@ public class KeyValue implements Writable{
     this.offset = 0;
   }
 
+  /**
+   * Write KeyValue format into a byte array.
+   * @param row
+   * @param roffset
+   * @param rlength
+   * @param column
+   * @param coffset
+   * @param clength
+   * @param timestamp
+   * @param type
+   * @param value
+   * @param voffset
+   * @param vlength
+   * @return
+   */
   static byte [] createByteArray(final byte [] row, final int roffset,
         final int rlength,
       final byte [] column, final int coffset, int clength,
@@ -488,28 +526,13 @@ public class KeyValue implements Writable{
     this.bytes = createByteArray(row, 0, row==null ? 0 : row.length, family, 0,
         family==null ? 0 : family.length, qualifier, qoffset, qlength, 
         Bytes.toBytes(timestamp), type, value, voffset, vlength);
-//    this.bytes = createByteArray(row, family, qualifier,
-//        Bytes.toBytes(timestamp), type, value);
   }
   
-//  public KeyValue(final byte [] row, final byte [] family,
-//      final byte [] qualifier, final byte [] timestamp, Type type,
-//      final byte [] value) {
-//    this.bytes = createByteArray(row, 0, row.length, family, 0, family.length,
-//        qualifier, 0, qualifier.length, timestamp, type, value, 0,
-//        value.length);
-//    this.length = bytes.length;
-//    this.offset = 0;
-//  }
-
   static byte [] createByteArray(final byte [] row, final int roffset,
       int rlength, final byte [] family, final int foffset, int flength,
       final byte [] qualifier, final int qoffset, int qlength,
       final byte [] timestamp, final Type type, final byte [] value,
       final int voffset, int vlength) {
-//  static byte [] createByteArray(final byte [] row, final byte [] family,
-//      final byte [] qualifier, final byte [] timestamp, final Type type,
-//      final byte [] value) {
 
     //Checking for null values
     if(row == null) {
@@ -526,29 +549,19 @@ public class KeyValue implements Writable{
     }
 
     //Setting up and checking lengths
-//    rlength = row.length;
     if (rlength > Short.MAX_VALUE) {
       throw new IllegalArgumentException("Row > " + Short.MAX_VALUE);
     }
     
-//    flength = family.length;
     if (flength > Byte.MAX_VALUE) {
       throw new IllegalArgumentException("family > " + Byte.MAX_VALUE);
     }
     
-//    qlength = qualifier.length;
-
     long longkeylength = KEY_INFRASTRUCTURE_SIZE + rlength + flength + qlength;
     if (longkeylength > Integer.MAX_VALUE) {
       throw new IllegalArgumentException("keylength " + longkeylength + " > " + Integer.MAX_VALUE);
     }
     int keylength = (int)longkeylength;  
-    
-//    long longvlength = value.length;
-//    if (longvlength > Integer.MAX_VALUE) {
-//      throw new IllegalArgumentException("value > " + Integer.MAX_VALUE);
-//    }
-//    vlength = (int)longvlength;
     
     // Allocate right-sized byte array.
     byte [] bytes = new byte[KEYVALUE_INFRASTRUCTURE_SIZE + keylength + vlength];
@@ -587,6 +600,7 @@ public class KeyValue implements Writable{
   
   
   
+  // Needed doing 'contains' on List.
   public boolean equals(Object other) {
     KeyValue kv = (KeyValue)other;
     // Comparing bytes should be fine doing equals test.  Shouldn't have to
@@ -649,7 +663,11 @@ public class KeyValue implements Writable{
   }
 
   /**
+<<<<<<< HEAD:src/java/org/apache/hadoop/hbase/KeyValue.java
    * @param b
+=======
+   * @param b Key portion of a KeyValue.
+>>>>>>> hbase/trunk:src/java/org/apache/hadoop/hbase/KeyValue.java
    * @return Key as a String.
    */
   public static String keyToString(final byte [] k) {
@@ -657,7 +675,11 @@ public class KeyValue implements Writable{
   }
 
   /**
+<<<<<<< HEAD:src/java/org/apache/hadoop/hbase/KeyValue.java
    * @param b
+=======
+   * @param b Key portion of a KeyValue.
+>>>>>>> hbase/trunk:src/java/org/apache/hadoop/hbase/KeyValue.java
    * @param o Offset to start of key
    * @param l Length of key.
    * @return Key as a String.
@@ -715,13 +737,17 @@ public class KeyValue implements Writable{
   }
 
   /**
-   * @return Copy of the key.  Used compacting and testing.
+   * @return Copy of the key portion only.  Used compacting and testing.
    */
   public byte [] getKey() {
     int keylength = getKeyLength();
     byte [] key = new byte[keylength];
     System.arraycopy(getBuffer(), getKeyOffset(), key, 0, keylength);
     return key;
+  }
+
+  public String getKeyString() {
+    return Bytes.toString(getBuffer(), getKeyOffset(), getKeyLength());
   }
 
   /**
@@ -888,6 +914,10 @@ public class KeyValue implements Writable{
   /**
    * @param column Column minus its delimiter
    * @return True if column matches.
+<<<<<<< HEAD:src/java/org/apache/hadoop/hbase/KeyValue.java
+=======
+   * @see #matchingColumn(byte[])
+>>>>>>> hbase/trunk:src/java/org/apache/hadoop/hbase/KeyValue.java
    */
   public boolean matchingColumnNoDelimiter(final byte [] column) {
     int o = getColumnOffset();
@@ -911,6 +941,15 @@ public class KeyValue implements Writable{
       column, index + 1, column.length - (index + 1)) == 0;
   }
 
+  /**
+   * @param left
+   * @param loffset
+   * @param llength
+   * @param right
+   * @param roffset
+   * @param rlength
+   * @return
+   */
   static int compareColumns(final byte [] left, final int loffset,
       final int llength, final byte [] right, final int roffset,
       final int rlength) {
@@ -970,7 +1009,7 @@ public class KeyValue implements Writable{
     return getRequiredDelimiter(b, offset, length, COLUMN_FAMILY_DELIMITER);
   }
 
-  static int getRequiredDelimiter(final byte [] b,
+  private static int getRequiredDelimiter(final byte [] b,
       final int offset, final int length, final int delimiter) {
     int index = getDelimiter(b, offset, length, delimiter);
     if (index < 0) {
@@ -1041,6 +1080,11 @@ public class KeyValue implements Writable{
     public KeyComparator getRawComparator() {
       return this.rawcomparator;
     }
+
+    @Override
+    protected Object clone() throws CloneNotSupportedException {
+      return new RootComparator();
+    }
   }
 
   /**
@@ -1052,6 +1096,11 @@ public class KeyValue implements Writable{
 
     public KeyComparator getRawComparator() {
       return this.rawcomparator;
+    }
+
+    @Override
+    protected Object clone() throws CloneNotSupportedException {
+      return new MetaComparator();
     }
   }
 
@@ -1483,54 +1532,6 @@ public class KeyValue implements Writable{
       return 0;
     }
     
-    
-//    public int compare(byte[] left, int loffset, int llength, byte[] right,
-//        int roffset, int rlength) {
-//      // Compare row
-//      short lrowlength = Bytes.toShort(left, loffset);
-//      short rrowlength = Bytes.toShort(right, roffset);
-//      int compare = compareRows(left, loffset + Bytes.SIZEOF_SHORT,
-//          lrowlength,
-//          right, roffset + Bytes.SIZEOF_SHORT, rrowlength);
-//      if (compare != 0) {
-//        return compare;
-//      }
-//
-//      // Compare column family.  Start compare past row and family length.
-//      int lcolumnoffset = Bytes.SIZEOF_SHORT + lrowlength + 1 + loffset;
-//      int rcolumnoffset = Bytes.SIZEOF_SHORT + rrowlength + 1 + roffset;
-//      int lcolumnlength = llength - TIMESTAMP_TYPE_SIZE -
-//        (lcolumnoffset - loffset);
-//      int rcolumnlength = rlength - TIMESTAMP_TYPE_SIZE -
-//        (rcolumnoffset - roffset);
-//      compare = Bytes.compareTo(left, lcolumnoffset, lcolumnlength, right,
-//          rcolumnoffset, rcolumnlength);
-//      if (compare != 0) {
-//        return compare;
-//      }
-//
-//      if (!this.ignoreTimestamp) {
-//        // Get timestamps.
-//        long ltimestamp = Bytes.toLong(left,
-//            loffset + (llength - TIMESTAMP_TYPE_SIZE));
-//        long rtimestamp = Bytes.toLong(right,
-//            roffset + (rlength - TIMESTAMP_TYPE_SIZE));
-//        compare = compareTimestamps(ltimestamp, rtimestamp);
-//        if (compare != 0) {
-//          return compare;
-//        }
-//      }
-//
-//      if (!this.ignoreType) {
-//        // Compare types. Let the delete types sort ahead of puts; i.e. types
-//        // of higher numbers sort before those of lesser numbers
-//        byte ltype = left[loffset + (llength - 1)];
-//        byte rtype = right[roffset + (rlength - 1)];
-//        return (0xff & rtype) - (0xff & ltype);
-//      }
-//      return 0;
-//    }
-
     public int compare(byte[] left, byte[] right) {
       return compare(left, 0, left.length, right, 0, right.length);
     }
@@ -1558,7 +1559,6 @@ public class KeyValue implements Writable{
       return 0;
     }
   }
-  
   
   
   //Writable

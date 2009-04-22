@@ -341,7 +341,6 @@ public class HConnectionManager implements HConstants {
         public boolean processRow(RowResult rowResult) throws IOException {
           HRegionInfo info = Writables.getHRegionInfo(
               rowResult.get(HConstants.COL_REGIONINFO));
-
           // Only examine the rows where the startKey is zero length
           if (info.getStartKey().length == 0) {
             uniqueTables.add(info.getTableDesc());
@@ -563,18 +562,7 @@ public class HConnectionManager implements HConstants {
             throw new TableNotFoundException(Bytes.toString(tableName));
           }
 
-          Cell value = regionInfoRow.get(HConstants.COL_REGIONINFO);
-          //Eriks
-          if (LOG.isDebugEnabled()) {
-            LOG.debug("regionInfoRow " +regionInfoRow);
-            if(value == null){
-              LOG.debug("value length = null");
-            } else {
-              LOG.debug("value length = " +value.getValue().length);
-            }
-                
-          }
-          
+          Cell value = regionInfoRow.get(COL_REGIONINFO);
           if (value == null || value.getValue().length == 0) {
             throw new IOException("HRegionInfo was null or empty in " + 
               Bytes.toString(parentTable));
@@ -902,7 +890,6 @@ public class HConnectionManager implements HConstants {
     public <T> T getRegionServerWithRetries(ServerCallable<T> callable) 
     throws IOException, RuntimeException {
       getMaster();
-
       List<Throwable> exceptions = new ArrayList<Throwable>();
       for(int tries = 0; tries < numRetries; tries++) {
         try {
@@ -919,17 +906,11 @@ public class HConnectionManager implements HConstants {
             throw (DoNotRetryIOException)t;
           }
           exceptions.add(t);
-          
-          if(t instanceof NullPointerException){
-            throw new IOException(t);
-          }
-          
           if (tries == numRetries - 1) {
             throw new RetriesExhaustedException(callable.getServerName(),
                 callable.getRegionName(), callable.getRow(), tries, exceptions);
           }
         }
-        
         try {
           Thread.sleep(getPauseTime(tries));
         } catch (InterruptedException e) {
@@ -1060,8 +1041,6 @@ public class HConnectionManager implements HConstants {
       }
     }
 
-    
-    
     //Everything should be grouped by row and families when coming in here
     public void processListOfRowUpdates(byte[] tableName, List<RowUpdates> list)
     throws IOException {

@@ -152,8 +152,6 @@ public class HColumnDescriptor implements ISerializable, WritableComparable<HCol
   protected Map<ImmutableBytesWritable,ImmutableBytesWritable> values =
     new HashMap<ImmutableBytesWritable,ImmutableBytesWritable>();
 
-  // If the descriptior includes multiple families
-//  private boolean multiFamily;
   
   /**
    * Default constructor. Must be present for Writable.
@@ -304,14 +302,11 @@ public class HColumnDescriptor implements ISerializable, WritableComparable<HCol
     setMultiFamily(multifamily);
   }
   
+
   private static byte [] stripColon(final byte [] n) {
-    int len = n.length -1;
-    if(n[len] != ':'){
-      return n;
-    }
-    byte [] result = new byte [len];
+    byte [] result = new byte [n.length - 1];
     // Have the stored family name be absent the colon delimiter
-    System.arraycopy(n, 0, result, 0, len);
+    System.arraycopy(n, 0, result, 0, n.length - 1);
     return result;
   }
 
@@ -348,6 +343,7 @@ public class HColumnDescriptor implements ISerializable, WritableComparable<HCol
   }
 
   /**
+<<<<<<< HEAD:src/java/org/apache/hadoop/hbase/HColumnDescriptor.java
    * 
    * @return if this Descriptor is a multi family one
    */
@@ -374,6 +370,8 @@ public class HColumnDescriptor implements ISerializable, WritableComparable<HCol
   
   
   /**
+=======
+>>>>>>> hbase/trunk:src/java/org/apache/hadoop/hbase/HColumnDescriptor.java
    * @return Name of this column family with colon as required by client API
    */
   @TOJSON(fieldName = "name", base64=true)

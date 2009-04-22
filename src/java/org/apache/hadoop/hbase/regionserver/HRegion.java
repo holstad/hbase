@@ -715,10 +715,10 @@ public class HRegion implements HConstants {
         doRegionCompactionPrep();
         long maxSize = -1;
         for (Store store: stores.values()) {
-          final Store.StoreSize size = store.compact(majorCompaction);
-          if (size != null && size.getSize() > maxSize) {
-            maxSize = size.getSize();
-            splitRow = size.getSplitRow();
+          final Store.StoreSize ss = store.compact(majorCompaction);
+          if (ss != null && ss.getSize() > maxSize) {
+            maxSize = ss.getSize();
+            splitRow = ss.getSplitRow();
           }
         }
         doRegionCompactionCleanup();
@@ -1106,6 +1106,8 @@ public class HRegion implements HConstants {
       // won't be opened for no reason. HBASE-783
       if (columns != null) {
         for (byte [] bs : columns) {
+          // TODO: Fix so we use comparator in KeyValue that looks at
+          // column family portion only.
           if (KeyValue.getFamilyDelimiterIndex(bs, 0, bs.length) == (bs.length - 1)) {
             Store store = stores.get(bs);
             store.getFull(key, null, null, numVersions, versionCounter,
@@ -1185,8 +1187,6 @@ public class HRegion implements HConstants {
       if(lockid == null) releaseRowLock(lid);
     }  
   } 
-  
-  
   
   /**
    * Return all the data for the row that matches <i>row</i> exactly, 
@@ -1324,8 +1324,6 @@ public class HRegion implements HConstants {
    */
   public void batchUpdate(BatchUpdate b, Integer lockid, boolean writeToWAL)
   throws IOException {
-//    System.out.println("hreBU " + System.nanoTime());
-
     checkReadOnly();
     validateValuesLength(b);
 
@@ -1442,7 +1440,6 @@ public class HRegion implements HConstants {
       splitsAndClosesLock.readLock().unlock();
     }
   }
-  
   
   /**
    * Performs an atomic check and save operation. Checks if
@@ -1852,7 +1849,6 @@ public class HRegion implements HConstants {
    */
   private void update(final List<KeyValue> edits, boolean writeToWAL)
   throws IOException {
-//    System.out.println("hre_U " + System.nanoTime());
     if (edits == null || edits.isEmpty()) {
       return;
     }
@@ -1867,7 +1863,6 @@ public class HRegion implements HConstants {
       long size = 0;
       for (KeyValue kv: edits) {
         // TODO: Fix -- do I have to do a getColumn here?
-//        System.out.println("regio " +System.nanoTime());
         size = this.memcacheSize.addAndGet(getStore(kv.getColumn()).add(kv));
       }
       flush = isFlushSize(size);
@@ -1913,34 +1908,6 @@ public class HRegion implements HConstants {
       requestFlush();
     }
   }
-  
-  
-//  public void newUpdate(byte [] family, List<KeyValue> kvs, boolean writeToWAL)
-//  throws IOException {
-//    boolean flush = false;
-//    this.updatesLock.readLock().lock();
-//    try {
-//      if (writeToWAL) {
-//        this.log.append(regionInfo.getRegionName(),
-//          regionInfo.getTableDesc().getName(), kvs,
-//          (regionInfo.isMetaRegion() || regionInfo.isRootRegion()));
-//      }
-//      long size = 0;
-//      Store store = getStore(family);
-//      for (KeyValue kv: kvs) {
-//        size = this.memcacheSize.addAndGet(store.newAdd(kv));
-//      }
-//      flush = isFlushSize(size);
-//    } finally {
-//      this.updatesLock.readLock().unlock();
-//    }
-//    if (flush) {
-//      // Request a cache flush.  Do it outside update lock.
-//      requestFlush();
-//    }
-//  }
-  
-  
   
   private void requestFlush() {
     if (this.flushListener == null) {
@@ -2026,7 +1993,6 @@ public class HRegion implements HConstants {
   }
 
   
-  
   /*
    * Make sure this is a valid column for the current table
    * @param columnName
@@ -2043,7 +2009,6 @@ public class HRegion implements HConstants {
           this + " in table " + regionInfo.getTableDesc());
     }
   } 
-  
   
   /**
    * Obtain a lock on the given row.  Blocks until success.

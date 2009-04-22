@@ -93,6 +93,7 @@ public class TestDeleteAll extends HBaseTestCase {
     long now = System.currentTimeMillis();
     long past = now - 100;
     long future = now + 100;
+    Thread.sleep(100);
     LOG.info("now=" + now + ", past=" + past + ", future=" + future);
 
     byte [] colA = Bytes.toBytes(Bytes.toString(COLUMNS[0]) + "a");

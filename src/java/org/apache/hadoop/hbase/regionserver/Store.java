@@ -222,6 +222,7 @@ public class Store implements HConstants {
   }
 
   /**
+<<<<<<< HEAD:src/java/org/apache/hadoop/hbase/regionserver/Store.java
    * @param storename
    * @return Return hash of store name; can be used as key in map.
    */
@@ -232,6 +233,8 @@ public class Store implements HConstants {
   }
 
   /**
+=======
+>>>>>>> hbase/trunk:src/java/org/apache/hadoop/hbase/regionserver/Store.java
    * @param tabledir
    * @param encodedName Encoded region name.
    * @param family
@@ -396,7 +399,6 @@ public class Store implements HConstants {
   protected long add(final KeyValue kv) {
     lock.readLock().lock();
     try {
-//      System.out.println("Store " + System.nanoTime());
       return this.memcache.add(kv);
     } finally {
       lock.readLock().unlock();
@@ -910,7 +912,7 @@ public class Store implements HConstants {
           if (timesSeen <= maxVersions && !(expired = isExpired(kv, ttl, now))) {
             // If this value key is same as a deleted key, skip
             if (lastDelete != null &&
-                this.comparator.compare(kv, lastDelete) == 0) {
+                this.comparatorIgnoringType.compare(kv, lastDelete) == 0) {
               deleted = true;
             } else if (kv.isDeleteType()) {
               // If a deleted value, skip
@@ -1157,15 +1159,7 @@ public class Store implements HConstants {
    */
   void newget(ServerGet sget, List<KeyValue> result)
   throws IOException {
-//    if (LOG.isDebugEnabled()) {
-//      LOG.debug("Entering newGet");
-//    }
-//    if (LOG.isDebugEnabled()) {
-//      LOG.debug("sget " +sget);
-//    }
     this.lock.readLock().lock();
-//    SortedSet<KeyValue> deleteSet = new TreeSet<KeyValue>();
-//    sget.setDeletes(deleteSet);
     sget.setTTL(ttl);
     sget.setNow();
     int retCode = 0;
@@ -1174,21 +1168,9 @@ public class Store implements HConstants {
     boolean multiFamily = family.getMultiFamily();
     retCode = this.memcache.newget(sget, result, multiFamily);
     
-//    if (LOG.isDebugEnabled()) {
-//      LOG.debug("newGet: result size " +result.size());
-//      for(int i=0; i<result.size(); i++){
-//        LOG.debug("kv " +result.get(i));
-//      }
-//    }
     if(retCode == 1){
-//      if (LOG.isDebugEnabled()) {
-//        LOG.debug("newget: retCode == 1, Done");
-//      }
       return;
     }
-//    if (LOG.isDebugEnabled()) {
-//      LOG.debug("newGet: Size of storeMap " +this.storefiles.size());
-//    }
     try {
       for(Map.Entry<Long, StoreFile> entry :
         this.storefiles.descendingMap().entrySet()){
@@ -1216,9 +1198,6 @@ public class Store implements HConstants {
   private int newgetFromStoreFile(StoreFile sf, ServerGet sget, 
       List<KeyValue> result, boolean multiFamily) 
   throws IOException {
-//    if (LOG.isDebugEnabled()) {
-//      LOG.debug("newGetFromStoreFile: Entering");
-//    }
     HFileScanner scanner = sf.getReader().getScanner();
     
     //TODO check how efficient the seekTo is and add an extra method for
@@ -1232,9 +1211,6 @@ public class Store implements HConstants {
       scanner.seekTo();
     }
     
-//    if (LOG.isDebugEnabled()) {
-//      LOG.debug("newgetFromStoreFile: Starting while loop");
-//    }
     KeyValue kv = null;
     // The cases that we need at this level:
     //0 next
@@ -1246,9 +1222,6 @@ public class Store implements HConstants {
       //Should add a setting the the family descriptor that lets you know
       //if there are multiple families in this store
       retCode = sget.compareTo(kv, multiFamily);
-//      if (LOG.isDebugEnabled()) {
-//        LOG.debug("newgetFromStoreFile: retCode " +retCode);
-//      }
       switch(retCode) {
         //Do not include in result, look at next kv
         case 0: break;
@@ -1266,12 +1239,9 @@ public class Store implements HConstants {
           "Internal error from store, retCode = " + retCode);
       }
     } while(scanner.next());
-//    }
     
     return 0;
   }
-  
-  
   
   /*
    * @param wantedVersions How many versions were asked for.
@@ -1324,6 +1294,7 @@ public class Store implements HConstants {
         return keyvalues;
       }
       Map<Long, StoreFile> m = this.storefiles.descendingMap();
+      boolean hasEnough = false;
       for (Map.Entry<Long, StoreFile> e: m.entrySet()) {
         StoreFile f = e.getValue();
         HFileScanner scanner = f.getReader().getScanner();
@@ -1335,8 +1306,8 @@ public class Store implements HConstants {
           KeyValue kv = scanner.getKeyValue();
           // Make sure below matches what happens up in Memcache#get.
           if (this.comparator.matchingRowColumn(kv, key)) {
-            if (doKeyValue(kv, numVersions, deletes, now, this.ttl, keyvalues,
-                null)) {
+            if (doKeyValue(kv, versions, deletes, now, this.ttl, keyvalues, null)) {
+              hasEnough = true;
               break;
             }
           } else {
@@ -1344,6 +1315,9 @@ public class Store implements HConstants {
             break;
           }
         } while (scanner.next());
+        if (hasEnough) {
+          break; // Break out of files loop.
+        }
       }
       return keyvalues.isEmpty()? null: keyvalues;
     } finally {
@@ -1585,7 +1559,7 @@ public class Store implements HConstants {
         search.getKeyLength());
       if (result < 0) {
         // Not in file.
-        continue;
+        break;
       }
       KeyValue deletedOrExpiredRow = null;
       KeyValue kv = null;
@@ -1805,7 +1779,7 @@ public class Store implements HConstants {
           }
           return null;
         }
-        return new StoreSize(maxSize, mk.getKey());
+        return new StoreSize(maxSize, mk.getRow());
       }
     } catch(IOException e) {
       LOG.warn("Failed getting store size for " + this.storeNameStr, e);
@@ -1869,19 +1843,19 @@ public class Store implements HConstants {
    */
   static class StoreSize {
     private final long size;
-    private final byte[] key;
-    StoreSize(long size, byte[] key) {
+    private final byte [] row;
+
+    StoreSize(long size, byte [] row) {
       this.size = size;
-      this.key = new byte[key.length];
-      System.arraycopy(key, 0, this.key, 0, key.length);
+      this.row = row;
     }
     /* @return the size */
     long getSize() {
       return size;
     }
-    /* @return the key */
-    byte[] getSplitRow() {
-      return key;
+
+    byte [] getSplitRow() {
+      return this.row;
     }
   }
 

@@ -236,18 +236,17 @@ public class TestSplit extends HBaseClusterTestCase {
       List<KeyValue> curVals = new ArrayList<KeyValue>();
       boolean first = true;
       OUTER_LOOP: while(s.next(curVals)) {
-        KeyValue kv = curVals.get(0);
-//        for (byte [] col: curVals.keySet()) {
-//          byte [] val = curVals.get(col).getValue();
-//          byte [] curval = val;
-//          if (first) {
-//            first = false;
-//            assertTrue(Bytes.compareTo(curval, firstValue) == 0);
-//          } else {
-//            // Not asserting anything.  Might as well break.
-//            break OUTER_LOOP;
-//          }
-//        }
+        for (KeyValue kv: curVals) {
+          byte [] val = kv.getValue();
+          byte [] curval = val;
+          if (first) {
+            first = false;
+            assertTrue(Bytes.compareTo(curval, firstValue) == 0);
+          } else {
+            // Not asserting anything.  Might as well break.
+            break OUTER_LOOP;
+          }
+        }
       }
     } finally {
       s.close();

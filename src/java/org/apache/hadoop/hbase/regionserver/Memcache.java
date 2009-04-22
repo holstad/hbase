@@ -99,10 +99,14 @@ class Memcache {
    * Constructor.
    * @param ttl The TTL for cache entries, in milliseconds.
 <<<<<<< HEAD:src/java/org/apache/hadoop/hbase/regionserver/Memcache.java
+<<<<<<< HEAD:src/java/org/apache/hadoop/hbase/regionserver/Memcache.java
    * @param c
 =======
    * @param c 
    * @param rc
+>>>>>>> hbase/trunk:src/java/org/apache/hadoop/hbase/regionserver/Memcache.java
+=======
+   * @param c
 >>>>>>> hbase/trunk:src/java/org/apache/hadoop/hbase/regionserver/Memcache.java
    */
   public Memcache(final long ttl, final KeyValue.KVComparator c) {
@@ -199,14 +203,12 @@ class Memcache {
   long add(final KeyValue kv) {
     long size = -1;
     this.lock.readLock().lock();
-//    System.out.println("mem01 " +System.nanoTime());
     try {
       boolean notpresent = this.memcache.add(kv);
       size = heapSize(kv, notpresent);
     } finally {
       this.lock.readLock().unlock();
     }
-//    System.out.println("memca " +System.nanoTime());
     return size;
   }
 
@@ -219,97 +221,22 @@ class Memcache {
   long newAdd(final KeyValue kv, boolean multiFamily) {
     long size = -1;
     this.lock.readLock().lock();
-//    System.out.println("mem01 " +System.nanoTime());
-
-//    List<KeyValue> deletes = null; //new ArrayList<KeyValue>();
-//    List<KeyValue> deletes = new LinkedList<KeyValue>();
-
     long deleteSize = 0L;
     try {
-      
-//      Have to find out what want to do here, to find the fastest way of removing
-//      things that are under a delete.
-//      Actions that will take place here are:
-//      1. Insert a put at the right place
-//      2. Insert a deleteFamily and a deleteColumn entry and deleting all the
-//      related entries already in there.
-//      3. Insert a delete, with timestamp, and finding the put in memcache,
-//      deleting both of them. 
-      
+
+      //Have to find out what want to do here, to find the fastest way of removing
+      //things that are under a delete.
+      //Actions that will take place here are:
+      //1. Insert a put at the right place
+      //2. Insert a deleteFamily and a deleteColumn entry and deleting all the
+      //related entries already in there.
+      //3. Insert a delete, with timestamp, and finding the put in memcache,
+      //deleting both of them. 
+
       //first check what type the current kv is
       byte type = kv.getType();
 
-
-
       boolean notpresent = false;
-//      if(type == KeyValue.Type.Put.getCode()){
-//        notpresent = this.memcache.add(kv);
-//        int memCacheSize = this.memcache.size();
-//        size = heapSize(kv, notpresent);
-//      } else if(type == KeyValue.Type.DeleteFamily.getCode()){
-//        deletes = new ArrayList<KeyValue>();
-//        //need to check row/fam and bigger ts
-//        //cases for mem:
-//        //1. r/f same but ts bigger, next from headset
-//        //2. r/f same and ts smaller or equal, add to deleteList
-//        //3. r or f not the same, done get next kv
-//        tailSet = this.memcache.tailSet(kv);
-//        int tailsize = tailSet.size();
-//        int ret = 0;
-//        for(KeyValue mem : tailSet){
-//          ret = deleteFamilyCompare(mem, kv, multiFamily);
-//          if(ret == 0){
-//            deletes.add(mem);
-//            continue;
-//          } else if(ret == 1){
-//            break;
-//          }
-//        }
-//        notpresent = this.memcache.add(kv);
-//        size = heapSize(kv, notpresent);
-//      } else if(type == KeyValue.Type.DeleteColumn.getCode()){
-//        deletes = new ArrayList<KeyValue>();
-//        //Need to check row/fam/col and bigger ts
-//        tailSet = this.memcache.tailSet(kv);
-//        int ret = 0;
-//        for(KeyValue mem : tailSet){
-//          ret = deleteColumnCompare(mem, kv, multiFamily);
-//          if(ret == 0){
-//            deletes.add(mem);
-//            continue;
-//          } else if(ret == 1){
-//            break;
-//          }
-//        }
-//        notpresent = this.memcache.add(kv);
-//        size = heapSize(kv, notpresent);
-//      } else {
-//        deletes = new ArrayList<KeyValue>();
-//        //Need to check row/fam/col/ts
-//        tailSet = this.memcache.tailSet(kv);
-//        int tailsize = tailSet.size();
-//
-//        int ret = 0;
-//        for(KeyValue mem : tailSet){
-//          ret = deleteCompare(mem, kv, multiFamily);
-//          if(ret == 0){
-//            deletes.add(mem);
-//            break;
-//          } else if(ret == 1){
-//            break;
-//          }
-//        }
-//      }
-//      
-//      System.out.println("memca " +System.nanoTime());
-//      for(KeyValue delete : deletes){
-//        notpresent = this.memcache.remove(delete);
-//        deleteSize += heapSize(delete, notpresent);
-//      }
-      
-      
-      
-      
       if(type != KeyValue.Type.Put.getCode()){
         List<KeyValue> deletes = new ArrayList<KeyValue>();
         SortedSet<KeyValue> tailSet = null;
@@ -366,7 +293,7 @@ class Memcache {
             }
           }
         }
-        
+
         for(KeyValue delete : deletes){
           notpresent = this.memcache.remove(delete);
           deleteSize += heapSize(delete, notpresent);
@@ -377,18 +304,11 @@ class Memcache {
         size = heapSize(kv, notpresent);
       }
 
-//      System.out.println("memca " +System.nanoTime());
-      
-//      notpresent = this.memcache.add(kv);
-//      size = heapSize(kv, notpresent);
     } finally {
       this.lock.readLock().unlock();
     }
     return size - deleteSize;
   }
-  
-
-  
   
   /**
    * 
@@ -465,7 +385,6 @@ class Memcache {
       return -1;
   }
 
-  
   /**
    * 
    * @param mem
@@ -622,7 +541,6 @@ class Memcache {
       
       return -1;
   }
-  
   
   /*
    * Calculate how the memcache size has changed, approximately.  Be careful.
@@ -819,17 +737,11 @@ class Memcache {
    */
   int newget(ServerGet sget, List<KeyValue> results, boolean multiFamily)
   throws IOException {
-//    if (LOG.isDebugEnabled()) {
-//      LOG.debug("Entering newget");
-//    }
     this.lock.readLock().lock();
     int retCode = 0;
     try {
       // Used to be synchronized but now with weak iteration, no longer needed.
       retCode = internalNewGet(this.memcache, sget, results, multiFamily);
-//      if (LOG.isDebugEnabled()) {
-//        LOG.debug("retCode " +retCode);
-//      }
       if(retCode == -1){
         throw new IOException("Internal error in get, return code = -1");
       } else if(retCode == 0){
@@ -843,10 +755,6 @@ class Memcache {
     } finally {
       this.lock.readLock().unlock();
     }
-//    if (LOG.isDebugEnabled()) {
-//      LOG.debug("newGet: Return code " + retCode + ", results.size " 
-//          + results.size());
-//    }
     return retCode;
   }  
   
@@ -860,13 +768,7 @@ class Memcache {
   private int internalNewGet(SortedSet<KeyValue> set, ServerGet sget,
       List<KeyValue> result, boolean multiFamily)
   throws IOException{
-//    if (LOG.isDebugEnabled()) {
-//      LOG.debug("Entering int_newget");
-//    }
     if (set.isEmpty()){
-//      if (LOG.isDebugEnabled()) {
-//        LOG.debug("Set to look in is empty");
-//      }
       return 0;
     }
     //Getting only the things that are related to this row
@@ -877,18 +779,6 @@ class Memcache {
     
     //TODO have to remember to check the order of the set, so that tailSet
     //returns the things that are smaller and not bigger
-    
-//    if (LOG.isDebugEnabled()) {
-//      LOG.debug("MC:int_newGet : Compare, set size " +set.size());
-//    }
-//    if (LOG.isDebugEnabled()) {
-//      for(KeyValue kv : set){
-//        LOG.debug("kv " +kv);
-//      }
-//    }
-//    if (LOG.isDebugEnabled()) {
-//      LOG.debug("sget " +sget);
-//    }
     int res = 0;
     // The cases that we need at this level:
     //0 next
@@ -897,9 +787,6 @@ class Memcache {
     //3 done
     for(KeyValue kv : set){
       res = sget.compareTo(kv, multiFamily);
-//      if (LOG.isDebugEnabled()) {
-//        LOG.debug("internalnewGet: res " +res);
-//      }
       switch(res) {
         //Do not include in result, look at next kv
         case 0: break;
@@ -918,8 +805,6 @@ class Memcache {
     }
     return 0;
   }  
-  
-  
   
   /**
    * @param row Row to look for.

@@ -197,22 +197,19 @@ public class MetaUtils {
       while (rootScanner.next(results)) {
         HRegionInfo info = null;
         for (KeyValue kv: results) {
-          if (KeyValue.ROOT_COMPARATOR.compareColumns(kv,
-            HConstants.COL_REGIONINFO, 0, HConstants.COL_REGIONINFO.length) == 0) {
-            info = Writables.getHRegionInfoOrNull(kv.getValue());
-            if (info == null) {
-              LOG.warn("region info is null for row " +
-                Bytes.toString(kv.getRow()) +
-                " in table " + HConstants.ROOT_TABLE_NAME);
+          info = Writables.getHRegionInfoOrNull(kv.getValue());
+          if (info == null) {
+            LOG.warn("region info is null for row " +
+              Bytes.toString(kv.getRow()) + " in table " +
+                HConstants.ROOT_TABLE_NAME);
             }
+            continue;
+          }
+          if (!listener.processRow(info)) {
             break;
           }
-        }
-        if (!listener.processRow(info)) {
-          break;
-        }
-        results.clear();
-      }
+          results.clear();
+       }
     } finally {
       rootScanner.close();
     }

@@ -125,7 +125,7 @@ public class HTable {
     this.autoFlush = true;
     this.currentWriteBufferSize = 0;
     this.newCurrentWriteBufferSize = 0;
-    this.scannerCaching = conf.getInt("hbase.client.scanner.caching", 30);
+    this.scannerCaching = conf.getInt("hbase.client.scanner.caching", 1);
   }
 
   /**
@@ -289,23 +289,6 @@ public class HTable {
     return regionMap;
   }
 
-  
-  
-//  public List<KeyValue> get(final Get get)
-//  throws IOException {
-//    System.out.println("IN HT.get, row " +Bytes.toInt(get.getRow()));
-//    return connection.getRegionServerWithRetries(
-//        new ServerCallable<List<KeyValue>>(connection, tableName, get.getRow()) {
-//          public List<KeyValue> call() throws IOException {
-//            System.out.println("IN HT.get.ServerCallable,");
-//            List<KeyValue> result = server.newGet(
-//                location.getRegionInfo().getRegionName(), get, -1L);
-//            return (result == null)? null : result;
-//          }
-//        }
-//    );
-//  }
-
   public KeyValue [] get(final Get get)
   throws IOException {
     System.out.println("IN HT.get, row " +Bytes.toInt(get.getRow()));
@@ -320,30 +303,6 @@ public class HTable {
         }
     );
   }
-  
-//  public RowResult getRow(final byte [] row, final byte [][] columns, 
-//      final long ts, final int numVersions, final RowLock rl) 
-//    throws IOException {       
-//      return connection.getRegionServerWithRetries(
-//          new ServerCallable<RowResult>(connection, tableName, row) {
-//            public RowResult call() throws IOException {
-//              long lockId = -1L;
-//              if(rl != null) {
-//                lockId = rl.getLockId();
-//              }
-//              return server.getRow(location.getRegionInfo().getRegionName(), row, 
-//                  columns, ts, numVersions, lockId);
-//            }
-//          }
-//      );
-//    } 
-  
-  
-  
-  
-  
-  
-  
   /**
    * Get a single value for the specified row and column
    * 
@@ -667,7 +626,6 @@ public class HTable {
   public RowResult getRow(final byte [] row, final byte [][] columns, 
     final long ts, final int numVersions, final RowLock rl) 
   throws IOException {
-//    System.out.println("row " +Bytes.toInt(row));
     return connection.getRegionServerWithRetries(
         new ServerCallable<RowResult>(connection, tableName, row) {
           public RowResult call() throws IOException {
@@ -1398,8 +1356,6 @@ public class HTable {
       flushCommits();
     }
   }
-
-
   
   /**
    * Commit a BatchUpdate to the table.
@@ -1449,9 +1405,6 @@ public class HTable {
       newFlushCommits();
     }
   }  
-  
-  
-  
   
   
   /**
@@ -1522,6 +1475,7 @@ public class HTable {
   }
 
   /**
+<<<<<<< HEAD:src/java/org/apache/hadoop/hbase/client/HTable.java
    * Release held resources
    * 
    * @throws IOException
@@ -1531,6 +1485,8 @@ public class HTable {
   }
   
   /**
+=======
+>>>>>>> hbase/trunk:src/java/org/apache/hadoop/hbase/client/HTable.java
    * Utility method that checks rows existence, length and columns well
    * formedness.
    * 

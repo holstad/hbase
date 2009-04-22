@@ -194,6 +194,8 @@ public abstract class HAbstractScanner implements InternalScanner {
     public static byte [][] parseColumn(final byte [] c)
     throws ColumnNameParseException {
       final byte [][] result = new byte [2][];
+      // TODO: Change this so don't do parse but instead use the comparator
+      // inside in KeyValue which just looks at column family.
       final int index = KeyValue.getFamilyDelimiterIndex(c, 0, c.length);
       if (index == -1) {
         throw new ColumnNameParseException("Impossible column name: " + c);

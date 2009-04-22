@@ -11,6 +11,7 @@ Release 0.20.0 - Unreleased
                hbase.master) (Nitay Joffe via Stack)
    HBASE-1289  Remove "hbase.fully.distributed" option and update docs
                (Nitay Joffe via Stack)
+   HBASE-1234  Change HBase StoreKey format
 
   BUG FIXES
    HBASE-1140  "ant clean test" fails (Nitay Joffe via Stack)
@@ -73,6 +74,13 @@ Release 0.20.0 - Unreleased
    HBASE-1298  master.jsp & table.jsp do not URI Encode table or region
                names in links (Lars George via Stack)
    HBASE-1310  Off by one error in Bytes.vintToBytes
+   HBASE-1202  getRow does not always work when specifying number of versions
+   HBASE-1324  hbase-1234 broke testget2 unit test (and broke the build)
+   HBASE-1321  hbase-1234 broke TestCompaction; fix and reenable
+   HBASE-1330  binary keys broken on trunk (Ryan Rawson via Stack)
+   HBASE-1332  regionserver carrying .META. starts sucking all cpu, drives load
+               up - infinite loop? (Ryan Rawson via Stack)
+   HBASE-1334  .META. region running into hfile errors (Ryan Rawson via Stack)
 
   IMPROVEMENTS
    HBASE-1089  Add count of regions on filesystem to master UI; add percentage
@@ -138,6 +146,7 @@ Release 0.20.0 - Unreleased
    HBASE-1205  RegionServers should find new master when a new master comes up
                (Nitay Joffe via Andrew Purtell)
    HBASE-1309  HFile rejects key in Memcache with empty value
+   HBASE-1331  Lower the default scanner caching value
 
 Release 0.19.0 - 01/21/2009
   INCOMPATIBLE CHANGES

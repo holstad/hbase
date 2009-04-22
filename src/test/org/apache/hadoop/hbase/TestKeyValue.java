@@ -283,7 +283,6 @@ public class TestKeyValue extends TestCase {
     }
   }
   
-  
   public void testEquals(){
     //Does not compare the value, but only the Key part of the KeyValue
     assertTrue(kv1.equals(kv2));

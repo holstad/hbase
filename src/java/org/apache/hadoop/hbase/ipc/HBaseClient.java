@@ -24,7 +24,6 @@ import java.net.SocketTimeoutException;
 import java.net.UnknownHostException;
 import java.net.ConnectException;
 
-import java.io.EOFException;
 import java.io.IOException;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;

@@ -220,7 +220,7 @@ public class TestHTable extends HBaseClusterTestCase implements HConstants {
     }
   }
 
-  public void disabledTestCheckAndSave() throws IOException {
+  public void testCheckAndSave() throws IOException {
     HTable table = null;
     HColumnDescriptor column2 =
       new HColumnDescriptor(Bytes.toBytes("info2:"));
