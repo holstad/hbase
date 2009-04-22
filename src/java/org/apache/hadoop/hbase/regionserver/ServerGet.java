@@ -53,6 +53,8 @@ public interface ServerGet {
   
   public List<KeyValue> getColumns();
   public void setColumns(List<byte[]> columns);
+//  public void setColumns(List<KeyValue> columns);
+//  public void setColumnsFromBytes(List<byte[]> columns);
   public List<Short> getVersions();
 //  public byte [][] getColumns();
 //  public void setColumns(byte [][] columns);
@@ -76,6 +78,8 @@ public interface ServerGet {
   public Deletes mergeDeletes(List<KeyValue> l1, List<KeyValue> l2);
   public Deletes mergeDeletes(List<KeyValue> l1, List<KeyValue> l2,
       boolean multiFamily);
+  
+  public void mergeGets();
   
   public String toString();
   

@@ -891,7 +891,6 @@ public class HRegion implements HConstants {
       dse.initCause(t);
       throw dse;
     }
-
     // If we get to here, the HStores have been written. If we get an
     // error in completeCacheFlush it will release the lock it is holding
 

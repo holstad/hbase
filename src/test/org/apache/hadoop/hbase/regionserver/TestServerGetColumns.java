@@ -185,7 +185,6 @@ public class TestServerGetColumns extends TestCase {
     Iterator<KeyValue> iter = kvs.iterator();
     //Compare
     int ret = 0;
-    int found = 0;
     while(iter.hasNext()){
       ret = sget.compareTo(iter.next(), false);
       if(PRINT){
@@ -198,10 +197,8 @@ public class TestServerGetColumns extends TestCase {
         }
           System.out.println("fetching next value from store\n");
       }
-      found += ret;
     }
-    if(PRINT) System.out.println("found " +found);
-    assertEquals(1, found);
+    assertEquals(2, ret);
   }
   
   public void testCompare_deleteList()

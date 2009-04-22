@@ -45,6 +45,8 @@ import org.apache.hadoop.hbase.io.BatchUpdate;
 import org.apache.hadoop.hbase.io.Cell;
 import org.apache.hadoop.hbase.io.Get;
 import org.apache.hadoop.hbase.io.GetColumns;
+import org.apache.hadoop.hbase.io.GetFamilies;
+import org.apache.hadoop.hbase.io.TimeRange;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.hdfs.MiniDFSCluster;
 
@@ -53,6 +55,7 @@ import org.apache.hadoop.hdfs.MiniDFSCluster;
  * This class
  */
 public class TestNewGet extends HBaseTestCase implements HConstants {
+  private final boolean PRINT = true;
   // private MiniDFSCluster miniHdfs;
   //    
   private static byte[] row = "row1".getBytes();
@@ -72,7 +75,13 @@ public class TestNewGet extends HBaseTestCase implements HConstants {
   private static byte[] column4 = Bytes.add(fam, col4);
   private static byte[] column5 = Bytes.add(fam, col5);
   private static byte[] column6 = Bytes.add(fam, col6);
-
+  
+  HRegion region = null;
+//  BatchUpdate batchUpdate = null;
+  List<KeyValue> results = null;
+  
+  TimeRange tr = null;
+  
   @Override
   protected void setUp() throws Exception {
     super.setUp();
@@ -80,17 +89,156 @@ public class TestNewGet extends HBaseTestCase implements HConstants {
     // // Set the hbase.rootdir to be the home directory in mini dfs.
     // this.conf.set(HConstants.HBASE_DIR,
     // this.miniHdfs.getFileSystem().getHomeDirectory().toString());
+    createRegion();
+    tr = new TimeRange();
   }
 
+  protected void tearDown(){
+    closeRegion();
+  }
+  
   // This test does not include any test of the actual client call and keeping
   // old way of inserting things into HBase
-  public void testGetMultiHfile() throws IOException {
-    HRegion region = null;
-    BatchUpdate batchUpdate = null;
-    // Map<byte [], Cell> results = null;
-    List<KeyValue> results = new ArrayList<KeyValue>();
-    // comp.getRawComparator().ignoreTimestamp = true;
+  public void testGetColumns()
+  throws IOException{
+    results = new ArrayList<KeyValue>();
 
+    oldPut();
+    KeyValue oldKv = new KeyValue(row, column2, val);
+    // Create Get object
+    Get get = new GetColumns(row, getFam, col2, (short)1, tr);
+    if(PRINT) System.out.println("get " + get);
+    
+    //TODO see why this loops forever, something with the lock in
+    //updateStorefiles this.lock.writeLock().lock();
+    //Testing getting from memcache
+//    results = region.newget(get, results, null);
+//    System.out.println("got result with size " + results.size());
+//    if (results.size() > 0) {
+//      KeyValue res = results.get(0);
+//      int ret = Bytes.compareTo(oldKv.getBuffer(), oldKv.getOffset(), oldKv
+//          .getKeyLength() - 9, res.getBuffer(), res.getOffset(), res
+//          .getKeyLength() - 9);
+//      assertEquals(0, ret);
+//    }
+
+    flush();
+    oldPut();
+    
+    get = new GetColumns(row, getFam, col2, (short)2, tr);
+    results = region.newget(get, results, null);
+    if(PRINT) System.out.println("got result with size " + results.size());
+
+    if (results.size() > 0) {
+      KeyValue res = results.get(0);
+      int ret = Bytes.compareTo(oldKv.getBuffer(), oldKv.getOffset(), oldKv
+          .getKeyLength() - 9, res.getBuffer(), res.getOffset(), res
+          .getKeyLength() - 9);
+      assertEquals(0, ret);
+    }
+    
+    flush();
+    oldPut();
+    
+    // Testing getting from memcache and storeFile 2 versions + comparing timers
+    // to see which one is faster
+    int v2Fetch = 2;
+    results = new ArrayList<KeyValue>();
+    List<byte[]> columns = new ArrayList<byte[]>(2);
+    columns.add(col2);
+    columns.add(col4);
+    get = new GetColumns(row, getFam, columns, (short)v2Fetch, tr);
+
+    long start = 0L;
+    long stop = 0L;
+    
+    start = System.nanoTime();
+    results = region.newget(get, results, null);
+    stop = System.nanoTime();
+    if(PRINT) System.out.println("GetColumns");
+    if(PRINT) System.out.println("new timer " +(stop-start));
+    int newVersions = results.size();
+    if (results.size() > 0) {
+      KeyValue res = results.get(0);
+      int ret = Bytes.compareTo(oldKv.getBuffer(), oldKv.getOffset(), oldKv
+          .getKeyLength() - 9, res.getBuffer(), res.getOffset(), res
+          .getKeyLength() - 9);
+      assertEquals(0, ret);
+    }     
+    
+
+    //Old way of getting data 
+    Map<byte [], Cell> oldRes = null;
+    byte [] row = get.getRow();
+    NavigableSet<byte[]> cols =
+      new ConcurrentSkipListSet<byte[]>(Bytes.BYTES_COMPARATOR);
+    cols.add(column2);
+    cols.add(column4);
+    start = System.nanoTime();
+    oldRes = region.getFull(row, cols, LATEST_TIMESTAMP, v2Fetch, null);
+    stop = System.nanoTime();
+    if(PRINT) System.out.println("oldtimer " +(stop-start));
+    int oldVersions = 0;
+    for(Map.Entry<byte[], Cell> entry : oldRes.entrySet()){
+      oldVersions += entry.getValue().getNumValues();
+    }
+    assertEquals(oldVersions, newVersions);
+  }
+  
+  
+  public void testGetFamilies()
+  throws IOException {
+    long start = 0L;
+    long stop = 0L;
+    
+    results = new ArrayList<KeyValue>();
+    oldPut();
+    flush();
+    
+    Get get = new GetFamilies(row, getFam, (short)1, tr);
+    region.newget(get, results, null);
+    
+    oldPut();
+    flush();
+    
+    results.clear();
+    
+    int v2Fetch = 2;
+    get = new GetFamilies(row, getFam, (short)v2Fetch, tr);
+    start = System.nanoTime();
+    region.newget(get, results, null);
+    stop = System.nanoTime();
+    if(PRINT) System.out.println("GetFamilies");
+    if(PRINT) System.out.println("new timer " +(stop-start));
+    
+    NavigableSet<byte[]> cols =
+      new ConcurrentSkipListSet<byte[]>(Bytes.BYTES_COMPARATOR);
+      cols.add(fam);
+    start = System.nanoTime();
+    Map<byte[],Cell> oldRes = region.getFull(row, cols, LATEST_TIMESTAMP,
+        v2Fetch, null);
+    stop = System.nanoTime();
+    if(PRINT) System.out.println("old timer " +(stop-start));
+    int oldVersions = 0;
+    for(Map.Entry<byte[], Cell> entry : oldRes.entrySet()){
+      oldVersions += entry.getValue().getNumValues();
+    }
+    assertEquals(oldVersions, results.size());
+  }
+  
+  
+  private void oldPut() 
+  throws IOException{
+    BatchUpdate batchUpdate = new BatchUpdate(row);
+    batchUpdate.put(column1, val);
+    batchUpdate.put(column2, val);
+    batchUpdate.put(column3, val);
+    batchUpdate.put(column4, val);
+    batchUpdate.put(column5, val);
+    region.batchUpdate(batchUpdate, null);
+  }
+  
+  private void createRegion(){
     try {
       HTableDescriptor htd = new HTableDescriptor(getName());
       htd.addFamily(new HColumnDescriptor(fam));
@@ -100,209 +248,24 @@ public class TestNewGet extends HBaseTestCase implements HConstants {
       // filesystem.mkdirs(rootdir);
 
       region = createNewHRegion(htd, null, null);
-
-      // write some data
-      KeyValue oldKv = new KeyValue(row, column2, val);
-      batchUpdate = new BatchUpdate(row);
-      batchUpdate.put(column1, val);
-      batchUpdate.put(column2, val);
-      batchUpdate.put(column3, val);
-      batchUpdate.put(column4, val);
-      batchUpdate.put(column5, val);
-      region.batchUpdate(batchUpdate, null);
-
-      // Create Get object
-      Get get = new GetColumns(row, getFam, col2, (byte) 1, null);
-      System.out.println("get " + get);
-
-      // //Testing getting from memcache
-      // results = region.newget(get, results, null);
-      // System.out.println("got result with size " +results.size());
-      // if(results.size() > 0){
-      // assertEquals(0, comp.compare(oldKv, results.get(0)));
-      // TODO check why not exiting
-      // }
-
-      // flush
-      region.flushcache();
-
-      // Testing getting from storeFile
-      results = new ArrayList<KeyValue>();
-      get = new GetColumns(row, getFam, col2, (short)1, null);
-
-      results = region.newget(get, results, null);
-      System.out.println("got result with size " + results.size());
-      if (results.size() > 0) {
-        KeyValue res = results.get(0);
-        int ret = Bytes.compareTo(oldKv.getBuffer(), oldKv.getOffset(), oldKv
-            .getKeyLength() - 9, res.getBuffer(), res.getOffset(), res
-            .getKeyLength() - 9);
-        assertEquals(0, ret);
-        // assertEquals(0, comp.compare(oldKv, results.get(0)));
-      }
-
-      // Write more to memcache with a different ts
-      batchUpdate = new BatchUpdate(row);
-      batchUpdate.put(column1, val);
-      batchUpdate.put(column2, val);
-      batchUpdate.put(column3, val);
-      batchUpdate.put(column4, val);
-      batchUpdate.put(column5, val);
-      region.batchUpdate(batchUpdate, null);
-
-      // Testing getting from memcache and storeFile 2 versions
-      results = new ArrayList<KeyValue>();
-      get = new GetColumns(row, getFam, col2, (short)2, null);
-
-      results = region.newget(get, results, null);
-      System.out.println("got result with size " + results.size());
-      if (results.size() > 0) {
-        KeyValue res = results.get(0);
-        int ret = Bytes.compareTo(oldKv.getBuffer(), oldKv.getOffset(), oldKv
-            .getKeyLength() - 9, res.getBuffer(), res.getOffset(), res
-            .getKeyLength() - 9);
-        assertEquals(0, ret);
-      }
-
-      //Flush
-      region.flushcache();
-      
-      // Write more to memcache with a different ts
-      batchUpdate = new BatchUpdate(row);
-      batchUpdate.put(column1, val);
-      batchUpdate.put(column2, val);
-      batchUpdate.put(column3, val);
-      batchUpdate.put(column4, val);
-      batchUpdate.put(column5, val);
-      region.batchUpdate(batchUpdate, null);
-
-      // Testing getting from memcache and storeFile 2 versions
-      results = new ArrayList<KeyValue>();
-//      byte [][] columns = {col2, col4};
-      List<byte[]> columns = new ArrayList<byte[]>(2);
-      columns.add(col2);
-      columns.add(col4);
-      get = new GetColumns(row, getFam, columns, (short)3, null);
-
-      long start = 0L;
-      long stop = 0L;
-      
-      
-      start = System.nanoTime();
-      results = region.newget(get, results, null);
-      stop = System.nanoTime();
-      System.out.println("timer " +(stop-start));
-      System.out.println("got result with size " + results.size());
-      if (results.size() > 0) {
-        KeyValue res = results.get(0);
-        int ret = Bytes.compareTo(oldKv.getBuffer(), oldKv.getOffset(), oldKv
-            .getKeyLength() - 9, res.getBuffer(), res.getOffset(), res
-            .getKeyLength() - 9);
-        assertEquals(0, ret);
-      }     
-      
-
-      Map<byte [], Cell> oldRes = null;
-      byte [] row = get.getRow();
-      NavigableSet<byte[]> cols =
-        new ConcurrentSkipListSet<byte[]>(Bytes.BYTES_COMPARATOR);
-      cols.add(column2);
-      cols.add(column4);
-      start = System.nanoTime();
-      oldRes = region.getFull(row, cols, LATEST_TIMESTAMP, 3, null);
-      stop = System.nanoTime();
-      System.out.println("timer " +(stop-start)+ " oldRes.size " +oldRes.size()); 
-      for(Map.Entry<byte[], Cell> entry : oldRes.entrySet()){
-        System.out.println("versions " +entry.getValue().getNumValues());
-      }
-
-      // // write a new value for the cell
-      // batchUpdate = new BatchUpdate(row);
-      // batchUpdate.put(COLUMNS[0], "newerValue".getBytes());
-      // region.batchUpdate(batchUpdate, null);
-      //
-      // // flush
-      // region.flushcache();
-      //        
-      // // assert that getFull gives us the later value
-      // results = region.getFull(row, (NavigableSet<byte []>)null,
-            // LATEST_TIMESTAMP, 1, null);
-      // assertEquals("newerValue", new
-            // String(results.get(COLUMNS[0]).getValue()));
-      //       
-      // //
-      // // Test the delete masking issue
-      // //
-      // byte [] row2 = Bytes.toBytes("row2");
-      // byte [] cell1 = Bytes.toBytes(Bytes.toString(COLUMNS[0]) + "a");
-      // byte [] cell2 = Bytes.toBytes(Bytes.toString(COLUMNS[0]) + "b");
-      // byte [] cell3 = Bytes.toBytes(Bytes.toString(COLUMNS[0]) + "c");
-      //        
-      // // write some data at two columns
-      // batchUpdate = new BatchUpdate(row2);
-      // batchUpdate.put(cell1, "column0 value".getBytes());
-      // batchUpdate.put(cell2, "column1 value".getBytes());
-      // region.batchUpdate(batchUpdate, null);
-      //        
-      // // flush
-      // region.flushcache();
-      //        
-      // // assert i get both columns
-      // results = region.getFull(row2, (NavigableSet<byte []>)null,
-            // LATEST_TIMESTAMP, 1, null);
-      // assertEquals("Should have two columns in the results map", 2,
-            // results.size());
-      // assertEquals("column0 value", new
-            // String(results.get(cell1).getValue()));
-      // assertEquals("column1 value", new
-            // String(results.get(cell2).getValue()));
-      //        
-      // // write a delete for the first column
-      // batchUpdate = new BatchUpdate(row2);
-      // batchUpdate.delete(cell1);
-      // batchUpdate.put(cell2, "column1 new value".getBytes());
-      // region.batchUpdate(batchUpdate, null);
-      //              
-      // // flush
-      // region.flushcache();
-      //        
-      // // assert i get the second column only
-      // results = region.getFull(row2, (NavigableSet<byte []>)null,
-            // LATEST_TIMESTAMP, 1, null);
-      // System.out.println(Bytes.toString(results.keySet().iterator().next()));
-      // assertEquals("Should have one column in the results map", 1,
-            // results.size());
-      // assertNull("column0 value", results.get(cell1));
-      // assertEquals("column1 new value", new
-            // String(results.get(cell2).getValue()));
-      //        
-      // //
-      // // Include a delete and value from the memcache in the mix
-      // //
-      // batchUpdate = new BatchUpdate(row2);
-      // batchUpdate.delete(cell2);
-      // batchUpdate.put(cell3, "column3 value!".getBytes());
-      // region.batchUpdate(batchUpdate, null);
-      //        
-      // // assert i get the third column only
-      // results = region.getFull(row2, (NavigableSet<byte []>)null,
-            // LATEST_TIMESTAMP, 1, null);
-      // assertEquals("Should have one column in the results map", 1,
-            // results.size());
-      // assertNull("column0 value", results.get(cell1));
-      // assertNull("column1 value", results.get(cell2));
-      // assertEquals("column3 value!", new
-            // String(results.get(cell3).getValue()));
-
-    } finally {
-      if (region != null) {
-        try {
-          region.close();
-        } catch (Exception e) {
-          e.printStackTrace();
-        }
+    } catch(Exception e){}
+  }
+  
+  private void flush()
+  throws IOException{
+    // flush
+    region.flushcache();
+  }
+  
+  private void closeRegion(){
+    if (region != null) {
+      try {
+        region.close();
         region.getLog().closeAndDelete();
+      } catch (Exception e) {
+        e.printStackTrace();
       }
     }
   }
+  
 }

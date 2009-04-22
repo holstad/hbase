@@ -1174,6 +1174,12 @@ public class Store implements HConstants {
     boolean multiFamily = family.getMultiFamily();
     retCode = this.memcache.newget(sget, result, multiFamily);
     
+//    if (LOG.isDebugEnabled()) {
+//      LOG.debug("newGet: result size " +result.size());
+//      for(int i=0; i<result.size(); i++){
+//        LOG.debug("kv " +result.get(i));
+//      }
+//    }
     if(retCode == 1){
 //      if (LOG.isDebugEnabled()) {
 //        LOG.debug("newget: retCode == 1, Done");
@@ -1186,6 +1192,7 @@ public class Store implements HConstants {
     try {
       for(Map.Entry<Long, StoreFile> entry :
         this.storefiles.descendingMap().entrySet()){
+        sget.mergeGets();
         sget.clear();
         retCode = newgetFromStoreFile(entry.getValue(), sget, result,
           multiFamily);

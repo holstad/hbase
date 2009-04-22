@@ -833,6 +833,7 @@ class Memcache {
       if(retCode == -1){
         throw new IOException("Internal error in get, return code = -1");
       } else if(retCode == 0){
+        sget.mergeGets();
         sget.clear();
         retCode = internalNewGet(this.snapshot, sget, results, multiFamily);
         if(retCode == -1){

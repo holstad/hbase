@@ -15,7 +15,7 @@ public class ServerGetColumns extends AbstractServerGet {
 
   private List<byte[]> columnsToDelete = new ArrayList<byte[]>();
   
-  private static final int KEY_OFFSET = 2*Bytes.SIZEOF_INT;
+//  private static final int KEY_OFFSET = 2*Bytes.SIZEOF_INT;
 
   private boolean outOfTimeRange = false;
   
@@ -94,7 +94,7 @@ public class ServerGetColumns extends AbstractServerGet {
     offset += famLen;
 
     //Getting column length
-    int colLen = KEY_OFFSET + keyLen - (offset-initialOffset) - 
+    int colLen = super.KEY_OFFSET + keyLen - (offset-initialOffset) - 
     Bytes.SIZEOF_LONG - Bytes.SIZEOF_BYTE;
     //Could be switched to something like:
     //initloffset + keylength - TIMESTAMP_TYPE_SIZE - loffset;
@@ -184,7 +184,7 @@ public class ServerGetColumns extends AbstractServerGet {
       }
 //      int size = columns.size();
       if(columnPos < columns.size()-1){
-        column = columns.get(super.columnPos++);
+        column = columns.get(++super.columnPos);
       } else {
         return res;
       }
@@ -209,7 +209,7 @@ public class ServerGetColumns extends AbstractServerGet {
     version++;
     if(version >= super.getMaxVersions()){
       //Remove this position from list, for now, might do something else later
-      super.columns.remove(super.columnPos);
+      super.columns.remove(super.columnPos--);
     } else {
       ((ArrayList<Short>)super.versions).set(super.columnPos, version);
     }

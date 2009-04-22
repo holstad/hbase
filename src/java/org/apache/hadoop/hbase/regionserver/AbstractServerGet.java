@@ -26,7 +26,7 @@ public abstract class AbstractServerGet implements ServerGet{
   protected Get get = null;
   private byte [] family = null;
   
-  private static final int KEY_OFFSET = 2*Bytes.SIZEOF_INT;
+  protected static final int KEY_OFFSET = 2*Bytes.SIZEOF_INT;
   private static final int KEY_SIZES = Bytes.SIZEOF_SHORT + Bytes.SIZEOF_BYTE +
   Bytes.SIZEOF_LONG + Bytes.SIZEOF_BYTE;
   
@@ -54,6 +54,10 @@ public abstract class AbstractServerGet implements ServerGet{
   protected KeyValue column = null;
   protected List<Short> versions = null;
   
+  protected List<KeyValue> newColumns = null;
+  protected List<Short> newVersions = null; 
+  protected KeyValue newColumn = null;
+  protected boolean endColumns = false; 
   
   //Same thing as above goes for this
   protected List<KeyValue> deletes = new ArrayList<KeyValue>();
@@ -77,7 +81,7 @@ public abstract class AbstractServerGet implements ServerGet{
   
   public void clear(){
     this.column = null;
-//    this.columnIterator = null;
+    this.columnPos = 0;
     this.delete = null;
     this.deleteIterator = null;
   }
@@ -108,6 +112,17 @@ public abstract class AbstractServerGet implements ServerGet{
   public List<KeyValue> getColumns(){
     return columns; 
   }
+//  @Override
+//  public void setColumns(List<KeyValue> columns){
+//    this.columns = columns;
+//  }
+//  @Override
+//  public void setColumnsFromBytes(List<byte[]> columns){
+//    this.columns.clear();
+//    for(byte[] column : columns){
+//      this.columns.add(new KeyValue(column, 0, column.length));
+//    }
+//  }
   @Override
   public void setColumns(List<byte[]> columns){
     this.columns.clear();
@@ -604,6 +619,82 @@ public abstract class AbstractServerGet implements ServerGet{
   }
   
   
+  @Override
+  public void mergeGets(){
+    if(newColumns == null){
+      return;
+    }
+    int oldPos = 0;
+    int newPos = 0;
+    int oldSize = columns.size();
+    int newSize = newColumns.size();
+//    System.out.println("oldSize " +oldSize);
+//    System.out.println("newSize " +newSize);
+    
+    int size =  oldSize + newSize;
+    List<KeyValue> mergedList = new ArrayList<KeyValue>(size);
+    List<Short> mergedVersions = new ArrayList<Short>(size);
+    
+    if(oldSize == 0){
+      reinit();
+      return;
+    }
+    if(newSize == 0){
+      return;
+    }
+    
+    int res = 0;
+    KeyValue newe = null;
+    boolean newDone = false;
+    KeyValue olde = null;
+    while(true){
+      newe = newColumns.get(newPos);
+      olde = columns.get(oldPos);
+      res = Bytes.compareTo(newe.getBuffer(), newe.getOffset(), newe.getLength(),
+          olde.getBuffer(), olde.getOffset(), olde.getLength());
+      if(res <= -1){
+        mergedList.add(newe);
+        mergedVersions.add(newVersions.get(newPos));
+        if(++newPos >= newSize){
+          newDone = true;
+          break;
+        }
+      } else if(res >= 1){
+        mergedList.add(olde);
+        mergedVersions.add(newVersions.get(oldPos));
+        if(++oldPos >= oldSize){
+          break;
+        }        
+      } else {
+        while(true){
+          System.out.println("Error!! Same value int old and new, in" +
+          "mergeGets");
+        }
+      }
+    }
+    if(newDone){
+      while(oldPos < oldSize){
+        mergedList.add(columns.get(oldPos));
+        mergedVersions.add(newVersions.get(oldPos++));
+      }
+    } else {
+      while(newPos < newSize){
+        mergedList.add(newColumns.get(newPos));
+        mergedVersions.add(newVersions.get(newPos++));
+      }
+    }
+    reinit();
+  }
+  
+  private void reinit(){
+    columns.addAll(newColumns);
+    versions.addAll(newVersions);
+    newColumns.clear();
+    newVersions.clear();
+    newColumn = null;
+    endColumns = false;
+  }
+  
   /**
    * For now only returns the family and the columns
    * Not the fastest implementation though columns is a LinkedList, but not too
@@ -612,34 +703,43 @@ public abstract class AbstractServerGet implements ServerGet{
    * 
    * @return a string representation of the object
    */
-//  public String toString(){
-//    StringBuffer sb = new StringBuffer();
-//    sb.append("/");
-//    sb.append(new String(this.family));
-//    sb.append(", columns[");
-//    int i=0;
+  public String toString(){
+    StringBuffer sb = new StringBuffer();
+    sb.append("/");
+    sb.append(new String(this.family));
+    sb.append(", columns[");
+    int i=0;
 //    byte [] col = null;
-//    int len = 0;
-//    for(; i<columns.size()-1; i++){
-//      col = columns.get(i);
-//      len = col.length;
-//      sb.append(new String(col, 0, len-2));
-//      sb.append("-");
-//      //The number of versions fetched
-//      sb.append(col[len-1]);
-//      sb.append(", ");
-//    }
-//    if(columns != null && columns.size() > 0){
+    KeyValue col = null;
+    int len = 0;
+    for(; i<columns.size()-1; i++){
+      col = columns.get(i);
+      sb.append(new String(col.getBuffer(), col.getOffset(), col.getLength()));
+      sb.append("-");
+      //The number of versions fetched
+      if(i < versions.size() - 1){
+        sb.append(versions.get(i));
+      }
+      sb.append(", ");
+    }
+    if(columns != null && columns.size() > 0){
+      col = columns.get(i);
+      sb.append(new String(col.getBuffer(), col.getOffset(), col.getLength()));
+      sb.append("-");
+      //The number of versions fetched
+      if(i < versions.size() - 1){
+        sb.append(versions.get(i));
+      }
 //      col = columns.get(i);
 //      len = col.length;
 //      sb.append(new String(col, 0, col.length-2));
 //      sb.append("-");
 //      //The number of versions fetched
 //      sb.append(col[len-1]);
-//    }
-//    sb.append("]");    
-//    
-//   return sb.toString(); 
-//  }
+    }
+    sb.append("]");    
+    
+   return sb.toString(); 
+  }
   
 }
