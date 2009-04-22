@@ -68,6 +68,11 @@ Release 0.20.0 - Unreleased
    HBASE-1150  HMsg carries safemode flag; remove (Nitay Joffe via Stack)
    HBASE-1232  zookeeper client wont reconnect if there is a problem (Nitay
                Joffe via Andrew Purtell)
+   HBASE-1303  Secondary index configuration prevents HBase from starting
+               (Ken Weiner via Stack)
+   HBASE-1298  master.jsp & table.jsp do not URI Encode table or region
+               names in links (Lars George via Stack)
+   HBASE-1310  Off by one error in Bytes.vintToBytes
 
   IMPROVEMENTS
    HBASE-1089  Add count of regions on filesystem to master UI; add percentage
@@ -130,6 +135,9 @@ Release 0.20.0 - Unreleased
                (Tim Sell via Stack)
    HBASE-1186  Memory-aware Maps with LRU eviction for cell cache 
                (Jonathan Gray via Andrew Purtell)
+   HBASE-1205  RegionServers should find new master when a new master comes up
+               (Nitay Joffe via Andrew Purtell)
+   HBASE-1309  HFile rejects key in Memcache with empty value
 
 Release 0.19.0 - 01/21/2009
   INCOMPATIBLE CHANGES
