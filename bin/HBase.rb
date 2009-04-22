@@ -17,6 +17,7 @@ import org.apache.hadoop.hbase.HConstants
 import org.apache.hadoop.hbase.io.BatchUpdate
 import org.apache.hadoop.hbase.io.RowResult
 import org.apache.hadoop.hbase.io.Cell
+import org.apache.hadoop.hbase.io.hfile.Compression
 import org.apache.hadoop.hbase.HBaseConfiguration
 import org.apache.hadoop.hbase.HColumnDescriptor
 import org.apache.hadoop.hbase.HTableDescriptor
@@ -36,6 +37,7 @@ module HBase
   ENDROW = STOPROW
   LIMIT = "LIMIT"
   METHOD = "METHOD"
+  MAXLENGTH = "MAXLENGTH"
 
   # Wrapper for org.apache.hadoop.hbase.client.HBaseAdmin
   class Admin
@@ -55,13 +57,13 @@ module HBase
 
     def describe(tableName)
       now = Time.now 
-      @formatter.header()
+      @formatter.header(["FAMILIES", "ENABLED"])
       found = false
       tables = @admin.listTables().to_a
       tables.push(HTableDescriptor::META_TABLEDESC, HTableDescriptor::ROOT_TABLEDESC)
       for t in tables
         if t.getNameAsString() == tableName
-          @formatter.row([t.to_s])
+          @formatter.row([t.to_s, "%s" % [@admin.isTableEnabled(tableName)]])
           found = true
         end
       end
@@ -212,7 +214,7 @@ module HBase
         args[MEMCACHE_FLUSHSIZE]? 
           htd.setMemcacheFlushSize(JLong.valueOf(args[MEMCACHE_FLUSHSIZE])) :
           htd.setMemcacheFlushSize(HTableDescriptor::DEFAULT_MEMCACHE_FLUSH_SIZE);
-        @admin.modifyTable(tableName.to_java_bytes,htd)
+        @admin.modifyTable(tableName.to_java_bytes, htd)
       else
         descriptor = hcd(args) 
         if (htd.hasFamily(descriptor.getNameAsString().to_java_bytes))
@@ -255,11 +257,11 @@ module HBase
       # Return a new HColumnDescriptor made of passed args
       # TODO: This is brittle code.
       # Here is current HCD constructor:
-      # public HColumnDescriptor(final byte [] columnName, final int maxVersions,
-      # final CompressionType compression, final boolean inMemory,
-      # final boolean blockCacheEnabled,
-      # final int maxValueLength, final int timeToLive,
-      # BloomFilterDescriptor bloomFilter)
+      # public HColumnDescriptor(final byte [] familyName, final int maxVersions,
+      # final String compression, final boolean inMemory,
+      # final boolean blockCacheEnabled, final int blocksize,
+      # final int maxValueLength,
+      # final int timeToLive, final boolean bloomFilter) {
       name = arg[NAME]
       raise ArgumentError.new("Column family " + arg + " must have a name") \
         unless name
@@ -268,10 +270,10 @@ module HBase
       return HColumnDescriptor.new(name.to_java_bytes,
         # JRuby uses longs for ints. Need to convert.  Also constants are String 
         arg[VERSIONS]? JInteger.new(arg[VERSIONS]): HColumnDescriptor::DEFAULT_VERSIONS,
-        arg[HColumnDescriptor::COMPRESSION]? HColumnDescriptor::CompressionType::valueOf(arg[HColumnDescriptor::COMPRESSION]):
-          HColumnDescriptor::DEFAULT_COMPRESSION,
+        arg[HColumnDescriptor::COMPRESSION]? arg[HColumnDescriptor::COMPRESSION]: HColumnDescriptor::DEFAULT_COMPRESSION,
         arg[IN_MEMORY]? JBoolean.valueOf(arg[IN_MEMORY]): HColumnDescriptor::DEFAULT_IN_MEMORY,
         arg[HColumnDescriptor::BLOCKCACHE]? JBoolean.valueOf(arg[HColumnDescriptor::BLOCKCACHE]): HColumnDescriptor::DEFAULT_BLOCKCACHE,
+        arg[HColumnDescriptor::BLOCKSIZE]? JInteger.valueOf(arg[HColumnDescriptor::BLOCKSIZE]): HColumnDescriptor::DEFAULT_BLOCKSIZE,
         arg[HColumnDescriptor::LENGTH]? JInteger.new(arg[HColumnDescriptor::LENGTH]): HColumnDescriptor::DEFAULT_LENGTH,
         arg[HColumnDescriptor::TTL]? JInteger.new(arg[HColumnDescriptor::TTL]): HColumnDescriptor::DEFAULT_TTL,
         arg[HColumnDescriptor::BLOOMFILTER]? JBoolean.valueOf(arg[HColumnDescriptor::BLOOMFILTER]): HColumnDescriptor::DEFAULT_BLOOMFILTER)
@@ -316,8 +318,10 @@ module HBase
     def scan(args = {})
       now = Time.now 
       limit = -1
+      maxlength = -1
       if args != nil and args.length > 0
         limit = args["LIMIT"] || -1 
+        maxlength = args["MAXLENGTH"] || -1 
         filter = args["FILTER"] || nil
         startrow = args["STARTROW"] || ""
         stoprow = args["STOPROW"] || nil
@@ -348,7 +352,7 @@ module HBase
         row = String.from_java_bytes r.getRow()
         for k, v in r
           column = String.from_java_bytes k
-          cell = toString(column, v)
+          cell = toString(column, v, maxlength)
           @formatter.row([row, "column=%s, %s" % [column, cell]])
         end
         count += 1
@@ -381,7 +385,7 @@ module HBase
 
     # Make a String of the passed cell.
     # Intercept cells whose format we know such as the info:regioninfo in .META.
-    def toString(column, cell)
+    def toString(column, cell, maxlength)
       if isMetaTable()
         if column == 'info:regioninfo'
           hri = Writables.getHRegionInfoOrNull(cell.getValue())
@@ -392,13 +396,15 @@ module HBase
         end
       end
       cell.toString()
+      val = cell.toString()
+      maxlength != -1 ? val[0, maxlength] : val    
     end
   
     # Get from table
     def get(row, args = {})
       now = Time.now 
       result = nil
-      if args == nil or args.length == 0
+      if args == nil or args.length == 0 or (args.length == 1 and args[MAXLENGTH] != nil)
         result = @table.getRow(row.to_java_bytes)
       else
         # Its a hash.
@@ -431,6 +437,7 @@ module HBase
         end
       end
       # Print out results.  Result can be Cell or RowResult.
+      maxlength = args[MAXLENGTH] || -1
       h = nil
       if result.instance_of? RowResult
         h = String.from_java_bytes result.getRow()
@@ -438,7 +445,7 @@ module HBase
         if result
           for k, v in result
             column = String.from_java_bytes k
-            @formatter.row([column, toString(column, v)])
+            @formatter.row([column, toString(column, v, maxlength)])
           end
         end
       else
@@ -446,7 +453,7 @@ module HBase
         @formatter.header()
         if result 
           for c in result
-            @formatter.row([c.toString()])
+            @formatter.row([toString(nil, c, maxlength)])
           end
         end
       end
