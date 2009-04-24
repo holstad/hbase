@@ -1136,6 +1136,9 @@ public class HRegion implements HConstants {
   public List<KeyValue> newget(Get get, List<KeyValue> result,
     final Integer lockid)
   throws IOException {
+//    if (LOG.isDebugEnabled()) {
+//      LOG.debug("newget: entering");
+//    }
     ServerGet serverGet = null; 
     
     if(get instanceof GetRow){

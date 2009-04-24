@@ -10,7 +10,14 @@ import org.apache.hadoop.hbase.util.Bytes;
 
 public class GetRow extends AbstractGet { // implements Get {
 
-  public GetRow(byte [] row, byte versions, TimeRange tr){
+  public GetRow(byte [] row, short versions){
+    super.row = row;
+    super.versions = versions;
+    super.families.add(new Family());
+    super.tr = new TimeRange();
+  }
+  
+  public GetRow(byte [] row, short versions, TimeRange tr){
     super.row = row;
     super.versions = versions;
     super.families.add(new Family());

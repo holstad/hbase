@@ -28,6 +28,10 @@ public class RowUpdates implements Writable, HeapSize{
   private long ts = HConstants.LATEST_TIMESTAMP;
   private long rowLock = -1L;
 
+  public RowUpdates(byte[] row){
+    this.row = row;
+  }
+  
   public RowUpdates(byte [] row, byte [] family, byte[] column){
     this.row = row;
     this.families.add(new Family(family, column));

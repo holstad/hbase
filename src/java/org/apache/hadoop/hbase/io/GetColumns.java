@@ -7,7 +7,11 @@ import org.apache.hadoop.hbase.util.Writables;
 
 public class GetColumns extends AbstractGet{
 
-  public GetColumns(byte [] row, byte [] family, byte [] column, short versions,
+  public GetColumns(byte[] row, byte[] family, byte[] column, short versions){
+    this(row, family, column, versions, new TimeRange());
+  }
+  
+  public GetColumns(byte[] row, byte[] family, byte[] column, short versions,
     TimeRange tr){
     super.row = row;
     super.versions = versions;
@@ -29,6 +33,7 @@ public class GetColumns extends AbstractGet{
     super.tr = tr;
   }
   
+
   public GetColumns(byte [] row, List<Family> families, short versions,
     TimeRange tr){
     super.row = row;

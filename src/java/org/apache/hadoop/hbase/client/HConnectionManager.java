@@ -1047,50 +1047,46 @@ public class HConnectionManager implements HConstants {
       if (list.isEmpty()) {
         return;
       }
-      boolean retryOnlyOne = false;
       int tries = 0;
       Iterator<RowUpdates> updatesIterator = list.iterator();
 
       byte [] currentRow = null;
       while(updatesIterator.hasNext() && tries < numRetries){
-        if(retryOnlyOne){
-          final RowUpdates currentUpdates = updatesIterator.next();
-          currentRow = currentUpdates.getRow();
-          int index = getRegionServerWithRetries(new ServerCallable<Integer>(
-              this, tableName, currentRow) {
-            public Integer call() throws IOException {
-              int i = server.updateRow(location.getRegionInfo()
-                  .getRegionName(), currentUpdates);
-              return i;
-            }
-          });
-          if (index != -1) {
-            HRegionLocation location = getRegionLocationForRowWithRetries(
-                tableName, currentRow, false);
-            byte [] currentRegion = location.getRegionInfo().getRegionName();
-            if (tries == numRetries - 1) {
-              throw new RetriesExhaustedException("Some server",
-                  currentRegion, currentRow, tries, new ArrayList<Throwable>());
-            }
-            long sleepTime = getPauseTime(tries);
-            if (LOG.isDebugEnabled()) {
-              LOG.debug("Reloading region " + Bytes.toString(currentRegion) +
-                  " location because regionserver didn't accept updates; " +
-                  "tries=" + tries +
-                  " of max=" + this.numRetries + ", waiting=" + sleepTime + 
-                  "ms");
-            }
-            try {
-              Thread.sleep(sleepTime);
-              tries++;
+
+        System.out.println("process 1");
+        final RowUpdates currentUpdates = updatesIterator.next();
+        currentRow = currentUpdates.getRow();
+        int index = getRegionServerWithRetries(new ServerCallable<Integer>(
+            this, tableName, currentRow) {
+          public Integer call() throws IOException {
+            System.out.println("updating row");
+            int i = server.updateRow(location.getRegionInfo()
+                .getRegionName(), currentUpdates);
+            return i;
+          }
+        });
+        if (index != -1) {
+          HRegionLocation location = getRegionLocationForRowWithRetries(
+              tableName, currentRow, false);
+          byte [] currentRegion = location.getRegionInfo().getRegionName();
+          if (tries == numRetries - 1) {
+            throw new RetriesExhaustedException("Some server",
+                currentRegion, currentRow, tries, new ArrayList<Throwable>());
+          }
+          long sleepTime = getPauseTime(tries);
+          if (LOG.isDebugEnabled()) {
+            LOG.debug("Reloading region " + Bytes.toString(currentRegion) +
+                " location because regionserver didn't accept updates; " +
+                "tries=" + tries +
+                " of max=" + this.numRetries + ", waiting=" + sleepTime + 
+            "ms");
+          }
+          try {
+            Thread.sleep(sleepTime);
+            tries++;
             } catch (InterruptedException e) {
               // continue
             }
-            retryOnlyOne = true;
-          }
-          else {
-            retryOnlyOne = false;
-          }
         }
       }
     }

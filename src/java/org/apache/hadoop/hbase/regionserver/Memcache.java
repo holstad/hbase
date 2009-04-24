@@ -779,15 +779,15 @@ class Memcache {
     
     //TODO have to remember to check the order of the set, so that tailSet
     //returns the things that are smaller and not bigger
-    int res = 0;
+    int retCode = 0;
     // The cases that we need at this level:
     //0 next
     //1 include
     //2 next store
     //3 done
     for(KeyValue kv : set){
-      res = sget.compareTo(kv, multiFamily);
-      switch(res) {
+      retCode = sget.compareTo(kv, multiFamily);
+      switch(retCode) {
         //Do not include in result, look at next kv
         case 0: break;
       

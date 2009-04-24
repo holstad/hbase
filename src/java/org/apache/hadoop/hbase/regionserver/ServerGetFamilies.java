@@ -62,7 +62,6 @@ public class ServerGetFamilies extends AbstractServerGet{
       return super.NEXT_KV; 
     }
     offset += rowLen;
-
     //This is only for the future if we have more than on family in the same
     //storefile, can be turned off for now
     //Getting family length
@@ -95,18 +94,15 @@ public class ServerGetFamilies extends AbstractServerGet{
     if(ret == 0){
       return super.NEXT_KV;
     }
-
     ret = super.get.getTimeRange().withinTimeRange(ts);
     if(ret != 1){
       return super.NEXT_KV;
     }
-
     //Check if kv is a delete
     if(super.isDelete(bytes, initialOffset, keyLen)){
       super.newDeletes.add(kv);
       return super.NEXT_KV;
     }     
-
     //TODO
     //ret = compareFilter(kv);
     
@@ -118,11 +114,10 @@ public class ServerGetFamilies extends AbstractServerGet{
         return super.NEXT_KV;
       }
     }
-    
     //There is not going to be any ts in here, but all tss will be taken care
     //of in the TimeRange check
     ret = compareColumn(bytes, offset, colLen);
-    
+
     //Includes remove from getList, TODO change for other calls
     return updateVersions(ret);
   }

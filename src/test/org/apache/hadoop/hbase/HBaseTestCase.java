@@ -33,10 +33,12 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.hbase.KeyValue;
 import org.apache.hadoop.hbase.client.HTable;
 import org.apache.hadoop.hbase.client.Scanner;
 import org.apache.hadoop.hbase.io.BatchUpdate;
 import org.apache.hadoop.hbase.io.Cell;
+import org.apache.hadoop.hbase.io.Get;
 import org.apache.hadoop.hbase.io.RowResult;
 import org.apache.hadoop.hbase.regionserver.HRegion;
 import org.apache.hadoop.hbase.regionserver.InternalScanner;
@@ -438,6 +440,11 @@ public abstract class HBaseTestCase extends TestCase {
 
     public void flushcache() throws IOException {
       this.region.flushcache();
+    }
+    
+    public void newget(Get get, List<KeyValue> result,
+        final Integer lockid) throws IOException {
+      region.newget(get, result, lockid);
     }
   }
 

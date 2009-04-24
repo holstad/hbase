@@ -374,4 +374,54 @@ public class TestHTable extends HBaseClusterTestCase implements HConstants {
        e.getClass());
    }
   }
+  
+  public void testNewGetColumns() {
+    HTable table = null;
+    byte[] family = "info2".getBytes();
+    try {
+      HColumnDescriptor column2 =
+        new HColumnDescriptor(Bytes.toBytes("info2:"));
+      HBaseAdmin admin = new HBaseAdmin(conf);
+      HTableDescriptor testTableADesc =
+        new HTableDescriptor(tableAname);
+      testTableADesc.addFamily(column);
+      testTableADesc.addFamily(column2);
+      admin.createTable(testTableADesc);
+      
+      table = new HTable(conf, tableAname);
+      BatchUpdate batchUpdate = new BatchUpdate(row);
+      
+      for(int i = 0; i < 5; i++)
+        batchUpdate.put(COLUMN_FAMILY_STR+i, Bytes.toBytes(i));
+      
+      table.commit(batchUpdate);
+
+      assertTrue(table.exists(row));
+      for(int i = 0; i < 5; i++)
+        assertTrue(table.exists(row, Bytes.toBytes(COLUMN_FAMILY_STR+i)));
+
+      RowResult result = null;
+      result = table.getRow(row,  new byte[][] {COLUMN_FAMILY});
+      for(int i = 0; i < 5; i++)
+        assertTrue(result.containsKey(Bytes.toBytes(COLUMN_FAMILY_STR+i)));
+      
+      result = table.getRow(row);
+      for(int i = 0; i < 5; i++)
+        assertTrue(result.containsKey(Bytes.toBytes(COLUMN_FAMILY_STR+i)));
+
+      batchUpdate = new BatchUpdate(row);
+      batchUpdate.put("info2:a", Bytes.toBytes("a"));
+      table.commit(batchUpdate);
+      
+      result = table.getRow(row, new byte[][] { COLUMN_FAMILY,
+          Bytes.toBytes("info2:a") });
+      for(int i = 0; i < 5; i++)
+        assertTrue(result.containsKey(Bytes.toBytes(COLUMN_FAMILY_STR+i)));
+      assertTrue(result.containsKey(Bytes.toBytes("info2:a")));
+    } catch (IOException e) {
+      e.printStackTrace();
+      fail("Should not have any exception " +
+        e.getClass());
+    }
+  }
 }
