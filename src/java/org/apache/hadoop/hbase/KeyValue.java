@@ -28,7 +28,7 @@ import org.apache.hadoop.io.Writable;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-
+import org.apache.hadoop.hbase.io.hfile.HFile;
 import org.apache.hadoop.hbase.util.Bytes;
 
 
@@ -260,62 +260,56 @@ public class KeyValue implements Writable{
   }
   
   /**
-   * @param row
+   * Constructs KeyValue structure filled with null value.
+   * @param row - row key (arbitrary byte array)
    * @param timestamp
-   * @return KeyValue structure filled with specified values.
-   * @throws IllegalArgumentException
    */
   public KeyValue(final String row, final long timestamp) {
     this(Bytes.toBytes(row), timestamp);
   }
 
   /**
-   * @param row
+   * Constructs KeyValue structure filled with null value.
+   * @param row - row key (arbitrary byte array)
    * @param timestamp
-   * @return KeyValue structure filled with specified values.
-   * @throws IllegalArgumentException
    */
   public KeyValue(final byte [] row, final long timestamp) {
     this(row, null, timestamp, Type.Put, null);
   }
 
   /**
-   * @param row
+   * Constructs KeyValue structure filled with null value.
+   * @param row - row key (arbitrary byte array)
    * @param column Column with delimiter between family and qualifier
-   * @return KeyValue structure filled with specified values.
-   * @throws IllegalArgumentException
    */
   public KeyValue(final String row, final String column) {
     this(row, column, null);
   }
 
   /**
-   * @param row
+   * Constructs KeyValue structure filled with null value.
+   * @param row - row key (arbitrary byte array)
    * @param column Column with delimiter between family and qualifier
-   * @return KeyValue structure filled with specified values.
-   * @throws IllegalArgumentException
    */
   public KeyValue(final byte [] row, final byte [] column) {
     this(row, column, null);
   }
 
   /**
-   * @param row
+   * Constructs KeyValue structure filled with specified value.
+   * @param row - row key (arbitrary byte array)
    * @param column Column with delimiter between family and qualifier
    * @param value
-   * @return KeyValue structure filled with specified values.
-   * @throws IllegalArgumentException
    */
   public KeyValue(final String row, final String column, final byte [] value) {
     this(Bytes.toBytes(row), Bytes.toBytes(column), value);
   }
 
   /**
-   * @param row
+   * Constructs KeyValue structure filled with specified value.
+   * @param row - row key (arbitrary byte array)
    * @param column Column with delimiter between family and qualifier
    * @param value
-   * @return KeyValue structure filled with specified values.
-   * @throws IllegalArgumentException
    */
   public KeyValue(final byte [] row, final byte [] column, final byte [] value) {
     this(row, column, HConstants.LATEST_TIMESTAMP, value);
@@ -323,34 +317,31 @@ public class KeyValue implements Writable{
 
 
   /**
-   * @param row
+   * Constructs KeyValue structure filled with null value.
+   * @param row - row key (arbitrary byte array)
    * @param column Column with delimiter between family and qualifier
    * @param ts
-   * @return KeyValue structure filled with specified values.
-   * @throws IllegalArgumentException
    */
   public KeyValue(final String row, final String column, final long ts) {
     this(row, column, ts, null);
   }
 
   /**
-   * @param row
+   * Constructs KeyValue structure filled with null value.
+   * @param row - row key (arbitrary byte array)
    * @param column Column with delimiter between family and qualifier
    * @param ts
-   * @return KeyValue structure filled with specified values.
-   * @throws IllegalArgumentException
    */
   public KeyValue(final byte [] row, final byte [] column, final long ts) {
     this(row, column, ts, Type.Put);
   }
 
   /**
-   * @param row
+   * Constructs KeyValue structure filled with specified value.
+   * @param row - row key (arbitrary byte array)
    * @param column Column with delimiter between family and qualifier
    * @param timestamp
    * @param value
-   * @return KeyValue structure filled with specified values.
-   * @throws IllegalArgumentException
    */
   public KeyValue(final String row, final String column,
     final long timestamp, final byte [] value) {
@@ -360,12 +351,11 @@ public class KeyValue implements Writable{
   }
 
   /**
-   * @param row
+   * Constructs KeyValue structure filled with specified value.
+   * @param row - row key (arbitrary byte array)
    * @param column Column with delimiter between family and qualifier
    * @param timestamp
    * @param value
-   * @return KeyValue structure filled with specified values.
-   * @throws IllegalArgumentException
    */
   public KeyValue(final byte [] row, final byte [] column,
      final long timestamp, final byte [] value) {
@@ -373,13 +363,12 @@ public class KeyValue implements Writable{
   }
 
   /**
-   * @param row
+   * Constructs KeyValue structure filled with specified value.
+   * @param row - row key (arbitrary byte array)
    * @param column Column with delimiter between family and qualifier
    * @param timestamp
    * @param type
    * @param value
-   * @return KeyValue structure filled with specified values.
-   * @throws IllegalArgumentException
    */
   public KeyValue(final String row, final String column,
      final long timestamp, final Type type, final byte [] value) {
@@ -388,12 +377,11 @@ public class KeyValue implements Writable{
   }
 
   /**
-   * @param row
+   * Constructs KeyValue structure filled with null value.
+   * @param row - row key (arbitrary byte array)
    * @param column Column with delimiter between family and qualifier
    * @param timestamp
    * @param type
-   * @return KeyValue structure filled with specified values.
-   * @throws IllegalArgumentException
    */
   public KeyValue(final byte [] row, final byte [] column,
       final long timestamp, final Type type) {
@@ -402,13 +390,12 @@ public class KeyValue implements Writable{
   }
 
   /**
-   * @param row
+   * Constructs KeyValue structure filled with specified value.
+   * @param row - row key (arbitrary byte array)
    * @param column Column with delimiter between family and qualifier
    * @param timestamp
    * @param type
    * @param value
-   * @return KeyValue structure filled with specified values.
-   * @throws IllegalArgumentException
    */
   public KeyValue(final byte [] row, final byte [] column,
       final long timestamp, final Type type, final byte [] value) {
@@ -417,7 +404,8 @@ public class KeyValue implements Writable{
   }
 
   /**
-   * @param row
+   * Constructs KeyValue structure filled with specified value.
+   * @param row - row key (arbitrary byte array)
    * @param roffset
    * @param rlength
    * @param column Column with delimiter between family and qualifier
@@ -428,7 +416,6 @@ public class KeyValue implements Writable{
    * @param value
    * @param voffset
    * @param vlength
-   * @return KeyValue
    * @throws IllegalArgumentException
    */
   public KeyValue(final byte [] row, final int roffset, final int rlength,
@@ -443,7 +430,7 @@ public class KeyValue implements Writable{
 
   /**
    * Write KeyValue format into a byte array.
-   * @param row
+   * @param row - row key (arbitrary byte array)
    * @param roffset
    * @param rlength
    * @param column
@@ -664,9 +651,13 @@ public class KeyValue implements Writable{
 
   /**
 <<<<<<< HEAD:src/java/org/apache/hadoop/hbase/KeyValue.java
+<<<<<<< HEAD:src/java/org/apache/hadoop/hbase/KeyValue.java
    * @param b
 =======
    * @param b Key portion of a KeyValue.
+>>>>>>> hbase/trunk:src/java/org/apache/hadoop/hbase/KeyValue.java
+=======
+   * @param k Key portion of a KeyValue.
 >>>>>>> hbase/trunk:src/java/org/apache/hadoop/hbase/KeyValue.java
    * @return Key as a String.
    */
@@ -872,7 +863,7 @@ public class KeyValue implements Writable{
   }
 
   /**
-   * @param rowlength Pass if you have it to save on an int creation.
+   * @param rowlength - length of row.
    * @return Offset into backing buffer at which the column begins
    */
   public int getColumnOffset(final int rowlength) {
@@ -1164,8 +1155,8 @@ public class KeyValue implements Writable{
 
     /**
      * @param left
-     * @param row
-     * @return
+     * @param row - row key (arbitrary byte array)
+     * @return RawComparator
      */
     public int compareRows(final KeyValue left, final byte [] row) {
       return getRawComparator().compareRows(left.getBuffer(),
@@ -1302,7 +1293,6 @@ public class KeyValue implements Writable{
 
     /**
      * @return Comparator that ignores key type; useful checking deletes
-     * @throws IOException
      */
     public KVComparator getComparatorIgnoringType() {
       KVComparator c = null;
@@ -1317,7 +1307,7 @@ public class KeyValue implements Writable{
   }
 
   /**
-   * @param row
+   * @param row - row key (arbitrary byte array)
    * @return First possible KeyValue on passed <code>row</code>
    */
   public static KeyValue createFirstOnRow(final byte [] row) {
@@ -1325,8 +1315,8 @@ public class KeyValue implements Writable{
   }
 
   /**
-   * @param row
-   * @param ts
+   * @param row - row key (arbitrary byte array)
+   * @param ts - timestamp
    * @return First possible key on passed <code>row</code> and timestamp.
    */
   public static KeyValue createFirstOnRow(final byte [] row,
@@ -1335,8 +1325,8 @@ public class KeyValue implements Writable{
   }
 
   /**
-   * @param row
-   * @param ts
+   * @param row - row key (arbitrary byte array)
+   * @param ts - timestamp
    * @return First possible key on passed <code>row</code>, column and timestamp.
    */
   public static KeyValue createFirstOnRow(final byte [] row, final byte [] c,
