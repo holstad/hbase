@@ -62,10 +62,8 @@ import org.apache.hadoop.hbase.io.Family;
 import org.apache.hadoop.hbase.io.Get;
 import org.apache.hadoop.hbase.io.GetColumns;
 import org.apache.hadoop.hbase.io.GetFamilies;
-import org.apache.hadoop.hbase.io.GetFamily;
 import org.apache.hadoop.hbase.io.GetRow;
 import org.apache.hadoop.hbase.io.HbaseMapWritable;
-import org.apache.hadoop.hbase.io.PutFamily;
 import org.apache.hadoop.hbase.io.RowResult;
 import org.apache.hadoop.hbase.io.RowUpdates;
 import org.apache.hadoop.hbase.io.Reference.Range;
@@ -1138,12 +1136,6 @@ public class HRegion implements HConstants {
   public List<KeyValue> newget(Get get, List<KeyValue> result,
     final Integer lockid)
   throws IOException {
-    
-//    if (LOG.isDebugEnabled()) {
-//      LOG.debug("Entering newGet");
-//    }
-    
-//    byte [] row = get.getRow();
     ServerGet serverGet = null; 
     
     if(get instanceof GetRow){
@@ -1169,19 +1161,9 @@ public class HRegion implements HConstants {
         if (store != null) {
           serverGet.setFamily(family.getFamily());
           serverGet.setColumns(family.getColumns());
-//          if (LOG.isDebugEnabled()) {
-//            LOG.debug("family " +family);
-//          }
-//          if (LOG.isDebugEnabled()) {
-//            LOG.debug("sget " +serverGet);
-//          }
           store.newget(serverGet, result);
         }
       }
-//      if (LOG.isDebugEnabled()) {
-//        LOG.debug("newget: Checked all families, results.size " + result.size()+
-//            ", returning");
-//      }
       return result;
     } finally {
       if(lockid == null) releaseRowLock(lid);

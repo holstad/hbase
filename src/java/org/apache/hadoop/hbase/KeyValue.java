@@ -1478,7 +1478,7 @@ public class KeyValue implements Writable{
       loffset += Bytes.SIZEOF_SHORT;
       short rrowlength = Bytes.toShort(right, roffset);
       roffset += Bytes.SIZEOF_SHORT;
-      int compare = Bytes.compareTo(left, loffset,lrowlength, right, roffset,
+      int compare = compareRows(left, loffset,lrowlength, right, roffset,
         rrowlength);
       if (compare != 0) {
         return compare;
@@ -1531,6 +1531,55 @@ public class KeyValue implements Writable{
       }
       return 0;
     }
+    
+//    public int compare(byte[] left, int loffset, int llength, byte[] right,
+//        int roffset, int rlength) {
+//      // Compare row
+//      short lrowlength = Bytes.toShort(left, loffset);
+//      short rrowlength = Bytes.toShort(right, roffset);
+//      int compare = compareRows(left, loffset + Bytes.SIZEOF_SHORT,
+//          lrowlength,
+//          right, roffset + Bytes.SIZEOF_SHORT, rrowlength);
+//      if (compare != 0) {
+//        return compare;
+//      }
+// 
+//      // Compare column family. Start compare past row and family length.
+//      int lcolumnoffset = Bytes.SIZEOF_SHORT + lrowlength + 1 + loffset;
+//      int rcolumnoffset = Bytes.SIZEOF_SHORT + rrowlength + 1 + roffset;
+//      int lcolumnlength = llength - TIMESTAMP_TYPE_SIZE -
+//        (lcolumnoffset - loffset);
+//      int rcolumnlength = rlength - TIMESTAMP_TYPE_SIZE -
+//        (rcolumnoffset - roffset);
+//      compare = Bytes.compareTo(left, lcolumnoffset, lcolumnlength, right,
+//          rcolumnoffset, rcolumnlength);
+//      if (compare != 0) {
+//        return compare;
+//      }
+// 
+//      if (!this.ignoreTimestamp) {
+//        // Get timestamps.
+//        long ltimestamp = Bytes.toLong(left,
+//            loffset + (llength - TIMESTAMP_TYPE_SIZE));
+//        long rtimestamp = Bytes.toLong(right,
+//            roffset + (rlength - TIMESTAMP_TYPE_SIZE));
+//        compare = compareTimestamps(ltimestamp, rtimestamp);
+//        if (compare != 0) {
+//          return compare;
+//        }
+//      }
+// 
+//      if (!this.ignoreType) {
+//        // Compare types. Let the delete types sort ahead of puts; i.e. types
+//        // of higher numbers sort before those of lesser numbers
+//        byte ltype = left[loffset + (llength - 1)];
+//        byte rtype = right[roffset + (rlength - 1)];
+//        return (0xff & rtype) - (0xff & ltype);
+//      }
+//      return 0;
+//    }
+    
+    
     
     public int compare(byte[] left, byte[] right) {
       return compare(left, 0, left.length, right, 0, right.length);

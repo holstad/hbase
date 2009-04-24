@@ -24,6 +24,8 @@ import java.io.IOException;
 import java.lang.reflect.Array;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.ArrayList;
+import java.util.List;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -141,7 +143,13 @@ public class HbaseObjectWritable implements Writable, Configurable {
     addToMap(KeyValue.class, code++);
     addToMap(RowUpdates.class, code++);
     addToMap(TimeRange.class, code++);
-
+    
+//    addToMap(AbstractGet.class, code++);
+//    addToMap(GetColumns.class, code++);
+//    addToMap(KeyValue[].class, code++);
+//    addToMap(ArrayList.class, code++);
+//    addToMap(List.class, code++);
+//    addToMap(Family[].class, code++);
   }
   
   private Class<?> declaredClass;

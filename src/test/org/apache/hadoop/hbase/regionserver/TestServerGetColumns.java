@@ -198,7 +198,7 @@ public class TestServerGetColumns extends TestCase {
           System.out.println("fetching next value from store\n");
       }
     }
-    assertEquals(2, ret);
+    assertEquals(0, ret);
   }
   
   public void testCompare_deleteList()

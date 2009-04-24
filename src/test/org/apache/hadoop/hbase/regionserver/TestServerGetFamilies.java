@@ -82,24 +82,17 @@ public class TestServerGetFamilies extends TestCase {
   }
 
   
-  public void stestCompareColumn()
+  public void testCompareColumn()
   throws IOException{
     List<KeyValue> list = new ArrayList<KeyValue>();
     list.add(putKv1);
     list.add(putKv2);
-//    list.add(putKv3);
-//    list.add(putKv4);
     
     int res = 0;
     for(int i=0; i< list.size(); i++){
       res = sget.compareTo(list.get(i), multiFamily);
       assertEquals(1, res);
-//      System.out.println("res " +res);
     }
-//    System.out.println("newColumns.size " +
-//        ((ServerGetFamilies)sget).getNewColumns().size());
-   
-//    System.out.println("newColumns.size " +((ServerGetFamilies)sget).getNewColumns().size());
 
   }
   
@@ -135,7 +128,7 @@ public class TestServerGetFamilies extends TestCase {
     for(int i=0; i< list.size(); i++){
       res = sget.compareTo(list.get(i), multiFamily);
 //      assertEquals(1, res);
-      System.out.println("res " +res);
+//      System.out.println("res " +res);
     }
     
 //    ((ServerGetFamilies)sget).mergeGets(multiFamily);

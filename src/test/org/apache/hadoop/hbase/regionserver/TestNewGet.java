@@ -46,6 +46,7 @@ import org.apache.hadoop.hbase.io.Cell;
 import org.apache.hadoop.hbase.io.Get;
 import org.apache.hadoop.hbase.io.GetColumns;
 import org.apache.hadoop.hbase.io.GetFamilies;
+import org.apache.hadoop.hbase.io.GetTop;
 import org.apache.hadoop.hbase.io.TimeRange;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.hdfs.MiniDFSCluster;
@@ -142,11 +143,12 @@ public class TestNewGet extends HBaseTestCase implements HConstants {
     
     // Testing getting from memcache and storeFile 2 versions + comparing timers
     // to see which one is faster
-    int v2Fetch = 2;
+    int v2Fetch = 3;
     results = new ArrayList<KeyValue>();
     List<byte[]> columns = new ArrayList<byte[]>(2);
-    columns.add(col2);
-    columns.add(col4);
+    columns.add(col1);
+    columns.add(col3);
+    columns.add(col5);
     get = new GetColumns(row, getFam, columns, (short)v2Fetch, tr);
 
     long start = 0L;
@@ -172,12 +174,15 @@ public class TestNewGet extends HBaseTestCase implements HConstants {
     byte [] row = get.getRow();
     NavigableSet<byte[]> cols =
       new ConcurrentSkipListSet<byte[]>(Bytes.BYTES_COMPARATOR);
-    cols.add(column2);
-    cols.add(column4);
+    cols.add(column1);
+    cols.add(column3);
+    cols.add(column5);
+    oldRes = region.getFull(row, cols, LATEST_TIMESTAMP, v2Fetch, null);
+    oldRes = null;
     start = System.nanoTime();
     oldRes = region.getFull(row, cols, LATEST_TIMESTAMP, v2Fetch, null);
     stop = System.nanoTime();
-    if(PRINT) System.out.println("oldtimer " +(stop-start));
+    if(PRINT) System.out.println("old timer " +(stop-start));
     int oldVersions = 0;
     for(Map.Entry<byte[], Cell> entry : oldRes.entrySet()){
       oldVersions += entry.getValue().getNumValues();
@@ -224,6 +229,40 @@ public class TestNewGet extends HBaseTestCase implements HConstants {
       oldVersions += entry.getValue().getNumValues();
     }
     assertEquals(oldVersions, results.size());
+  }
+  
+  public void testGetTop()
+  throws IOException {
+    results = new ArrayList<KeyValue>();
+    long start = 0L;
+    long stop = 0L;
+    int nrToFetch = 5;
+
+    
+    oldPut();
+    
+    flush();
+    oldPut();
+    Get get = new GetTop(row, fam, nrToFetch, tr);
+    region.newget(get, results, null);
+    
+    flush();
+    oldPut();
+    
+    nrToFetch = 5;
+    if(PRINT) System.out.println("Trying to fetch " +nrToFetch+
+        " KeyValues");
+    results = new ArrayList<KeyValue>();
+    get = new GetTop(row, fam, nrToFetch, tr);
+    
+    start = System.nanoTime();
+    region.newget(get, results, null);
+    stop = System.nanoTime();
+    if(PRINT) System.out.println("GetTop");
+    if(PRINT) System.out.println("new timer " +(stop-start));
+    if(PRINT) System.out.println("result size " +results.size());
+    assertEquals(nrToFetch, results.size());
+    
   }
   
   

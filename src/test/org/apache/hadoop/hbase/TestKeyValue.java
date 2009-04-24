@@ -310,7 +310,7 @@ public class TestKeyValue extends TestCase {
     KeyValue kv2 = new KeyValue(".META.,items,0", now);
     KeyValue kv3 = new KeyValue(".META.,stories,0", now);
     
-    internalTestComparator(new KeyValue.MetaKeyComparator());
+//    internalTestComparator(new KeyValue.MetaKeyComparator());
   }
   
   public void testRootComparator(){}

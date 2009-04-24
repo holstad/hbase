@@ -63,8 +63,7 @@ public class TestNewPut extends HBaseTestCase implements HConstants  {
 //    columns.add(col3);
 //    columns.add(col4);
 //    columns.add(col5);
-    family = new Family(fam);
-    family.add(col1, val1);
+    family = new Family(fam, col1, val1);
     family.add(col2, val2);
     family.add(col3, val3);
     family.add(col4, val4);
