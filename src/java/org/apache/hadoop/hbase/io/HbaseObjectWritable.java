@@ -138,18 +138,10 @@ public class HbaseObjectWritable implements Writable, Configurable {
     addToMap(BatchUpdate[].class, code++);
     
     //New from 0.20
-    addToMap(Family.class, code++);
     addToMap(Get.class, code++);
-    addToMap(KeyValue.class, code++);
     addToMap(RowUpdates.class, code++);
-    addToMap(TimeRange.class, code++);
-    
-//    addToMap(AbstractGet.class, code++);
-//    addToMap(GetColumns.class, code++);
-//    addToMap(KeyValue[].class, code++);
-//    addToMap(ArrayList.class, code++);
-//    addToMap(List.class, code++);
-//    addToMap(Family[].class, code++);
+    addToMap(KeyValue.class, code++);
+    addToMap(KeyValue[].class, code++);
   }
   
   private Class<?> declaredClass;

@@ -60,6 +60,8 @@ public class TestServerGetColumns extends TestCase {
   ServerGet sget = null;
   
   TimeRange tr = null;
+  
+  private boolean multiFamily = false;
 
   protected void setUp() throws Exception {
     super.setUp();
@@ -133,6 +135,7 @@ public class TestServerGetColumns extends TestCase {
     updateKey(k);
     assertNotSame(ok, k);
   }
+  
   private void updateKey(KeyValue k){
     byte [] row = "row2".getBytes();
     byte [] fam = "fam2:".getBytes();
@@ -159,6 +162,7 @@ public class TestServerGetColumns extends TestCase {
     assertEquals(2, ret);
   }
  
+  
   public void testCompare_multiColumns()
   throws IOException{
     //Create a ServerGet object
@@ -200,6 +204,7 @@ public class TestServerGetColumns extends TestCase {
     }
     assertEquals(0, ret);
   }
+  
   
   public void testCompare_deleteList()
   throws IOException{
@@ -256,6 +261,7 @@ public class TestServerGetColumns extends TestCase {
     
   }
   
+  
   public void testNextStoreFile()
   throws IOException{
     //Create a ServerGet object
@@ -304,7 +310,6 @@ public class TestServerGetColumns extends TestCase {
   }
   
   
-  
   public void testDone()
   throws IOException{
     //Create a KeyValue object
@@ -337,162 +342,7 @@ public class TestServerGetColumns extends TestCase {
     assertEquals(3, ret);
   }
 
-  public void testMergeDeletes_Delete_Delete(){
-    //Create delete keyLists to merge
-    List<KeyValue> l1 = new ArrayList<KeyValue>();
-    List<KeyValue> l2 = new ArrayList<KeyValue>();
-    
-    l1.add(delKv1);
-    if(PRINT){
-      printList(l1);
-    }
-    
-    l2.add(delKv3);
-    if(PRINT){
-      printList(l2);
-    }
-    
-    //merge lists
-    Deletes mergedDeletes = null;
-    mergedDeletes = sget.mergeDeletes(l1, l2);
-    
-    //check result
-    for(KeyValue key : mergedDeletes.getDeletes()){
-      assertSame(key, delKv3);
-      if(PRINT) System.out.println("key " +key);
-    }
-    
-    //merge lists
-    if(PRINT) System.out.println();
-    mergedDeletes = sget.mergeDeletes(l2, l1);
-    
-    //check result
-    for(KeyValue key : mergedDeletes.getDeletes()){
-      assertSame(key, delKv3);
-      if(PRINT) System.out.println("key " +key);
-    }
-  }
 
-  
-  public void testMergeDeletes_Delete_DeleteColumn(){
-    //Create delete keyLists to merge
-    List<KeyValue> l1 = new ArrayList<KeyValue>();
-    List<KeyValue> l2 = new ArrayList<KeyValue>();
-    
-    l1.add(delKv2);
-    if(PRINT){
-      printList(l1);
-    }
-    
-    l2.add(delKv4);
-    if(PRINT){
-      printList(l2);
-    }
-    
-    //merge lists
-    Deletes mergedDeletes = null;
-    mergedDeletes = sget.mergeDeletes(l1, l2);
-    
-    //check result
-    for(KeyValue key : mergedDeletes.getDeletes()){
-      assertSame(key, delKv4);
-      if(PRINT){
-        System.out.println("key " +key);
-      }
-    }
-    
-    //merge lists
-    if(PRINT) System.out.println();
-    mergedDeletes = sget.mergeDeletes(l2, l1);
-    
-    //check result
-    for(KeyValue key : mergedDeletes.getDeletes()){
-      assertSame(key, delKv4);
-      if(PRINT){
-        System.out.println("key " +key);
-      }
-    }
-  }
-  
-
-  public void testMergeDeletes_DeleteColumn_DeleteColumn(){
-    //Create delete keyLists to merge
-    List<KeyValue> l1 = new ArrayList<KeyValue>();
-    List<KeyValue> l2 = new ArrayList<KeyValue>();
-    
-    l1.add(delKv21);
-    if(PRINT){
-      printList(l1);
-    }
-    
-    l2.add(delKv41);
-    if(PRINT){
-      printList(l2);
-    }
-    
-    //merge lists
-    Deletes mergedDeletes = null;
-    mergedDeletes = sget.mergeDeletes(l1, l2);
-    
-    //check result
-    for(KeyValue key : mergedDeletes.getDeletes()){
-      assertSame(key, delKv41);
-      if(PRINT) System.out.println("key " +key);
-    }
-    
-    //merge lists
-    if(PRINT) System.out.println();
-    mergedDeletes = sget.mergeDeletes(l2, l1);
-    
-    //check result
-    for(KeyValue key : mergedDeletes.getDeletes()){
-      assertSame(key, delKv41);
-      if(PRINT) System.out.println("key " +key);
-    }
-  }  
-  
-  
-  public void testMergeDeletes(){
-    //Create delete keyLists to merge
-    List<KeyValue> l1 = new ArrayList<KeyValue>();
-    List<KeyValue> l2 = new ArrayList<KeyValue>();
-    
-    KeyValue oldKey1 = delKv1;
-    KeyValue oldKey2 = delKv4;
-    l1.add(oldKey1);
-    l1.add(oldKey2);
-    if(PRINT){
-      printList(l1);
-    }
-    
-    KeyValue newKey1 = delKv3;
-    KeyValue newKey2 = delKv2;
-    KeyValue newKey3 = delKv5;
-    l2.add(newKey1);
-    l2.add(newKey2);
-    l2.add(newKey3);
-    if(PRINT){
-      printList(l2);
-    }
-    
-    KeyValue [] resultArr = new KeyValue[3];
-    resultArr[0] = newKey1;
-    resultArr[1] = oldKey2;
-    resultArr[2] = newKey3;
-    
-    //merge lists
-    Deletes mergedDeletes = sget.mergeDeletes(l1, l2);
-    
-    //check result
-    int i = 0;
-    for(KeyValue key : mergedDeletes.getDeletes()){
-      assertSame(key, resultArr[i++]);
-      if(PRINT) System.out.println("key " +key);
-    }
-    
-  }
-  
-  
   public void testCompare_updateVersions()
   throws IOException{
     versionsToFetch = 4;
@@ -536,6 +386,7 @@ public class TestServerGetColumns extends TestCase {
       assertEquals(3, version);
     }
   }
+  
   
   public void testCompare_timeRange()
   throws IOException{

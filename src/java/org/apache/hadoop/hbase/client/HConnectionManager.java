@@ -1065,6 +1065,7 @@ public class HConnectionManager implements HConstants {
             return i;
           }
         });
+        System.out.println("back from server");
         if (index != -1) {
           HRegionLocation location = getRegionLocationForRowWithRetries(
               tableName, currentRow, false);

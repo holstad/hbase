@@ -6,6 +6,8 @@ import java.util.List;
 import org.apache.hadoop.hbase.util.Writables;
 
 public class GetColumns extends AbstractGet{
+  
+  public GetColumns(){}
 
   public GetColumns(byte[] row, byte[] family, byte[] column, short versions){
     this(row, family, column, versions, new TimeRange());

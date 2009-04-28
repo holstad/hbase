@@ -1185,6 +1185,7 @@ public class Store implements HConstants {
       for(Map.Entry<Long, StoreFile> entry :
         this.storefiles.descendingMap().entrySet()){
         sget.mergeGets();
+        sget.mergeDeletes(multiFamily);
         sget.clear();
         retCode = newgetFromStoreFile(entry.getValue(), sget, result,
           multiFamily);

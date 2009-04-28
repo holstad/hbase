@@ -746,6 +746,7 @@ class Memcache {
         throw new IOException("Internal error in get, return code = -1");
       } else if(retCode == 0){
         sget.mergeGets();
+        sget.mergeDeletes(multiFamily);
         sget.clear();
         retCode = internalNewGet(this.snapshot, sget, results, multiFamily);
         if(retCode == -1){

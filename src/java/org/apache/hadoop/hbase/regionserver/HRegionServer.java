@@ -83,11 +83,13 @@ import org.apache.hadoop.hbase.client.ServerConnectionManager;
 import org.apache.hadoop.hbase.filter.RowFilterInterface;
 import org.apache.hadoop.hbase.io.BatchUpdate;
 import org.apache.hadoop.hbase.io.Cell;
+import org.apache.hadoop.hbase.io.Family;
 import org.apache.hadoop.hbase.io.Get;
 import org.apache.hadoop.hbase.io.GetColumns;
 import org.apache.hadoop.hbase.io.HbaseMapWritable;
 import org.apache.hadoop.hbase.io.RowResult;
 import org.apache.hadoop.hbase.io.RowUpdates;
+import org.apache.hadoop.hbase.io.TimeRange;
 import org.apache.hadoop.hbase.ipc.HBaseRPC;
 import org.apache.hadoop.hbase.ipc.HBaseRPCErrorHandler;
 import org.apache.hadoop.hbase.ipc.HBaseRPCProtocolVersion;
@@ -1612,7 +1614,7 @@ public class HRegionServer implements HConstants, HRegionInterface,
     }
   }
 
-  public KeyValue [] newGet(final byte [] regionName, Get get,
+  public KeyValue[] newGet(final byte [] regionName, Get get,
     final long lockId)
   throws IOException {
     if (LOG.isDebugEnabled()) {
@@ -1626,9 +1628,11 @@ public class HRegionServer implements HConstants, HRegionInterface,
 
       region.newget(get, result, getLockFromId(lockId));
       
+      LOG.info("newGet: result.isEmpty " +result.isEmpty());
       if (LOG.isDebugEnabled()) {
         LOG.debug("newGet: result.isEmpty " +result.isEmpty());
       }
+//      return new KeyValue[]{new KeyValue("row", "fam:col")};
       return result.isEmpty() ? null : result.toArray(new KeyValue[0]);
 
     } catch (Throwable t) {
@@ -1724,6 +1728,17 @@ public class HRegionServer implements HConstants, HRegionInterface,
     return -1;
   }
 
+  
+//  public int updateRow(final byte [] regionName, final byte[] row)
+//  throws IOException {
+//    return -1;
+//  }
+//
+//  public int updateRow(final byte [] regionName, final byte[] row,
+//      final RowUpdates rups)
+//  throws IOException {
+//    return -1;
+//  }
   
   public int updateRow(final byte [] regionName, final RowUpdates rups)
   throws IOException {

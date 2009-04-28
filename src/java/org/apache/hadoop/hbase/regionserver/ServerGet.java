@@ -62,6 +62,9 @@ public interface ServerGet {
   public List<KeyValue> getDeletes();
   public void setDeletes(List<KeyValue> deletes);
   public List<KeyValue> getNewDeletes();
+  public void setNewDeletes(List<KeyValue> deletes);
+  public int isDeleted(byte [] currBytes, int initCurrOffset,
+      short currRowLen, byte currFamLen, int currColLen, boolean multiFamily);
   
   public byte [] getFamily();
   public void setFamily(byte [] family);
@@ -75,9 +78,10 @@ public interface ServerGet {
   public long getTTL();
   public void setTTL(long ttl);
   
-  public Deletes mergeDeletes(List<KeyValue> l1, List<KeyValue> l2);
-  public Deletes mergeDeletes(List<KeyValue> l1, List<KeyValue> l2,
-      boolean multiFamily);
+  public void mergeDeletes(boolean multiFamily);
+//  public Deletes mergeDeletes(List<KeyValue> l1, List<KeyValue> l2);
+//  public Deletes mergeDeletes(List<KeyValue> l1, List<KeyValue> l2,
+//      boolean multiFamily);
   
   public void mergeGets();
   

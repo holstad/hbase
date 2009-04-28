@@ -22,12 +22,16 @@ public class RowUpdates implements Writable, HeapSize{
   byte [] row = null;
 //  SortedMap<byte [] , List<KeyValue>> familyMap = null;
   List<Family> families = new ArrayList<Family>();
+//  List<Family> families = null;
+//  Family family = new Family();
   
   //TODO check if you want to get the timestamp of the send and not the time
   //when the Object is created
   private long ts = HConstants.LATEST_TIMESTAMP;
   private long rowLock = -1L;
 
+  public RowUpdates(){}
+  
   public RowUpdates(byte[] row){
     this.row = row;
   }

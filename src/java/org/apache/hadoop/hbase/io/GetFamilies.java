@@ -1,6 +1,8 @@
 package org.apache.hadoop.hbase.io;
 
 public class GetFamilies extends AbstractGet{
+  public GetFamilies(){}
+
   public GetFamilies(byte [] row, byte [] family, short versions){
     this(row, family, versions, new TimeRange());
   }

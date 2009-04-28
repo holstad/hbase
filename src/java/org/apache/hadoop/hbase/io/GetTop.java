@@ -9,6 +9,8 @@ import org.apache.hadoop.hbase.util.Bytes;
 public class GetTop extends AbstractGet {
   private int fetches = 0;
   
+  public GetTop(){}
+
   public GetTop(byte [] row, byte [] family, int fetches){
     this(row, family, fetches, new TimeRange());
   }

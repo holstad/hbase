@@ -9,6 +9,7 @@ import java.util.Set;
 import org.apache.hadoop.hbase.util.Bytes;
 
 public class GetRow extends AbstractGet { // implements Get {
+  public GetRow(){}
 
   public GetRow(byte [] row, short versions){
     super.row = row;

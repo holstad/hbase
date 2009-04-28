@@ -215,6 +215,8 @@ public class KeyValue implements Writable{
   private int offset;
   private int length;
   
+  public KeyValue(){}
+  
   /**
    * Creates a KeyValue from another KeyValue
    * @param kv
@@ -650,15 +652,7 @@ public class KeyValue implements Writable{
   }
 
   /**
-<<<<<<< HEAD:src/java/org/apache/hadoop/hbase/KeyValue.java
-<<<<<<< HEAD:src/java/org/apache/hadoop/hbase/KeyValue.java
-   * @param b
-=======
-   * @param b Key portion of a KeyValue.
->>>>>>> hbase/trunk:src/java/org/apache/hadoop/hbase/KeyValue.java
-=======
    * @param k Key portion of a KeyValue.
->>>>>>> hbase/trunk:src/java/org/apache/hadoop/hbase/KeyValue.java
    * @return Key as a String.
    */
   public static String keyToString(final byte [] k) {
@@ -666,11 +660,7 @@ public class KeyValue implements Writable{
   }
 
   /**
-<<<<<<< HEAD:src/java/org/apache/hadoop/hbase/KeyValue.java
-   * @param b
-=======
    * @param b Key portion of a KeyValue.
->>>>>>> hbase/trunk:src/java/org/apache/hadoop/hbase/KeyValue.java
    * @param o Offset to start of key
    * @param l Length of key.
    * @return Key as a String.

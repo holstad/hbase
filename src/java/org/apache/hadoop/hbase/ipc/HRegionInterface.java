@@ -25,10 +25,12 @@ import java.util.List;
 import org.apache.hadoop.hbase.filter.RowFilterInterface;
 import org.apache.hadoop.hbase.io.BatchUpdate;
 import org.apache.hadoop.hbase.io.Cell;
+import org.apache.hadoop.hbase.io.Family;
 import org.apache.hadoop.hbase.io.Get;
-import org.apache.hadoop.hbase.io.RowResult;
 import org.apache.hadoop.hbase.io.HbaseMapWritable;
+import org.apache.hadoop.hbase.io.RowResult;
 import org.apache.hadoop.hbase.io.RowUpdates;
+import org.apache.hadoop.hbase.io.TimeRange;
 
 import org.apache.hadoop.hbase.HRegionInfo;
 import org.apache.hadoop.hbase.KeyValue;
@@ -233,6 +235,7 @@ public interface HRegionInterface extends HBaseRPCProtocolVersion {
   public KeyValue [] newGet(final byte [] regionName, Get get,
       final long lockId)
   throws IOException;
+  
   
   /**
    * Applies a batch of updates via one RPC for many rows

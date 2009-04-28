@@ -45,10 +45,12 @@ import org.apache.hadoop.hbase.filter.WhileMatchRowFilter;
 import org.apache.hadoop.hbase.io.BatchOperation;
 import org.apache.hadoop.hbase.io.BatchUpdate;
 import org.apache.hadoop.hbase.io.Cell;
+import org.apache.hadoop.hbase.io.Family;
 import org.apache.hadoop.hbase.io.Get;
-import org.apache.hadoop.hbase.io.RowResult;
 import org.apache.hadoop.hbase.io.HbaseMapWritable;
+import org.apache.hadoop.hbase.io.RowResult;
 import org.apache.hadoop.hbase.io.RowUpdates;
+import org.apache.hadoop.hbase.io.TimeRange;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.hbase.util.Writables;
 
@@ -303,6 +305,8 @@ public class HTable {
         }
     );
   }
+
+  
   /**
    * Get a single value for the specified row and column
    * 
@@ -1475,7 +1479,6 @@ public class HTable {
   }
 
   /**
-<<<<<<< HEAD:src/java/org/apache/hadoop/hbase/client/HTable.java
    * Release held resources
    * 
    * @throws IOException
@@ -1485,8 +1488,6 @@ public class HTable {
   }
   
   /**
-=======
->>>>>>> hbase/trunk:src/java/org/apache/hadoop/hbase/client/HTable.java
    * Utility method that checks rows existence, length and columns well
    * formedness.
    * 

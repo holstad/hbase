@@ -86,7 +86,7 @@ public abstract class AbstractGet implements Get {
       family.readFields(in);
       this.families.add(family);
     }
-    this.versions = in.readByte();
+    this.versions = in.readShort();
     tr = new TimeRange();
     tr.readFields(in);
     //TODO read in rowFilter
@@ -98,7 +98,7 @@ public abstract class AbstractGet implements Get {
     for(Family family : families){
       family.write(out);
     }
-    out.writeByte(versions);
+    out.writeShort(versions);
     tr.write(out);
     //TODO write rowFilter
   }

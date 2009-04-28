@@ -63,7 +63,9 @@ public abstract class AbstractServerGet implements ServerGet{
   protected List<KeyValue> deletes = new ArrayList<KeyValue>();
   private Iterator<KeyValue> deleteIterator = null;
   private KeyValue delete = null;
-  private byte [] deleteFamilyBytes = null;
+  private byte[] deleteFamily = null;
+  //DeleteFamily KeyValue
+//  private KeyValue deleteFamily = null;
   protected List<KeyValue> newDeletes = new ArrayList<KeyValue>();
 
   RowFilterInterface filter = null;
@@ -155,7 +157,13 @@ public abstract class AbstractServerGet implements ServerGet{
   public List<KeyValue> getNewDeletes(){
     return newDeletes;
   }
- 
+  
+  @Override
+  //Method used for testing only
+  public void setNewDeletes(List<KeyValue> newDeletes) {
+    this.newDeletes = newDeletes;
+  }
+  
   @Override
   public void setFilter(RowFilterInterface filter){
     this.filter = filter; 
@@ -215,46 +223,12 @@ public abstract class AbstractServerGet implements ServerGet{
     return (type != KeyValue.Type.Put.getCode());
   }
  
+  
   /**
-   * This method are very different than the other compares, because it will
-   * loop through the columns in the column list until the current kv is found
-   * or the column is smaller than the kv.
-   * 
-   * The structure of the column is byte[int columnSize, byte[] column,
-   * byte versions fetched]
+   * @return int != 0 if deleted, 0 the current key is not deleted
    */
-//  protected int compareColumn(byte [] bytes, int offset, int length){
-//    if(columnIterator == null){
-//      columnIterator = columns.iterator();
-//      if(columnIterator.hasNext()){
-//        column = columnIterator.next();
-//      }
-//    }
-//
-//    int res = 0;
-//    while(true){
-//      res = Bytes.compareTo(column.getBuffer(), column.getOffset(),
-//          column.getLength(), bytes, offset, length);
-//      if(res >= 0){
-//        return res;
-//      }
-//      if(columnIterator.hasNext()){
-//        column = columnIterator.next();
-//      } else {
-//        return res;
-//      }
-//    }
-//  }
-
-  
-  
-  
-
-  
-  
-  
-  
-  protected int isDeleted(byte [] currBytes, int initCurrOffset,
+  @Override
+  public int isDeleted(byte [] currBytes, int initCurrOffset,
     short currRowLen, byte currFamLen, int currColLen, boolean multiFamily){
     
     //Check if this is the first time isDeleted is called
@@ -310,7 +284,8 @@ public abstract class AbstractServerGet implements ServerGet{
         ret = Bytes.compareTo(currBytes, currOffset, currFamLen, delBytes,
             delOffset, delFamLen);
         if(ret <= -1){
-          return -1;
+//          return -1;
+          return 0;
         } else if(ret >= 1){
           if(deleteIterator.hasNext()){
             delete.set(deleteIterator.next());
@@ -327,8 +302,10 @@ public abstract class AbstractServerGet implements ServerGet{
         Bytes.SIZEOF_BYTE - delFamLen - Bytes.SIZEOF_LONG - Bytes.SIZEOF_BYTE;
       ret = Bytes.compareTo(currBytes, currOffset, currColLen, delBytes,
         delOffset, delColLen);
+      
       if(ret <= -1){
-        return -1;
+//        return -1;
+        return 0;
       } else if(ret >= 1){
         if(deleteIterator.hasNext()){
           delete.set(deleteIterator.next());
@@ -340,9 +317,9 @@ public abstract class AbstractServerGet implements ServerGet{
       delOffset += delColLen;
       
       //Compare DeleteFamily
-      if(deleteFamilyBytes != null){
-        ret = Bytes.compareTo(currBytes, currOffset, tsLen, deleteFamilyBytes,
-          0, tsLen);
+      if(deleteFamily != null){
+        ret = Bytes.compareTo(currBytes, currOffset, tsLen,
+            deleteFamily, 0, Bytes.SIZEOF_LONG);
         if(ret >= 1){
           return 1;
         }
@@ -374,62 +351,58 @@ public abstract class AbstractServerGet implements ServerGet{
     }
   }  
   
-
-  @Override
-  public Deletes mergeDeletes(List<KeyValue> l1, List<KeyValue> l2){
-    return mergeDeletes(l1, l2, false);
-  }
-  
-  
-  //This method should not be here
-  @Override
-  public Deletes mergeDeletes(List<KeyValue> l1, List<KeyValue> l2,
-      boolean multiFamily){
+  /**
+   * Method for merging the old deletes with the new. If any duplicates of 
+   * deletes are found or if a "bigger" delete if found that will override a
+   * "smaller" one, the "smaller" one is also removed.
+   * @param multiFamily if the store has more than one family in it
+   */
+  public void mergeDeletes(boolean multiFamily){
     //TODO Add check for deleteFamily
-    long deleteFamily = 0L;
-    
-//    List<Key> mergedDeletes = new LinkedList<Key>();
+    List<KeyValue> l1 = this.deletes;
+    List<KeyValue> l2 = this.newDeletes;
     List<KeyValue> mergedDeletes = new ArrayList<KeyValue>();
 
     if(l1.isEmpty()){
-      if(l2.isEmpty()){
-        return null;
-      }
-    } else if(l2.isEmpty()){
-      return new Deletes(l1, 0);
+      return;
     }
     
     Iterator<KeyValue> l1Iter = l1.iterator();
     KeyValue k1 = null;
     Iterator<KeyValue> l2Iter = l2.iterator();
     KeyValue k2  = l2Iter.next();
+    int ret = 0;
     
     //Check for deleteFamily, only need to do on the second argument since the
     //first one is already checked
-    byte [] k2Bytes = k2.getBuffer();
+    byte[] k2Bytes = k2.getBuffer();
     int k2Offset = k2.getOffset();
     int k2KeyLen = Bytes.toInt(k2Bytes, k2Offset);
     int k2TypeOffset = k2Offset + KEY_OFFSET + k2KeyLen - Bytes.SIZEOF_BYTE;
     if(k2Bytes[k2TypeOffset] == KeyValue.Type.DeleteFamily.getCode()){
-      deleteFamily = Bytes.toLong(k2Bytes, k2TypeOffset - Bytes.SIZEOF_LONG);
+      if(deleteFamily == null){
+        deleteFamily = new KeyValue(k2Bytes, k2TypeOffset-Bytes.SIZEOF_LONG,
+            Bytes.SIZEOF_LONG).getBuffer();
+      } else {
+        ret = Bytes.compareTo(deleteFamily, 0, Bytes.SIZEOF_LONG,
+            k2Bytes, k2TypeOffset-Bytes.SIZEOF_LONG, Bytes.SIZEOF_LONG);
+        if(ret > 0){
+          deleteFamily = new KeyValue(k2Bytes, k2TypeOffset-Bytes.SIZEOF_LONG,
+              Bytes.SIZEOF_LONG).getBuffer();
+        }
+      }
       if(l2Iter.hasNext()){
         k2 = l2Iter.next();
       } else {
-        if(l1.isEmpty()){
-          return new Deletes(l2, deleteFamily);
-        }
-        return new Deletes(l1, deleteFamily);
+        return;
       }
     }
     
-    int ret = 0;
-//    boolean it2 = false;
     int i2break = 0;
     while(l1Iter.hasNext()){
       k1 = l1Iter.next();
       while(true){
-//        ret = compareDeleteKeys(k1, k2, multiFamily);
-        ret = compare(k1, k2, multiFamily);
+        ret = compareDeletesToMerge(k1, k2, multiFamily);
         if(ret == -3){
           if(l2Iter.hasNext()){
             k2 = l2Iter.next();
@@ -481,9 +454,6 @@ public abstract class AbstractServerGet implements ServerGet{
       }
     }
     
-    
-    
-    
     if(i2break != 0){
       if(i2break == 2){
         mergedDeletes.add(k1);
@@ -491,23 +461,148 @@ public abstract class AbstractServerGet implements ServerGet{
       while(l1Iter.hasNext()){
         mergedDeletes.add(l1Iter.next());
       }
-//    }   
-    
-    
-//    if(it2){
-//      mergedDeletes.add(k1);
-//      while(l1Iter.hasNext()){
-//        mergedDeletes.add(l1Iter.next());
-//      }
     } else {
       mergedDeletes.add(k2);
       while(l2Iter.hasNext()) {
         mergedDeletes.add(l2Iter.next());
       } 
     }
-    
-    return new Deletes(mergedDeletes, deleteFamily);
-  } 
+   this.deletes = mergedDeletes; 
+  }
+
+//  @Override
+//  public Deletes mergeDeletes(List<KeyValue> l1, List<KeyValue> l2){
+//    return mergeDeletes(l1, l2, false);
+//  }
+//  
+//  
+//  //This method should not be here
+//  @Override
+//  public Deletes mergeDeletes(List<KeyValue> l1, List<KeyValue> l2,
+//      boolean multiFamily){
+//    //TODO Add check for deleteFamily
+//    long deleteFamily = 0L;
+//    
+////    List<Key> mergedDeletes = new LinkedList<Key>();
+//    List<KeyValue> mergedDeletes = new ArrayList<KeyValue>();
+//
+//    if(l1.isEmpty()){
+//      if(l2.isEmpty()){
+//        return null;
+//      }
+//    } else if(l2.isEmpty()){
+//      return new Deletes(l1, 0);
+//    }
+//    
+//    Iterator<KeyValue> l1Iter = l1.iterator();
+//    KeyValue k1 = null;
+//    Iterator<KeyValue> l2Iter = l2.iterator();
+//    KeyValue k2  = l2Iter.next();
+//    
+//    //Check for deleteFamily, only need to do on the second argument since the
+//    //first one is already checked
+//    byte [] k2Bytes = k2.getBuffer();
+//    int k2Offset = k2.getOffset();
+//    int k2KeyLen = Bytes.toInt(k2Bytes, k2Offset);
+//    int k2TypeOffset = k2Offset + KEY_OFFSET + k2KeyLen - Bytes.SIZEOF_BYTE;
+//    if(k2Bytes[k2TypeOffset] == KeyValue.Type.DeleteFamily.getCode()){
+//      deleteFamily = Bytes.toLong(k2Bytes, k2TypeOffset - Bytes.SIZEOF_LONG);
+//      if(l2Iter.hasNext()){
+//        k2 = l2Iter.next();
+//      } else {
+//        if(l1.isEmpty()){
+//          return new Deletes(l2, deleteFamily);
+//        }
+//        return new Deletes(l1, deleteFamily);
+//      }
+//    }
+//    
+//    int ret = 0;
+////    boolean it2 = false;
+//    int i2break = 0;
+//    while(l1Iter.hasNext()){
+//      k1 = l1Iter.next();
+//      while(true){
+////        ret = compareDeleteKeys(k1, k2, multiFamily);
+//        ret = compare(k1, k2, multiFamily);
+//        if(ret == -3){
+//          if(l2Iter.hasNext()){
+//            k2 = l2Iter.next();
+//            continue;
+//          }
+//          i2break = 2;
+//          break;
+//        } else if(ret == -2){
+//          mergedDeletes.add(k1);
+//          if(l2Iter.hasNext()){
+//            k2 = l2Iter.next();
+//          } else {
+//            i2break = 1;
+//          }
+//          break;
+//        } else if(ret == -1){
+//          mergedDeletes.add(k1);
+//          break;
+//        } else if(ret == 0){
+//          mergedDeletes.add(k1);
+//          if(l2Iter.hasNext()){
+//            k2 = l2Iter.next();
+//          } else {
+//            i2break = 1;
+//          }
+//          break;
+//        } else if(ret == 1){
+//          mergedDeletes.add(k2);
+//          if(l2Iter.hasNext()){
+//            k2 = l2Iter.next();
+//            continue;
+//          } 
+//          i2break = 1;
+//          break;
+//        } else if(ret == 2){
+//          mergedDeletes.add(k2);
+//          if(l2Iter.hasNext()){
+//            k2 = l2Iter.next();
+//          } else {
+//            i2break = 1;
+//          }
+//          break;
+//        } else {
+//          break;
+//        }
+//      }
+//      if(i2break != 0){
+//        break;
+//      }
+//    }
+//    
+//    
+//    
+//    
+//    if(i2break != 0){
+//      if(i2break == 2){
+//        mergedDeletes.add(k1);
+//      }
+//      while(l1Iter.hasNext()){
+//        mergedDeletes.add(l1Iter.next());
+//      }
+////    }   
+//    
+//    
+////    if(it2){
+////      mergedDeletes.add(k1);
+////      while(l1Iter.hasNext()){
+////        mergedDeletes.add(l1Iter.next());
+////      }
+//    } else {
+//      mergedDeletes.add(k2);
+//      while(l2Iter.hasNext()) {
+//        mergedDeletes.add(l2Iter.next());
+//      } 
+//    }
+//    
+//    return new Deletes(mergedDeletes, deleteFamily);
+//  } 
   
   //Same as compareDelete, should fix that later
   /**
@@ -518,8 +613,22 @@ public abstract class AbstractServerGet implements ServerGet{
    * 1 if k2 should be kept and 2 if k2 was a deleteColumn
    */
 //  protected int compareDeleteKeys(Key k1, Key k2, boolean multiFamily){
-  protected int compare(KeyValue k1, KeyValue k2, boolean multiFamily){
-
+  
+  /**
+   * Compare method for comparing deletes. The codes below are used to decide
+   * which one of the two keys to add to the merged list and also if one of them
+   * should be keep for further compares.
+   * @return
+   * -3 if type of k1 is "bigger" and ts is smaller or the same, 
+   * -2 if same column+type but k1 has smaller ts, 
+   * -1 if k1 is smaller, 
+   * 0 if same, 
+   * 1 if k1 is bigger
+   * 2 if same column+type but k1 has bigger ts,
+   * 3 if type of k1 is "smaller" and ts is bigger or the same
+   */
+  private int compareDeletesToMerge(KeyValue k1, KeyValue k2,
+      boolean multiFamily){
     byte [] k1Bytes = k1.getBuffer();
     int k1Offset = k1.getOffset();
 
@@ -586,40 +695,55 @@ public abstract class AbstractServerGet implements ServerGet{
     byte k2type = k2Bytes[k2Offset + Bytes.SIZEOF_LONG];
     ret = (0xff & k1type) - (0xff & k2type);
     
-    if(ret == 0){
-      ret = Bytes.compareTo(k2Bytes, k2Offset, Bytes.SIZEOF_LONG, k1Bytes,
+    //Compare timestamps
+    int ret2 = Bytes.compareTo(k2Bytes, k2Offset, Bytes.SIZEOF_LONG, k1Bytes,
         k1Offset, Bytes.SIZEOF_LONG);
-      if(ret >= 1){
-        ret = 2;
-      } else if(ret <= -1){
-        ret = -2;
+    
+    if(ret == 0){
+//      ret = Bytes.compareTo(k2Bytes, k2Offset, Bytes.SIZEOF_LONG, k1Bytes,
+//        k1Offset, Bytes.SIZEOF_LONG);
+      if(ret2 >= 1){
+        ret2 = 2;
+      } else if(ret2 <= -1){
+        ret2 = -2;
       }
-      return ret;
+      return ret2;
     } else if(ret <= -1){
-      ret = Bytes.compareTo(k2Bytes, k2Offset, Bytes.SIZEOF_LONG, k1Bytes,
-          k1Offset, Bytes.SIZEOF_LONG);
-      if(ret <= -1){
-        return 3;
-      } else if(ret == 0){
-        return 3;
-      } else {
+      if(ret2 >= 1){
         return -1;
       }
+      return 3;
+//    ret = Bytes.compareTo(k2Bytes, k2Offset, Bytes.SIZEOF_LONG, k1Bytes,
+//    k1Offset, Bytes.SIZEOF_LONG);
+//      if(ret2 <= -1){
+//        return 3;
+//      } else if(ret2 == 0){
+//        return 3;
+//      } else {
+//        return -1;
+//      }
     } else {
-      ret = Bytes.compareTo(k2Bytes, k2Offset, Bytes.SIZEOF_LONG, k1Bytes,
-          k1Offset, Bytes.SIZEOF_LONG); 
-      if(ret <= -1){
-        return -3;
-      } else if(ret == 0){
-        return -3;
-      } else {
+      if(ret2 >= 1){
         return 1;
       }
+      return -3;
+//      ret = Bytes.compareTo(k2Bytes, k2Offset, Bytes.SIZEOF_LONG, k1Bytes,
+//          k1Offset, Bytes.SIZEOF_LONG); 
+//      if(ret2 <= -1){
+//        return -3;
+//      } else if(ret2 == 0){
+//        return -3;
+//      } else {
+//        return 1;
+//      }
     }
   }
   
   
   @Override
+  /**
+   * Method for merging the old gets with the new.
+   */
   public void mergeGets(){
     if(newColumns == null){
       return;
@@ -632,7 +756,7 @@ public abstract class AbstractServerGet implements ServerGet{
 //    System.out.println("newSize " +newSize);
     
     int size =  oldSize + newSize;
-    List<KeyValue> mergedList = new ArrayList<KeyValue>(size);
+    List<KeyValue> mergedColumns = new ArrayList<KeyValue>(size);
     List<Short> mergedVersions = new ArrayList<Short>(size);
     
     if(oldSize == 0){
@@ -648,19 +772,19 @@ public abstract class AbstractServerGet implements ServerGet{
     boolean newDone = false;
     KeyValue olde = null;
     while(true){
-      newe = newColumns.get(newPos);
-      olde = columns.get(oldPos);
+      newe = this.newColumns.get(newPos);
+      olde = this.columns.get(oldPos);
       res = Bytes.compareTo(newe.getBuffer(), newe.getOffset(), newe.getLength(),
           olde.getBuffer(), olde.getOffset(), olde.getLength());
       if(res <= -1){
-        mergedList.add(newe);
+        mergedColumns.add(newe);
         mergedVersions.add(newVersions.get(newPos));
         if(++newPos >= newSize){
           newDone = true;
           break;
         }
       } else if(res >= 1){
-        mergedList.add(olde);
+        mergedColumns.add(olde);
         mergedVersions.add(newVersions.get(oldPos));
         if(++oldPos >= oldSize){
           break;
@@ -674,25 +798,27 @@ public abstract class AbstractServerGet implements ServerGet{
     }
     if(newDone){
       while(oldPos < oldSize){
-        mergedList.add(columns.get(oldPos));
+        mergedColumns.add(columns.get(oldPos));
         mergedVersions.add(newVersions.get(oldPos++));
       }
     } else {
       while(newPos < newSize){
-        mergedList.add(newColumns.get(newPos));
+        mergedColumns.add(newColumns.get(newPos));
         mergedVersions.add(newVersions.get(newPos++));
       }
     }
+    this.columns = mergedColumns;
+    this.versions = mergedVersions;
     reinit();
   }
   
   private void reinit(){
-    columns.addAll(newColumns);
-    versions.addAll(newVersions);
-    newColumns.clear();
-    newVersions.clear();
-    newColumn = null;
-    endColumns = false;
+//    this.columns.addAll(newColumns);
+//    this.versions.addAll(newVersions);
+    this.newColumns.clear();
+    this.newVersions.clear();
+    this.newColumn = null;
+//    this.endColumns = false;
   }
   
   /**

@@ -35,9 +35,11 @@ import org.apache.hadoop.hbase.io.Cell;
 import org.apache.hadoop.hbase.io.Family;
 import org.apache.hadoop.hbase.io.Get;
 import org.apache.hadoop.hbase.io.GetColumns;
+import org.apache.hadoop.hbase.io.HbaseMapWritable;
 import org.apache.hadoop.hbase.io.RowResult;
 import org.apache.hadoop.hbase.io.RowUpdates;
-import org.apache.hadoop.hbase.io.HbaseMapWritable;
+import org.apache.hadoop.hbase.io.TimeRange;
+
 import org.apache.hadoop.hbase.util.Bytes;
 
 /**
@@ -87,20 +89,49 @@ public class TestNewHTable extends HBaseClusterTestCase implements HConstants {
   }
   
   
-  public void testNewPut()
+//  public void stestTest() throws IOException{
+//    byte[] row = "test5:".getBytes();
+//    
+//    Family family = new Family();
+////    Family[] families = {family};
+//    
+//    List<Family> families = new ArrayList<Family>();
+//    families.add(family);
+////    Family[] families = {new Family()};
+////    TimeRange tr = new TimeRange();
+////    byte[] res = table.testGet(row, families, tr);
+//    byte[] column = "col".getBytes();
+//    short versions = 1;
+//    TimeRange tr = new TimeRange();
+//    
+////    byte[] family = "fam".getBytes();
+////    Get get = new GetColumns(row, family, column, versions);
+////    TestClass tc = new TestClass(tr);
+////    TestClass tc = new TestClass(row, tr, versions);
+////    TestClass tc = new TestCslass();
+////    TestClass tc = new TestClass(row);
+//    TestClass tc = new TestClass(row, families, versions, tr);
+//    
+//    byte[] res = table.testGet(row, tc);
+//    System.out.println("res " +new String(res));
+//    
+//  }
+  
+  public void stestNewPut()
   throws IOException{
     RowUpdates updates = new RowUpdates(row);
     Family family = new Family(fam, columns, columns);
     updates.add(family);
     System.out.println("Commiting");
     table.newCommit(updates);
+    System.out.println("done");
   }
   
-  public void stestNewGetColumns() {
+  public void testNewGetColumns() {
 //    HTable table = null;
 //    final int SIZE = 5;
 //    String familyName = "info2";
-//    String family = familyName+':';
+    String family = familyName+':';
 //    byte[] fam = familyName.getBytes();
     
 //    String col = "col";
@@ -122,8 +153,8 @@ public class TestNewHTable extends HBaseClusterTestCase implements HConstants {
 //      table = new HTable(conf, tableAname);
       BatchUpdate batchUpdate = new BatchUpdate(row);
       
-//      for(int i = 0; i < 5; i++)
-//        batchUpdate.put(family+i, Bytes.toBytes(i));
+      for(int i = 0; i < 5; i++)
+        batchUpdate.put(family+i, Bytes.toBytes(i));
       
       table.commit(batchUpdate);
       System.out.println("updates commited");
