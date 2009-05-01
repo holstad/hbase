@@ -184,6 +184,8 @@ public class Bytes {
     return offset + 1;
   }
 
+//  public static int
+  
   /**
    * Returns a new byte array, copied from the specified ByteBuffer.
    * @param bb A ByteBuffer
@@ -548,6 +550,7 @@ public class Bytes {
     return compareTo(left, 0, left.length, right, 0, right.length);
   }
 
+  
   /**
    * @param b1
    * @param b2

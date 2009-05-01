@@ -166,12 +166,13 @@ public interface HConstants {
   
   /** The ROOT and META column family (string) */
   static final String COLUMN_FAMILY_STR = "info:";
+  static final byte[] COLUMN_FAMILY = "info".getBytes();
   
   /** The META historian column family (string) */
   static final String COLUMN_FAMILY_HISTORIAN_STR = "historian:";
 
   /** The ROOT and META column family */
-  static final byte [] COLUMN_FAMILY = Bytes.toBytes(COLUMN_FAMILY_STR);
+//  static final byte [] COLUMN_FAMILY = Bytes.toBytes(COLUMN_FAMILY_STR);
   
   /** The META historian column family */
   static final byte [] COLUMN_FAMILY_HISTORIAN = Bytes.toBytes(COLUMN_FAMILY_HISTORIAN_STR);
@@ -180,21 +181,26 @@ public interface HConstants {
   static final byte[][] COLUMN_FAMILY_ARRAY = new byte[][] {COLUMN_FAMILY};
   
   /** ROOT/META column family member - contains HRegionInfo */
-  static final byte [] COL_REGIONINFO =
-    Bytes.toBytes(COLUMN_FAMILY_STR + "regioninfo");
+//  static final byte [] COL_REGIONINFO =
+//    Bytes.toBytes(COLUMN_FAMILY_STR + "regioninfo");
+  static final byte[] COL_REGIONINFO = "regioninfo".getBytes();
 
   /** Array of column - contains HRegionInfo */
   static final byte[][] COL_REGIONINFO_ARRAY = new byte[][] {COL_REGIONINFO};
   
   /** ROOT/META column family member - contains HServerAddress.toString() */
-  static final byte[] COL_SERVER = Bytes.toBytes(COLUMN_FAMILY_STR + "server");
+//  static final byte[] COL_SERVER = Bytes.toBytes(COLUMN_FAMILY_STR + "server");
+  static final byte[] COL_SERVER = "server".getBytes();
+
   
   /** ROOT/META column family member - contains server start code (a long) */
-  static final byte [] COL_STARTCODE =
-    Bytes.toBytes(COLUMN_FAMILY_STR + "serverstartcode");
-
+//  static final byte [] COL_STARTCODE =
+//    Bytes.toBytes(COLUMN_FAMILY_STR + "serverstartcode");
+  static final byte [] COL_STARTCODE = "serverstartcode".getBytes();
+  
   /** the lower half of a split region */
-  static final byte [] COL_SPLITA = Bytes.toBytes(COLUMN_FAMILY_STR + "splitA");
+//  static final byte [] COL_SPLITA = Bytes.toBytes(COLUMN_FAMILY_STR + "splitA");
+  static final byte [] COL_SPLITA = "splitA".getBytes();
   
   /** the upper half of a split region */
   static final byte [] COL_SPLITB = Bytes.toBytes(COLUMN_FAMILY_STR + "splitB");
@@ -246,6 +252,11 @@ public interface HConstants {
    * commit.
    */
   static final long LATEST_TIMESTAMP = Long.MAX_VALUE;
+  
+  /**
+   * LATEST_TIMESTAMP in bytes form
+   */
+  static final byte[] LONG_MAX_BYTES = Bytes.toBytes(LATEST_TIMESTAMP);
 
   /**
    * Define for 'return-all-versions'.

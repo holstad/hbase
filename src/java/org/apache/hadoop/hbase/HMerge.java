@@ -33,9 +33,10 @@ import org.apache.hadoop.hbase.client.HConnection;
 import org.apache.hadoop.hbase.client.HConnectionManager;
 import org.apache.hadoop.hbase.client.HTable;
 import org.apache.hadoop.hbase.client.Scanner;
-import org.apache.hadoop.hbase.io.BatchUpdate;
+//import org.apache.hadoop.hbase.io.BatchUpdate;
 import org.apache.hadoop.hbase.io.Cell;
 import org.apache.hadoop.hbase.io.RowResult;
+import org.apache.hadoop.hbase.io.Put;
 import org.apache.hadoop.hbase.regionserver.HLog;
 import org.apache.hadoop.hbase.regionserver.HRegion;
 import org.apache.hadoop.hbase.regionserver.InternalScanner;
@@ -293,10 +294,10 @@ class HMerge implements HConstants {
       }
       newRegion.getRegionInfo().setOffline(true);
 
-      BatchUpdate update = new BatchUpdate(newRegion.getRegionName());
-      update.put(COL_REGIONINFO,
-        Writables.getBytes(newRegion.getRegionInfo()));
-      table.commit(update);
+      Put put = new Put(newRegion.getRegionName());
+      put.add(COLUMN_FAMILY, COL_REGIONINFO,
+          Writables.getBytes(newRegion.getRegionInfo()));
+      table.commit(put);
 
       if(LOG.isDebugEnabled()) {
         LOG.debug("updated columns in row: "
@@ -366,7 +367,9 @@ class HMerge implements HConstants {
     throws IOException {
       byte[][] regionsToDelete = {oldRegion1, oldRegion2};
       for(int r = 0; r < regionsToDelete.length; r++) {
-        BatchUpdate b = new BatchUpdate(regionsToDelete[r]);
+        RowUpdates updates = new RowUpdates(regionsToDelete[r]);
+        
+//        BatchUpdate b = new BatchUpdate(regionsToDelete[r]);
         b.delete(COL_REGIONINFO);
         b.delete(COL_SERVER);
         b.delete(COL_STARTCODE);

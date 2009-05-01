@@ -34,7 +34,10 @@ import org.apache.hadoop.hbase.HBaseConfiguration;
 import org.apache.hadoop.hbase.RemoteExceptionHandler;
 import org.apache.hadoop.hbase.HRegionInfo;
 import org.apache.hadoop.hbase.HConstants;
-import org.apache.hadoop.hbase.io.BatchUpdate;
+//import org.apache.hadoop.hbase.io.BatchUpdate;
+import org.apache.hadoop.hbase.io.Family;
+import org.apache.hadoop.hbase.io.Put;
+import org.apache.hadoop.hbase.io.RowUpdates;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.hbase.util.Writables;
 
@@ -202,18 +205,22 @@ class CompactSplitThread extends Thread implements HConstants {
     // Inform the HRegionServer that the parent HRegion is no-longer online.
     this.server.removeFromOnlineRegions(oldRegionInfo);
     
-    BatchUpdate update = new BatchUpdate(oldRegionInfo.getRegionName());
-    update.put(COL_REGIONINFO, Writables.getBytes(oldRegionInfo));
-    update.put(COL_SPLITA, Writables.getBytes(newRegions[0].getRegionInfo()));
-    update.put(COL_SPLITB, Writables.getBytes(newRegions[1].getRegionInfo()));
-    t.commit(update);
+    Put put = new Put(oldRegionInfo.getRegionName());
+    put.add(COLUMN_FAMILY, COL_REGIONINFO, Writables.getBytes(oldRegionInfo));
+    put.add(COLUMN_FAMILY, COL_SPLITA,
+        Writables.getBytes(newRegions[0].getRegionInfo()));
+    put.add(COLUMN_FAMILY, COL_SPLITB, 
+        Writables.getBytes(newRegions[1].getRegionInfo()));
+    t.commit(put);
     
     // Add new regions to META
+    //TODO check if the entries in META are keep or why we are just overwriting
+    // the current value.
     for (int i = 0; i < newRegions.length; i++) {
-      update = new BatchUpdate(newRegions[i].getRegionName());
-      update.put(COL_REGIONINFO, Writables.getBytes(
-        newRegions[i].getRegionInfo()));
-      t.commit(update);
+      put = new Put(newRegions[i].getRegionName());
+      put.add(COLUMN_FAMILY, COL_REGIONINFO, Writables.getBytes(
+          newRegions[i].getRegionInfo()));
+      t.commit(put);
     }
         
     // Now tell the master about the new regions

@@ -27,10 +27,12 @@ import java.util.List;
 import org.apache.hadoop.hbase.io.BatchOperation;
 import org.apache.hadoop.hbase.io.BatchUpdate;
 import org.apache.hadoop.hbase.io.Cell;
-import org.apache.hadoop.hbase.io.Family;
+import org.apache.hadoop.hbase.io.Delete;
+//import org.apache.hadoop.hbase.io.Family;
 import org.apache.hadoop.hbase.io.Get;
 import org.apache.hadoop.hbase.io.GetColumns;
 import org.apache.hadoop.hbase.io.HbaseMapWritable;
+import org.apache.hadoop.hbase.io.Put;
 import org.apache.hadoop.hbase.io.RowResult;
 import org.apache.hadoop.hbase.io.RowUpdates;
 import org.apache.hadoop.hbase.io.TimeRange;
@@ -173,26 +175,53 @@ public class TestSerialization extends HBaseTestCase {
   }
   
  
-  public void testFamily() throws Exception {
-    byte [] famName = getName().getBytes();
-    List<byte[]> cols = new ArrayList<byte[]>();
-    cols.add((getName()+"1").getBytes());
-    cols.add((getName()+"2").getBytes());
-    cols.add((getName()+"3").getBytes());
-    Family fam = new Family(famName, cols);
+  public void testPut() throws Exception{
+    byte[] row = "row".getBytes();
+    byte[] fam = "fam".getBytes();
+    byte[] qf = "qf".getBytes();
+    long ts = System.currentTimeMillis();
+    byte[] val = "val".getBytes();
     
-    byte [] mb = Writables.getBytes(fam);
-    Family deserializedFam =
-      (Family)Writables.getWritable(mb, new Family());
-    assertTrue(Bytes.equals(fam.getFamily(), deserializedFam.getFamily()));
-    cols = fam.getColumns();
-    List<byte[]> deserializedCols = deserializedFam.getColumns();
-    assertEquals(cols.size(), deserializedCols.size());
-
-    for(int i=0; i<cols.size(); i++){
-      assertTrue(Bytes.equals(cols.get(i), deserializedCols.get(i)));
+    Put put = new Put(row);
+    put.add(fam, qf, ts, val);
+    
+    byte[] sb = Writables.getBytes(put);
+    Put desPut = (Put)Writables.getWritable(sb, new Put());
+    
+    assertTrue(Bytes.equals(put.getRow(), desPut.getRow()));
+    byte[] desFamily = null;
+    List<KeyValue> desList = null;
+    for(Map.Entry<byte[], List<KeyValue>> entry : put.getFamilyMap().entrySet()){
+      
+      
     }
+    for(int i=0; i<put.getFamilyMap().size(); i++){
+      assertTrue(Bytes.equals(put.getRow(), desPut.getRow()));
+    }
+    
   }
+  
+  
+//  public void testFamily() throws Exception {
+//    byte [] famName = getName().getBytes();
+//    List<byte[]> cols = new ArrayList<byte[]>();
+//    cols.add((getName()+"1").getBytes());
+//    cols.add((getName()+"2").getBytes());
+//    cols.add((getName()+"3").getBytes());
+//    Family fam = new Family(famName, cols);
+//    
+//    byte [] mb = Writables.getBytes(fam);
+//    Family deserializedFam =
+//      (Family)Writables.getWritable(mb, new Family());
+//    assertTrue(Bytes.equals(fam.getFamily(), deserializedFam.getFamily()));
+//    cols = fam.getColumns();
+//    List<byte[]> deserializedCols = deserializedFam.getColumns();
+//    assertEquals(cols.size(), deserializedCols.size());
+//
+//    for(int i=0; i<cols.size(); i++){
+//      assertTrue(Bytes.equals(cols.get(i), deserializedCols.get(i)));
+//    }
+//  }
   
   public void testTimeRange(String[] args) throws Exception{
     TimeRange tr = new TimeRange(5,0);
@@ -284,5 +313,8 @@ public class TestSerialization extends HBaseTestCase {
     }
     assertEquals(rups.getRowLock(), deserializedRups.getRowLock());
   }
+  
+  
+  
   
 }

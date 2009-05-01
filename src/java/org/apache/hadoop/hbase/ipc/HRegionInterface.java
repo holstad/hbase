@@ -23,14 +23,15 @@ import java.io.IOException;
 import java.util.List;
 
 import org.apache.hadoop.hbase.filter.RowFilterInterface;
-import org.apache.hadoop.hbase.io.BatchUpdate;
-import org.apache.hadoop.hbase.io.Cell;
-import org.apache.hadoop.hbase.io.Family;
+//import org.apache.hadoop.hbase.io.BatchUpdate;
+//import org.apache.hadoop.hbase.io.Family;
+import org.apache.hadoop.hbase.io.Delete;
 import org.apache.hadoop.hbase.io.Get;
 import org.apache.hadoop.hbase.io.HbaseMapWritable;
+import org.apache.hadoop.hbase.io.Put;
 import org.apache.hadoop.hbase.io.RowResult;
-import org.apache.hadoop.hbase.io.RowUpdates;
-import org.apache.hadoop.hbase.io.TimeRange;
+//import org.apache.hadoop.hbase.io.RowUpdates;
+//import org.apache.hadoop.hbase.io.TimeRange;
 
 import org.apache.hadoop.hbase.HRegionInfo;
 import org.apache.hadoop.hbase.KeyValue;
@@ -66,9 +67,9 @@ public interface HRegionInterface extends HBaseRPCProtocolVersion {
    * @return array of values
    * @throws IOException
    */
-  public Cell[] get(final byte [] regionName, final byte [] row,
-    final byte [] column, final long timestamp, final int numVersions)
-  throws IOException;
+//  public Cell[] get(final byte [] regionName, final byte [] row,
+//    final byte [] column, final long timestamp, final int numVersions)
+//  throws IOException;
 
   /**
    * Return all the data for the row that matches <i>row</i> exactly, 
@@ -80,110 +81,110 @@ public interface HRegionInterface extends HBaseRPCProtocolVersion {
    * @return map of values
    * @throws IOException
    */
-  public RowResult getClosestRowBefore(final byte [] regionName,
-    final byte [] row, final byte [] columnFamily)
-  throws IOException;
+//  public RowResult getClosestRowBefore(final byte [] regionName,
+//    final byte [] row, final byte [] columnFamily)
+//  throws IOException;
+  public KeyValue[] getClosestRowBefore(final byte[] regionName,
+      final byte[] row, final byte[] columnFamily)
+    throws IOException;
 
-  /**
-   * Get selected columns for the specified row at a given timestamp.
-   * 
-   * @param regionName region name
-   * @param row row key
-   * @param columns columns to get
-   * @param ts time stamp
-   * @param numVersions number of versions
-   * @param lockId lock id
-   * @return map of values
-   * @throws IOException
-   */
-  public RowResult getRow(final byte [] regionName, final byte [] row, 
-    final byte[][] columns, final long ts,
-    final int numVersions, final long lockId)
-  throws IOException;
+//  /**
+//   * Get selected columns for the specified row at a given timestamp.
+//   * 
+//   * @param regionName region name
+//   * @param row row key
+//   * @param columns columns to get
+//   * @param ts time stamp
+//   * @param numVersions number of versions
+//   * @param lockId lock id
+//   * @return map of values
+//   * @throws IOException
+//   */
+//  public RowResult getRow(final byte [] regionName, final byte [] row, 
+//    final byte[][] columns, final long ts,
+//    final int numVersions, final long lockId)
+//  throws IOException;
 
-  /**
-   * Applies a batch of updates via one RPC
-   * 
-   * @param regionName name of the region to update
-   * @param b BatchUpdate
-   * @param lockId lock id
-   * @throws IOException
-   */
-  public void batchUpdate(final byte [] regionName, final BatchUpdate b,
-      final long lockId)
-  throws IOException;
+//  /**
+//   * Applies a batch of updates via one RPC
+//   * 
+//   * @param regionName name of the region to update
+//   * @param b BatchUpdate
+//   * @param lockId lock id
+//   * @throws IOException
+//   */
+//  public void batchUpdate(final byte [] regionName, final BatchUpdate b,
+//      final long lockId)
+//  throws IOException;
+  
+//  /**
+//   * Applies a batch of updates via one RPC for many rows
+//   * 
+//   * @param regionName name of the region to update
+//   * @param b BatchUpdate[]
+//   * @throws IOException
+//   * @return number of updates applied
+//   */
+//  public int batchUpdates(final byte[] regionName, final BatchUpdate[] b)
+//  throws IOException;
   
   /**
-   * Applies a batch of updates via one RPC for many rows
    * 
    * @param regionName name of the region to update
-   * @param b BatchUpdate[]
-   * @throws IOException
-   * @return number of updates applied
-   */
-  public int batchUpdates(final byte[] regionName, final BatchUpdate[] b)
-  throws IOException;
-  
-  /**
-   * Applies a batch of updates to one row atomically via one RPC
-   * if the columns specified in expectedValues match
-   * the given values in expectedValues
-   * 
-   * @param regionName name of the region to update
-   * @param b BatchUpdate
+   * @param Put put
    * @param expectedValues map of column names to expected data values.
    * @return true if update was applied
    * @throws IOException
    */
-  public boolean checkAndSave(final byte [] regionName, final BatchUpdate b,
+  public boolean checkAndSave(final byte [] regionName, final Put put,
       final HbaseMapWritable<byte[],byte[]> expectedValues)
   throws IOException;
   
 
-  /**
-   * Delete all cells that match the passed row and column and whose timestamp
-   * is equal-to or older than the passed timestamp.
-   * 
-   * @param regionName region name
-   * @param row row key
-   * @param column column key
-   * @param timestamp Delete all entries that have this timestamp or older
-   * @param lockId lock id
-   * @throws IOException
-   */
-  public void deleteAll(byte [] regionName, byte [] row, byte [] column,
-    long timestamp, long lockId)
-  throws IOException;
-
-  /**
-   * Delete all cells that match the passed row and whose
-   * timestamp is equal-to or older than the passed timestamp.
-   *
-   * @param regionName region name
-   * @param row row key
-   * @param timestamp Delete all entries that have this timestamp or older
-   * @param lockId lock id
-   * @throws IOException
-   */
-  public void deleteAll(byte [] regionName, byte [] row, long timestamp,
-      long lockId)
-  throws IOException;
-  
-  /**
-   * Delete all cells that match the passed row & the column regex and whose
-   * timestamp is equal-to or older than the passed timestamp.
-   * 
-   * @param regionName
-   * @param row
-   * @param colRegex
-   * @param timestamp
-   * @param lockId
-   * @throws IOException
-   */
-  public void deleteAllByRegex(byte [] regionName, byte [] row, String colRegex, 
-      long timestamp, long lockId)
-  throws IOException;
-
+//  /**
+//   * Delete all cells that match the passed row and column and whose timestamp
+//   * is equal-to or older than the passed timestamp.
+//   * 
+//   * @param regionName region name
+//   * @param row row key
+//   * @param column column key
+//   * @param timestamp Delete all entries that have this timestamp or older
+//   * @param lockId lock id
+//   * @throws IOException
+//   */
+//  public void deleteAll(byte [] regionName, byte [] row, byte [] column,
+//    long timestamp, long lockId)
+//  throws IOException;
+//
+//  /**
+//   * Delete all cells that match the passed row and whose
+//   * timestamp is equal-to or older than the passed timestamp.
+//   *
+//   * @param regionName region name
+//   * @param row row key
+//   * @param timestamp Delete all entries that have this timestamp or older
+//   * @param lockId lock id
+//   * @throws IOException
+//   */
+//  public void deleteAll(byte [] regionName, byte [] row, long timestamp,
+//      long lockId)
+//  throws IOException;
+//  
+//  /**
+//   * Delete all cells that match the passed row & the column regex and whose
+//   * timestamp is equal-to or older than the passed timestamp.
+//   * 
+//   * @param regionName
+//   * @param row
+//   * @param colRegex
+//   * @param timestamp
+//   * @param lockId
+//   * @throws IOException
+//   */
+//  public void deleteAllByRegex(byte [] regionName, byte [] row, String colRegex, 
+//      long timestamp, long lockId)
+//  throws IOException;
+//
   /**
    * Delete all cells for a row with matching column family with timestamps
    * less than or equal to <i>timestamp</i>.
@@ -199,20 +200,20 @@ public interface HRegionInterface extends HBaseRPCProtocolVersion {
     long timestamp, long lockId)
   throws IOException;
   
-  /**
-   * Delete all cells for a row with matching column family regex with 
-   * timestamps less than or equal to <i>timestamp</i>.
-   * 
-   * @param regionName The name of the region to operate on
-   * @param row The row to operate on
-   * @param familyRegex column family regex
-   * @param timestamp Timestamp to match
-   * @param lockId lock id
-   * @throws IOException
-   */
-  public void deleteFamilyByRegex(byte [] regionName, byte [] row, String familyRegex, 
-    long timestamp, long lockId) 
-  throws IOException;
+//  /**
+//   * Delete all cells for a row with matching column family regex with 
+//   * timestamps less than or equal to <i>timestamp</i>.
+//   * 
+//   * @param regionName The name of the region to operate on
+//   * @param row The row to operate on
+//   * @param familyRegex column family regex
+//   * @param timestamp Timestamp to match
+//   * @param lockId lock id
+//   * @throws IOException
+//   */
+//  public void deleteFamilyByRegex(byte [] regionName, byte [] row, String familyRegex, 
+//    long timestamp, long lockId) 
+//  throws IOException;
 
   /**
    * Returns true if any cells exist for the given coordinate.
@@ -232,21 +233,27 @@ public interface HRegionInterface extends HBaseRPCProtocolVersion {
 //  public List<KeyValue> newGet(final byte [] regionName, Get get,
 //      final long lockId)
 //  throws IOException;
-  public KeyValue [] newGet(final byte [] regionName, Get get,
+  public void deleteRow(final byte[] regionName, Delete delete)
+  throws IOException;
+  
+  public KeyValue[] getRow(final byte[] regionName, Get get,
       final long lockId)
   throws IOException;
   
   
-  /**
-   * Applies a batch of updates via one RPC for many rows
-   * 
-   * @param regionName name of the region to update
-   * @param b BatchUpdate[]
-   * @throws IOException
-   * @return number of updates applied
-   */
-  public int updateRow(final byte[] regionName, final RowUpdates rups)
+  public int putRow(final byte[] regionName, final Put put)
   throws IOException;
+  
+//  /**
+//   * Applies a batch of updates via one RPC for many rows
+//   * 
+//   * @param regionName name of the region to update
+//   * @param b BatchUpdate[]
+//   * @throws IOException
+//   * @return number of updates applied
+//   */
+//  public int updateRow(final byte[] regionName, final RowUpdates rups)
+//  throws IOException;
 
   //
   // remote scanner interface

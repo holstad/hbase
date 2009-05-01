@@ -67,12 +67,8 @@ public class KeyValue implements Writable{
   public static KVComparator COMPARATOR = new KVComparator();
 
   /**
-<<<<<<< HEAD:src/java/org/apache/hadoop/hbase/KeyValue.java
-   * Comparator for plain key; i.e. non-catalog table key.
-=======
    * Comparator for plain key; i.e. non-catalog table key.  Works on Key portion
    * of KeyValue only.
->>>>>>> hbase/trunk:src/java/org/apache/hadoop/hbase/KeyValue.java
    */
   public static KeyComparator KEY_COMPARATOR = new KeyComparator();
 
@@ -502,6 +498,11 @@ public class KeyValue implements Writable{
 
   
   public KeyValue(final byte[] row, final byte[] family,
+      final byte[] qualifier, final long timestamp, final byte[] value) {
+    this(row, family, qualifier, timestamp, Type.Put, value);
+  }
+  
+  public KeyValue(final byte[] row, final byte[] family,
       final byte[] qualifier, final long timestamp, Type type,
       final byte[] value) {
     this(row, family, qualifier, 0, qualifier==null ? 0 : qualifier.length, 
@@ -575,18 +576,6 @@ public class KeyValue implements Writable{
     pos = Bytes.putBytes(bytes, pos, value, voffset, vlength);
     return bytes;
   } 
-  
-  
-  /**
-   * Sets the current variables to the values in the passed KeyValue
-   * @param kv
-   */
-  public void set(final KeyValue kv){
-    this.bytes = kv.getBuffer();
-    this.offset = kv.getOffset();
-    this.length = kv.getLength();
-  } 
-  
   
   
   // Needed doing 'contains' on List.
@@ -895,10 +884,7 @@ public class KeyValue implements Writable{
   /**
    * @param column Column minus its delimiter
    * @return True if column matches.
-<<<<<<< HEAD:src/java/org/apache/hadoop/hbase/KeyValue.java
-=======
    * @see #matchingColumn(byte[])
->>>>>>> hbase/trunk:src/java/org/apache/hadoop/hbase/KeyValue.java
    */
   public boolean matchingColumnNoDelimiter(final byte [] column) {
     int o = getColumnOffset();

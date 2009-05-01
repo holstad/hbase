@@ -17,7 +17,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.hadoop.hbase.io;
+package org.apache.hadoop.hbase.client;
 
 import java.io.DataInput;
 import java.io.DataOutput;
@@ -34,23 +34,25 @@ import java.util.TreeSet;
 
 import org.apache.hadoop.hbase.HConstants;
 import org.apache.hadoop.hbase.KeyValue;
-import org.apache.hadoop.hbase.rest.descriptors.RestCell;
-import org.apache.hadoop.hbase.rest.exception.HBaseRestException;
-import org.apache.hadoop.hbase.rest.serializer.IRestSerializer;
-import org.apache.hadoop.hbase.rest.serializer.ISerializable;
+import org.apache.hadoop.hbase.io.HbaseMapWritable;
+//import org.apache.hadoop.hbase.rest.descriptors.RestCell;
+//import org.apache.hadoop.hbase.rest.exception.HBaseRestException;
+//import org.apache.hadoop.hbase.rest.serializer.IRestSerializer;
+//import org.apache.hadoop.hbase.rest.serializer.ISerializable;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.hbase.util.Writables;
-import org.apache.hadoop.io.Writable;
+//import org.apache.hadoop.io.Writable;
 
 import agilejson.TOJSON;
 
 /**
  * Holds row name and then a map of columns to cells.
  */
-public class RowResult implements Writable, SortedMap<byte [], Cell>,
-  Comparable<RowResult>, ISerializable {
+public class RowResult implements SortedMap<byte [], Cell>,
+  Comparable<RowResult> {
   private byte [] row = null;
-  private final HbaseMapWritable<byte [], Cell> cells;
+//  private final HbaseMapWritable<byte [], Cell> cells;
+  private final SortedMap<byte [], Cell> cells;
 
   /** default constructor for writable */
   public RowResult() {
@@ -134,26 +136,10 @@ public class RowResult implements Writable, SortedMap<byte [], Cell>,
     return Collections.unmodifiableSet(this.cells.entrySet());
   }
   
-  /**
-   * This method used solely for the REST serialization
-   * 
-   * @return Cells
-   */
-  @TOJSON
-  public RestCell[] getCells() {
-    RestCell[] restCells = new RestCell[this.cells.size()];
-    int i = 0;
-    for (Map.Entry<byte[], Cell> entry : this.cells.entrySet()) {
-      restCells[i] = new RestCell(entry.getKey(), entry.getValue());
-      i++;
-    }
-    return restCells;
-  }
-
   public Collection<Cell> values() {
     ArrayList<Cell> result = new ArrayList<Cell>();
-    for (Writable w : cells.values()) {
-      result.add((Cell)w);
+    for (Cell c : cells.values()) {
+      result.add(c);
     }
     return result;
   }
@@ -226,6 +212,52 @@ public class RowResult implements Writable, SortedMap<byte [], Cell>,
     }
   }
   
+  
+  /**
+   * @param l
+   * @return
+   * TODO: This is the glue between old way of doing things and the new.
+   * Herein we are converting our clean KeyValues to old RowResult.
+   */
+  public static RowResult [] createRowResultArray(final List<List<KeyValue>> l) {
+    RowResult [] results = new RowResult[l.size()];
+    int i = 0;
+    for (List<KeyValue> kvl: l) {
+      results[i++] = createRowResult(kvl);
+    }
+    return results;
+  }
+
+  /**
+   * @param results
+   * @return
+   * TODO: This is the glue between old way of doing things and the new.
+   * Herein we are converting our clean KeyValues to old RowResult.
+   */
+  public static RowResult createRowResult(final List<KeyValue> results) {
+    if (results.isEmpty()) {
+      return null;
+    }
+    HbaseMapWritable<byte [], Cell> cells = Cell.createCells(results);
+    byte [] row = results.get(0).getRow();
+    return new RowResult(row, cells);
+  }
+
+  /**
+   * @param results
+   * @return
+   * TODO: This is the glue between old way of doing things and the new.
+   * Herein we are converting our clean KeyValues to old RowResult.
+   */
+  public static RowResult createRowResult(final KeyValue[] results) {
+    if (results.length == 0) {
+      return null;
+    }
+    HbaseMapWritable<byte [], Cell> cells = Cell.createCells(results);
+    byte [] row = results[0].getRow();
+    return new RowResult(row, cells);
+  }
+  
   @Override
   public String toString() {
     StringBuilder sb = new StringBuilder();
@@ -260,56 +292,6 @@ public class RowResult implements Writable, SortedMap<byte [], Cell>,
     return sb.toString();
   }
   
-  /* (non-Javadoc)
-   * @see org.apache.hadoop.hbase.rest.xml.IOutputXML#toXML()
-   */
-  public void restSerialize(IRestSerializer serializer) throws HBaseRestException {
-    serializer.serializeRowResult(this);
-  }  
-
-  /**
-   * @param l
-   * @return
-   * TODO: This is the glue between old way of doing things and the new.
-   * Herein we are converting our clean KeyValues to old RowResult.
-   */
-  public static RowResult [] createRowResultArray(final List<List<KeyValue>> l) {
-    RowResult [] results = new RowResult[l.size()];
-    int i = 0;
-    for (List<KeyValue> kvl: l) {
-      results[i++] = createRowResult(kvl);
-    }
-    return results;
-  }
-
-  /**
-   * @param results
-   * @return
-   * TODO: This is the glue between old way of doing things and the new.
-   * Herein we are converting our clean KeyValues to old RowResult.
-   */
-  public static RowResult createRowResult(final List<KeyValue> results) {
-    if (results.isEmpty()) {
-      return null;
-    }
-    HbaseMapWritable<byte [], Cell> cells = Cell.createCells(results);
-    byte [] row = results.get(0).getRow();
-    return new RowResult(row, cells);
-  }
-
-  //
-  // Writable
-  //
-
-  public void readFields(final DataInput in) throws IOException {
-    this.row = Bytes.readByteArray(in);
-    this.cells.readFields(in);
-  }
-
-  public void write(final DataOutput out) throws IOException {
-    Bytes.writeByteArray(out, this.row);
-    this.cells.write(out);
-  }
   
   //
   // Comparable

@@ -45,12 +45,10 @@ import org.apache.hadoop.hbase.filter.WhileMatchRowFilter;
 import org.apache.hadoop.hbase.io.BatchOperation;
 import org.apache.hadoop.hbase.io.BatchUpdate;
 import org.apache.hadoop.hbase.io.Cell;
-import org.apache.hadoop.hbase.io.Family;
 import org.apache.hadoop.hbase.io.Get;
 import org.apache.hadoop.hbase.io.HbaseMapWritable;
+import org.apache.hadoop.hbase.io.Put;
 import org.apache.hadoop.hbase.io.RowResult;
-import org.apache.hadoop.hbase.io.RowUpdates;
-import org.apache.hadoop.hbase.io.TimeRange;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.hbase.util.Writables;
 
@@ -62,12 +60,10 @@ public class HTable {
   private final byte [] tableName;
   protected final int scannerTimeout;
   private volatile HBaseConfiguration configuration;
-  private ArrayList<BatchUpdate> writeBuffer;
-  private ArrayList<RowUpdates> newWriteBuffer;
+  private ArrayList<Put> writeBuffer;
   private long writeBufferSize;
   private boolean autoFlush;
   private long currentWriteBufferSize;
-  private long newCurrentWriteBufferSize;
 
   protected int scannerCaching;
 
@@ -120,13 +116,11 @@ public class HTable {
       conf.getInt("hbase.regionserver.lease.period", 60 * 1000);
     this.configuration = conf;
     this.connection.locateRegion(tableName, HConstants.EMPTY_START_ROW);
-    this.writeBuffer = new ArrayList<BatchUpdate>();
-    this.newWriteBuffer = new ArrayList<RowUpdates>();
+    this.writeBuffer = new ArrayList<Put>();
     this.writeBufferSize = 
       this.configuration.getLong("hbase.client.write.buffer", 2097152);
     this.autoFlush = true;
     this.currentWriteBufferSize = 0;
-    this.newCurrentWriteBufferSize = 0;
     this.scannerCaching = conf.getInt("hbase.client.scanner.caching", 1);
   }
 
@@ -298,7 +292,7 @@ public class HTable {
         new ServerCallable<KeyValue []>(connection, tableName, get.getRow()) {
           public KeyValue [] call() throws IOException {
             System.out.println("IN HT.get.ServerCallable,");
-            KeyValue [] result = server.newGet(
+            KeyValue [] result = server.getRow(
                 location.getRegionInfo().getRegionName(), get, -1L);
             return (result == null)? null : result;
           }
@@ -308,347 +302,348 @@ public class HTable {
 
   
   /**
-   * Get a single value for the specified row and column
-   * 
-   * @param row row key
-   * @param column column name
-   * @return value for specified row/column
-   * @throws IOException
-   */
-  public Cell get(final String row, final String column)
-  throws IOException {
-    return get(Bytes.toBytes(row), Bytes.toBytes(column));
-  }
+//   * Get a single value for the specified row and column
+//   * 
+//   * @param row row key
+//   * @param column column name
+//   * @return value for specified row/column
+//   * @throws IOException
+//   */
+//  public Cell get(final String row, final String column)
+//  throws IOException {
+//    return get(Bytes.toBytes(row), Bytes.toBytes(column));
+//  }
+//
+//  /** 
+//   * Get a single value for the specified row and column
+//   *
+//   * @param row row key
+//   * @param column column name
+//   * @param numVersions - number of versions to retrieve
+//   * @return value for specified row/column
+//   * @throws IOException
+//   */
+//  public Cell [] get(final String row, final String column, int numVersions)
+//  throws IOException {
+//    return get(Bytes.toBytes(row), Bytes.toBytes(column), numVersions);
+//  }
+//
+//  /** 
+//   * Get a single value for the specified row and column
+//   *
+//   * @param row row key
+//   * @param column column name
+//   * @return value for specified row/column
+//   * @throws IOException
+//   */
+//  public Cell get(final byte [] row, final byte [] column)
+//  throws IOException {
+//    return connection.getRegionServerWithRetries(
+//        new ServerCallable<Cell>(connection, tableName, row) {
+//          public Cell call() throws IOException {
+//            Cell[] result = server.get(location.getRegionInfo().getRegionName(), 
+//                row, column, -1, -1);
+//            return (result == null)? null : result[0];
+//          }
+//        }
+//    );
+//  }
+//
+//  /** 
+//   * Get the specified number of versions of the specified row and column
+//   * @param row row key
+//   * @param column column name
+//   * @param numVersions number of versions to retrieve
+//   * @return Array of Cells.
+//   * @throws IOException
+//   */
+//  public Cell [] get(final byte [] row, final byte [] column,
+//    final int numVersions) 
+//  throws IOException {
+//    return connection.getRegionServerWithRetries(
+//        new ServerCallable<Cell[]>(connection, tableName, row) {
+//          public Cell[] call() throws IOException {
+//            return server.get(location.getRegionInfo().getRegionName(), row, 
+//                column, -1, numVersions);
+//          }
+//        }
+//    );
+//  }
+//
+//  /** 
+//   * Get the specified number of versions of the specified row and column with
+//   * the specified timestamp.
+//   *
+//   * @param row         - row key
+//   * @param column      - column name
+//   * @param timestamp   - timestamp
+//   * @param numVersions - number of versions to retrieve
+//   * @return            - array of values that match the above criteria
+//   * @throws IOException
+//   */
+//  public Cell[] get(final String row, final String column,
+//    final long timestamp, final int numVersions)
+//  throws IOException {
+//    return get(Bytes.toBytes(row), Bytes.toBytes(column), timestamp, numVersions);
+//  }
+//
+//  /** 
+//   * Get the specified number of versions of the specified row and column with
+//   * the specified timestamp.
+//   *
+//   * @param row         - row key
+//   * @param column      - column name
+//   * @param timestamp   - timestamp
+//   * @param numVersions - number of versions to retrieve
+//   * @return            - array of values that match the above criteria
+//   * @throws IOException
+//   */
+//  public Cell[] get(final byte [] row, final byte [] column,
+//    final long timestamp, final int numVersions)
+//  throws IOException {
+//    Cell[] values = null;
+//    values = connection.getRegionServerWithRetries(
+//        new ServerCallable<Cell[]>(connection, tableName, row) {
+//          public Cell[] call() throws IOException {
+//            return server.get(location.getRegionInfo().getRegionName(), row, 
+//                column, timestamp, numVersions);
+//          }
+//        }
+//    );
+//
+//    if (values != null) {
+//      ArrayList<Cell> cellValues = new ArrayList<Cell>();
+//      for (int i = 0 ; i < values.length; i++) {
+//        cellValues.add(values[i]);
+//      }
+//      return cellValues.toArray(new Cell[values.length]);
+//    }
+//    return null;
+//  }
+//
+//  /** 
+//   * Get all the data for the specified row at the latest timestamp
+//   * 
+//   * @param row row key
+//   * @return RowResult is <code>null</code> if row does not exist.
+//   * @throws IOException
+//   */
+//  public RowResult getRow(final String row) throws IOException {
+//    return getRow(Bytes.toBytes(row));
+//  }
+//
+//  /** 
+//   * Get all the data for the specified row at the latest timestamp
+//   * 
+//   * @param row row key
+//   * @return RowResult is <code>null</code> if row does not exist.
+//   * @throws IOException
+//   */
+//  public RowResult getRow(final byte [] row) throws IOException {
+//    return getRow(row, HConstants.LATEST_TIMESTAMP);
+//  }
+// 
+//  /** 
+//   * Get more than one version of all columns for the specified row
+//   * 
+//   * @param row row key
+//   * @param numVersions number of versions to return
+//   * @return RowResult is <code>null</code> if row does not exist.
+//   * @throws IOException
+//   */
+//  public RowResult getRow(final String row, final int numVersions)
+//  throws IOException {
+//    return getRow(Bytes.toBytes(row), null, 
+//                  HConstants.LATEST_TIMESTAMP, numVersions, null);
+//  }
+//
+//  /** 
+//   * Get more than one version of all columns for the specified row
+//   * 
+//   * @param row row key
+//   * @param numVersions number of versions to return
+//   * @return RowResult is <code>null</code> if row does not exist.
+//   * @throws IOException
+//   */
+//  public RowResult getRow(final byte[] row, final int numVersions)
+//  throws IOException {
+//    return getRow(row, null, HConstants.LATEST_TIMESTAMP, numVersions, null);
+//  }
+//
+//  /** 
+//   * Get all the data for the specified row at a specified timestamp
+//   * 
+//   * @param row row key
+//   * @param ts timestamp
+//   * @return RowResult is <code>null</code> if row does not exist.
+//   * @throws IOException
+//   */
+//  public RowResult getRow(final String row, final long ts) 
+//  throws IOException {
+//    return getRow(Bytes.toBytes(row), ts);
+//  }
+//
+//  /** 
+//   * Get all the data for the specified row at a specified timestamp
+//   * 
+//   * @param row row key
+//   * @param ts timestamp
+//   * @return RowResult is <code>null</code> if row does not exist.
+//   * @throws IOException
+//   */
+//  public RowResult getRow(final byte [] row, final long ts) 
+//  throws IOException {
+//    return getRow(row,null,ts);
+//  }
+//  
+//  public RowResult getRow(final String row, final long ts,
+//      final int numVersions) throws IOException {
+//    return getRow(Bytes.toBytes(row), null, ts, numVersions, null);
+//  }
+//  
+//  /** 
+//   * Get more than one version of all columns for the specified row
+//   * at a specified timestamp
+//   * 
+//   * @param row row key
+//   * @param timestamp timestamp
+//   * @param numVersions number of versions to return
+//   * @return RowResult is <code>null</code> if row does not exist.
+//   * @throws IOException
+//   */
+//  public RowResult getRow(final byte[] row, final long timestamp,
+//      final int numVersions) throws IOException {
+//    return getRow(row, null, timestamp, numVersions, null);
+//  }
+//
+//  /** 
+//   * Get selected columns for the specified row at the latest timestamp
+//   * 
+//   * @param row row key
+//   * @param columns Array of column names and families you want to retrieve.
+//   * @return RowResult is <code>null</code> if row does not exist.
+//   * @throws IOException
+//   */
+//  public RowResult getRow(final String row, final String [] columns) 
+//  throws IOException {
+//    return getRow(Bytes.toBytes(row), Bytes.toByteArrays(columns));
+//  }
+//
+//  /** 
+//   * Get selected columns for the specified row at the latest timestamp
+//   * 
+//   * @param row row key
+//   * @param columns Array of column names and families you want to retrieve.
+//   * @return RowResult is <code>null</code> if row does not exist.
+//   * @throws IOException
+//   */
+//  public RowResult getRow(final byte [] row, final byte [][] columns) 
+//  throws IOException {
+//    return getRow(row, columns, HConstants.LATEST_TIMESTAMP);
+//  }
+//  
+//  /** 
+//   * Get more than one version of selected columns for the specified row
+//   * 
+//   * @param row row key
+//   * @param columns Array of column names and families you want to retrieve.
+//   * @param numVersions number of versions to return
+//   * @return RowResult is <code>null</code> if row does not exist.
+//   * @throws IOException
+//   */
+//  public RowResult getRow(final String row, final String[] columns,
+//      final int numVersions) throws IOException {
+//    return getRow(Bytes.toBytes(row), Bytes.toByteArrays(columns),
+//                  HConstants.LATEST_TIMESTAMP, numVersions, null);
+//  }
+//  
+//  /** 
+//   * Get more than one version of selected columns for the specified row
+//   * 
+//   * @param row row key
+//   * @param columns Array of column names and families you want to retrieve.
+//   * @param numVersions number of versions to return
+//   * @return RowResult is <code>null</code> if row does not exist.
+//   * @throws IOException
+//   */
+//  public RowResult getRow(final byte[] row, final byte[][] columns,
+//      final int numVersions) throws IOException {
+//    return getRow(row, columns, HConstants.LATEST_TIMESTAMP, numVersions, null);
+//  }
+//
+//  /** 
+//   * Get selected columns for the specified row at a specified timestamp
+//   * 
+//   * @param row row key
+//   * @param columns Array of column names and families you want to retrieve.
+//   * @param ts timestamp
+//   * @return RowResult is <code>null</code> if row does not exist.
+//   * @throws IOException
+//   */
+//  public RowResult getRow(final String row, final String [] columns, 
+//    final long ts) 
+//  throws IOException {  
+//    return getRow(Bytes.toBytes(row), Bytes.toByteArrays(columns), ts);
+//  }
+//
+//  /** 
+//   * Get selected columns for the specified row at a specified timestamp
+//   * 
+//   * @param row row key
+//   * @param columns Array of column names and families you want to retrieve.
+//   * @param ts timestamp
+//   * @return RowResult is <code>null</code> if row does not exist.
+//   * @throws IOException
+//   */
+//  public RowResult getRow(final byte [] row, final byte [][] columns, 
+//    final long ts) 
+//  throws IOException {       
+//    return getRow(row,columns,ts,1,null);
+//  }
+//  
+//  public RowResult getRow(final String row, final String[] columns,
+//      final long timestamp, final int numVersions, final RowLock rowLock)
+//  throws IOException {
+//    return getRow(Bytes.toBytes(row), Bytes.toByteArrays(columns), timestamp,
+//                  numVersions, rowLock);
+//  }
+//  
+//
+//  /** 
+//   * Get selected columns for the specified row at a specified timestamp
+//   * using existing row lock.
+//   * 
+//   * @param row row key
+//   * @param columns Array of column names and families you want to retrieve.
+//   * @param ts timestamp
+//   * @param numVersions 
+//   * @param rl row lock
+//   * @return RowResult is <code>null</code> if row does not exist.
+//   * @throws IOException
+//   */
+//  public RowResult getRow(final byte [] row, final byte [][] columns, 
+//    final long ts, final int numVersions, final RowLock rl) 
+//  throws IOException {
+//    return connection.getRegionServerWithRetries(
+//        new ServerCallable<RowResult>(connection, tableName, row) {
+//          public RowResult call() throws IOException {
+//            long lockId = -1L;
+//            if(rl != null) {
+//              lockId = rl.getLockId();
+//            }
+//            return server.getRow(location.getRegionInfo().getRegionName(), row, 
+//                columns, ts, numVersions, lockId);
+//          }
+//        }
+//    );
+//  }
 
-  /** 
-   * Get a single value for the specified row and column
-   *
-   * @param row row key
-   * @param column column name
-   * @param numVersions - number of versions to retrieve
-   * @return value for specified row/column
-   * @throws IOException
-   */
-  public Cell [] get(final String row, final String column, int numVersions)
-  throws IOException {
-    return get(Bytes.toBytes(row), Bytes.toBytes(column), numVersions);
-  }
-
-  /** 
-   * Get a single value for the specified row and column
-   *
-   * @param row row key
-   * @param column column name
-   * @return value for specified row/column
-   * @throws IOException
-   */
-  public Cell get(final byte [] row, final byte [] column)
+  public KeyValue[] getClosestRowBefore(final byte[] row,
+      final byte[] columnFamily)
   throws IOException {
     return connection.getRegionServerWithRetries(
-        new ServerCallable<Cell>(connection, tableName, row) {
-          public Cell call() throws IOException {
-            Cell[] result = server.get(location.getRegionInfo().getRegionName(), 
-                row, column, -1, -1);
-            return (result == null)? null : result[0];
-          }
-        }
-    );
-  }
-
-  /** 
-   * Get the specified number of versions of the specified row and column
-   * @param row row key
-   * @param column column name
-   * @param numVersions number of versions to retrieve
-   * @return Array of Cells.
-   * @throws IOException
-   */
-  public Cell [] get(final byte [] row, final byte [] column,
-    final int numVersions) 
-  throws IOException {
-    return connection.getRegionServerWithRetries(
-        new ServerCallable<Cell[]>(connection, tableName, row) {
-          public Cell[] call() throws IOException {
-            return server.get(location.getRegionInfo().getRegionName(), row, 
-                column, -1, numVersions);
-          }
-        }
-    );
-  }
-
-  /** 
-   * Get the specified number of versions of the specified row and column with
-   * the specified timestamp.
-   *
-   * @param row         - row key
-   * @param column      - column name
-   * @param timestamp   - timestamp
-   * @param numVersions - number of versions to retrieve
-   * @return            - array of values that match the above criteria
-   * @throws IOException
-   */
-  public Cell[] get(final String row, final String column,
-    final long timestamp, final int numVersions)
-  throws IOException {
-    return get(Bytes.toBytes(row), Bytes.toBytes(column), timestamp, numVersions);
-  }
-
-  /** 
-   * Get the specified number of versions of the specified row and column with
-   * the specified timestamp.
-   *
-   * @param row         - row key
-   * @param column      - column name
-   * @param timestamp   - timestamp
-   * @param numVersions - number of versions to retrieve
-   * @return            - array of values that match the above criteria
-   * @throws IOException
-   */
-  public Cell[] get(final byte [] row, final byte [] column,
-    final long timestamp, final int numVersions)
-  throws IOException {
-    Cell[] values = null;
-    values = connection.getRegionServerWithRetries(
-        new ServerCallable<Cell[]>(connection, tableName, row) {
-          public Cell[] call() throws IOException {
-            return server.get(location.getRegionInfo().getRegionName(), row, 
-                column, timestamp, numVersions);
-          }
-        }
-    );
-
-    if (values != null) {
-      ArrayList<Cell> cellValues = new ArrayList<Cell>();
-      for (int i = 0 ; i < values.length; i++) {
-        cellValues.add(values[i]);
-      }
-      return cellValues.toArray(new Cell[values.length]);
-    }
-    return null;
-  }
-
-  /** 
-   * Get all the data for the specified row at the latest timestamp
-   * 
-   * @param row row key
-   * @return RowResult is <code>null</code> if row does not exist.
-   * @throws IOException
-   */
-  public RowResult getRow(final String row) throws IOException {
-    return getRow(Bytes.toBytes(row));
-  }
-
-  /** 
-   * Get all the data for the specified row at the latest timestamp
-   * 
-   * @param row row key
-   * @return RowResult is <code>null</code> if row does not exist.
-   * @throws IOException
-   */
-  public RowResult getRow(final byte [] row) throws IOException {
-    return getRow(row, HConstants.LATEST_TIMESTAMP);
-  }
- 
-  /** 
-   * Get more than one version of all columns for the specified row
-   * 
-   * @param row row key
-   * @param numVersions number of versions to return
-   * @return RowResult is <code>null</code> if row does not exist.
-   * @throws IOException
-   */
-  public RowResult getRow(final String row, final int numVersions)
-  throws IOException {
-    return getRow(Bytes.toBytes(row), null, 
-                  HConstants.LATEST_TIMESTAMP, numVersions, null);
-  }
-
-  /** 
-   * Get more than one version of all columns for the specified row
-   * 
-   * @param row row key
-   * @param numVersions number of versions to return
-   * @return RowResult is <code>null</code> if row does not exist.
-   * @throws IOException
-   */
-  public RowResult getRow(final byte[] row, final int numVersions)
-  throws IOException {
-    return getRow(row, null, HConstants.LATEST_TIMESTAMP, numVersions, null);
-  }
-
-  /** 
-   * Get all the data for the specified row at a specified timestamp
-   * 
-   * @param row row key
-   * @param ts timestamp
-   * @return RowResult is <code>null</code> if row does not exist.
-   * @throws IOException
-   */
-  public RowResult getRow(final String row, final long ts) 
-  throws IOException {
-    return getRow(Bytes.toBytes(row), ts);
-  }
-
-  /** 
-   * Get all the data for the specified row at a specified timestamp
-   * 
-   * @param row row key
-   * @param ts timestamp
-   * @return RowResult is <code>null</code> if row does not exist.
-   * @throws IOException
-   */
-  public RowResult getRow(final byte [] row, final long ts) 
-  throws IOException {
-    return getRow(row,null,ts);
-  }
-  
-  public RowResult getRow(final String row, final long ts,
-      final int numVersions) throws IOException {
-    return getRow(Bytes.toBytes(row), null, ts, numVersions, null);
-  }
-  
-  /** 
-   * Get more than one version of all columns for the specified row
-   * at a specified timestamp
-   * 
-   * @param row row key
-   * @param timestamp timestamp
-   * @param numVersions number of versions to return
-   * @return RowResult is <code>null</code> if row does not exist.
-   * @throws IOException
-   */
-  public RowResult getRow(final byte[] row, final long timestamp,
-      final int numVersions) throws IOException {
-    return getRow(row, null, timestamp, numVersions, null);
-  }
-
-  /** 
-   * Get selected columns for the specified row at the latest timestamp
-   * 
-   * @param row row key
-   * @param columns Array of column names and families you want to retrieve.
-   * @return RowResult is <code>null</code> if row does not exist.
-   * @throws IOException
-   */
-  public RowResult getRow(final String row, final String [] columns) 
-  throws IOException {
-    return getRow(Bytes.toBytes(row), Bytes.toByteArrays(columns));
-  }
-
-  /** 
-   * Get selected columns for the specified row at the latest timestamp
-   * 
-   * @param row row key
-   * @param columns Array of column names and families you want to retrieve.
-   * @return RowResult is <code>null</code> if row does not exist.
-   * @throws IOException
-   */
-  public RowResult getRow(final byte [] row, final byte [][] columns) 
-  throws IOException {
-    return getRow(row, columns, HConstants.LATEST_TIMESTAMP);
-  }
-  
-  /** 
-   * Get more than one version of selected columns for the specified row
-   * 
-   * @param row row key
-   * @param columns Array of column names and families you want to retrieve.
-   * @param numVersions number of versions to return
-   * @return RowResult is <code>null</code> if row does not exist.
-   * @throws IOException
-   */
-  public RowResult getRow(final String row, final String[] columns,
-      final int numVersions) throws IOException {
-    return getRow(Bytes.toBytes(row), Bytes.toByteArrays(columns),
-                  HConstants.LATEST_TIMESTAMP, numVersions, null);
-  }
-  
-  /** 
-   * Get more than one version of selected columns for the specified row
-   * 
-   * @param row row key
-   * @param columns Array of column names and families you want to retrieve.
-   * @param numVersions number of versions to return
-   * @return RowResult is <code>null</code> if row does not exist.
-   * @throws IOException
-   */
-  public RowResult getRow(final byte[] row, final byte[][] columns,
-      final int numVersions) throws IOException {
-    return getRow(row, columns, HConstants.LATEST_TIMESTAMP, numVersions, null);
-  }
-
-  /** 
-   * Get selected columns for the specified row at a specified timestamp
-   * 
-   * @param row row key
-   * @param columns Array of column names and families you want to retrieve.
-   * @param ts timestamp
-   * @return RowResult is <code>null</code> if row does not exist.
-   * @throws IOException
-   */
-  public RowResult getRow(final String row, final String [] columns, 
-    final long ts) 
-  throws IOException {  
-    return getRow(Bytes.toBytes(row), Bytes.toByteArrays(columns), ts);
-  }
-
-  /** 
-   * Get selected columns for the specified row at a specified timestamp
-   * 
-   * @param row row key
-   * @param columns Array of column names and families you want to retrieve.
-   * @param ts timestamp
-   * @return RowResult is <code>null</code> if row does not exist.
-   * @throws IOException
-   */
-  public RowResult getRow(final byte [] row, final byte [][] columns, 
-    final long ts) 
-  throws IOException {       
-    return getRow(row,columns,ts,1,null);
-  }
-  
-  public RowResult getRow(final String row, final String[] columns,
-      final long timestamp, final int numVersions, final RowLock rowLock)
-  throws IOException {
-    return getRow(Bytes.toBytes(row), Bytes.toByteArrays(columns), timestamp,
-                  numVersions, rowLock);
-  }
-  
-
-  /** 
-   * Get selected columns for the specified row at a specified timestamp
-   * using existing row lock.
-   * 
-   * @param row row key
-   * @param columns Array of column names and families you want to retrieve.
-   * @param ts timestamp
-   * @param numVersions 
-   * @param rl row lock
-   * @return RowResult is <code>null</code> if row does not exist.
-   * @throws IOException
-   */
-  public RowResult getRow(final byte [] row, final byte [][] columns, 
-    final long ts, final int numVersions, final RowLock rl) 
-  throws IOException {
-    return connection.getRegionServerWithRetries(
-        new ServerCallable<RowResult>(connection, tableName, row) {
-          public RowResult call() throws IOException {
-            long lockId = -1L;
-            if(rl != null) {
-              lockId = rl.getLockId();
-            }
-            return server.getRow(location.getRegionInfo().getRegionName(), row, 
-                columns, ts, numVersions, lockId);
-          }
-        }
-    );
-  }
-
-  public RowResult getClosestRowBefore(final byte[] row, final byte[] columnFamily)
-  throws IOException {
-    return connection.getRegionServerWithRetries(
-      new ServerCallable<RowResult>(connection,tableName,row) {
-        public RowResult call() throws IOException {
+      new ServerCallable<KeyValue[]>(connection,tableName,row) {
+        public KeyValue[] call() throws IOException {
           return server.getClosestRowBefore(
               location.getRegionInfo().getRegionName(), row, columnFamily
             );
@@ -888,363 +883,363 @@ public class HTable {
     return s;
   }
   
-  /**
-   * Completely delete the row's cells.
-   *
-   * @param row Key of the row you want to completely delete.
-   * @throws IOException
-   */
-  public void deleteAll(final byte [] row) throws IOException {
-    deleteAll(row, null);
-  }
-
-  /**
-   * Completely delete the row's cells.
-   *
-   * @param row Key of the row you want to completely delete.
-   * @throws IOException
-   */
-  public void deleteAll(final String row) throws IOException {
-    deleteAll(row, null);
-  }
-  
-  /**
-   * Completely delete the row's cells.
-   *
-   * @param row Key of the row you want to completely delete.
-   * @param column column to be deleted
-   * @throws IOException
-   */
-  public void deleteAll(final byte [] row, final byte [] column)
-  throws IOException {
-    deleteAll(row, column, HConstants.LATEST_TIMESTAMP);
-  }
-
-  /**
-   * Completely delete the row's cells.
-   *
-   * @param row Key of the row you want to completely delete.
-   * @param ts Delete all cells of the same timestamp or older.
-   * @throws IOException
-   */
-  public void deleteAll(final byte [] row, final long ts)
-  throws IOException {
-    deleteAll(row, null, ts);
-  }
-
-  /**
-   * Completely delete the row's cells.
-   *
-   * @param row Key of the row you want to completely delete.
-   * @param ts Delete all cells of the same timestamp or older.
-   * @throws IOException
-   */
-  public void deleteAll(final String row, final long ts)
-  throws IOException {
-    deleteAll(row, null, ts);
-  }
-
-  /** 
-   * Delete all cells that match the passed row and column.
-   * @param row Row to update
-   * @param column name of column whose value is to be deleted
-   * @throws IOException 
-   */
-  public void deleteAll(final String row, final String column)
-  throws IOException {
-    deleteAll(row, column, HConstants.LATEST_TIMESTAMP);
-  }
-
-  /** 
-   * Delete all cells that match the passed row and column and whose
-   * timestamp is equal-to or older than the passed timestamp.
-   * @param row Row to update
-   * @param column name of column whose value is to be deleted
-   * @param ts Delete all cells of the same timestamp or older.
-   * @throws IOException 
-   */
-  public void deleteAll(final String row, final String column, final long ts)
-  throws IOException {
-    deleteAll(Bytes.toBytes(row),
-      column != null? Bytes.toBytes(column): null, ts);
-  }
-
-  /** 
-   * Delete all cells that match the passed row and column and whose
-   * timestamp is equal-to or older than the passed timestamp.
-   * @param row Row to update
-   * @param column name of column whose value is to be deleted
-   * @param ts Delete all cells of the same timestamp or older.
-   * @throws IOException 
-   */
-  public void deleteAll(final byte [] row, final byte [] column, final long ts)
-  throws IOException {
-    deleteAll(row,column,ts,null);
-  }
-
-  /** 
-   * Delete all cells that match the passed row and column and whose
-   * timestamp is equal-to or older than the passed timestamp, using an
-   * existing row lock.
-   * @param row Row to update
-   * @param column name of column whose value is to be deleted
-   * @param ts Delete all cells of the same timestamp or older.
-   * @param rl Existing row lock
-   * @throws IOException 
-   */
-  public void deleteAll(final byte [] row, final byte [] column, final long ts,
-      final RowLock rl)
-  throws IOException {
-    connection.getRegionServerWithRetries(
-        new ServerCallable<Boolean>(connection, tableName, row) {
-          public Boolean call() throws IOException {
-            long lockId = -1L;
-            if(rl != null) {
-              lockId = rl.getLockId();
-            }
-            if (column != null) {
-              this.server.deleteAll(location.getRegionInfo().getRegionName(),
-                row, column, ts, lockId);
-            } else {
-              this.server.deleteAll(location.getRegionInfo().getRegionName(),
-                  row, ts, lockId);
-            }
-            return null;
-          }
-        }
-    );
-  }
-  
-  /** 
-   * Delete all cells that match the passed row and column.
-   * @param row Row to update
-   * @param colRegex column regex expression
-   * @throws IOException 
-   */
-  public void deleteAllByRegex(final String row, final String colRegex)
-  throws IOException {
-    deleteAll(row, colRegex, HConstants.LATEST_TIMESTAMP);
-  }
-
-  /** 
-   * Delete all cells that match the passed row and column and whose
-   * timestamp is equal-to or older than the passed timestamp.
-   * @param row Row to update
-   * @param colRegex Column Regex expression
-   * @param ts Delete all cells of the same timestamp or older.
-   * @throws IOException 
-   */
-  public void deleteAllByRegex(final String row, final String colRegex, 
-      final long ts) throws IOException {
-    deleteAllByRegex(Bytes.toBytes(row), colRegex, ts);
-  }
-
-  /** 
-   * Delete all cells that match the passed row and column and whose
-   * timestamp is equal-to or older than the passed timestamp.
-   * @param row Row to update
-   * @param colRegex Column Regex expression
-   * @param ts Delete all cells of the same timestamp or older.
-   * @throws IOException 
-   */
-  public void deleteAllByRegex(final byte [] row, final String colRegex, 
-      final long ts) throws IOException {
-    deleteAllByRegex(row, colRegex, ts, null);
-  }
-  
-  /** 
-   * Delete all cells that match the passed row and column and whose
-   * timestamp is equal-to or older than the passed timestamp, using an
-   * existing row lock.
-   * @param row Row to update
-   * @param colRegex Column regex expression
-   * @param ts Delete all cells of the same timestamp or older.
-   * @param rl Existing row lock
-   * @throws IOException 
-   */
-  public void deleteAllByRegex(final byte [] row, final String colRegex, 
-      final long ts, final RowLock rl)
-  throws IOException {
-    connection.getRegionServerWithRetries(
-        new ServerCallable<Boolean>(connection, tableName, row) {
-          public Boolean call() throws IOException {
-            long lockId = -1L;
-            if(rl != null) {
-              lockId = rl.getLockId();
-            }
-            this.server.deleteAllByRegex(location.getRegionInfo().getRegionName(),
-              row, colRegex, ts, lockId);
-            return null;
-          }
-        }
-    );
-  }
-
-  /**
-   * Delete all cells for a row with matching column family at all timestamps.
-   *
-   * @param row The row to operate on
-   * @param family The column family to match
-   * @throws IOException
-   */
-  public void deleteFamily(final String row, final String family) 
-  throws IOException {
-    deleteFamily(row, family, HConstants.LATEST_TIMESTAMP);
-  }
-
-  /**
-   * Delete all cells for a row with matching column family at all timestamps.
-   *
-   * @param row The row to operate on
-   * @param family The column family to match
-   * @throws IOException
-   */
-  public void deleteFamily(final byte[] row, final byte[] family) 
-  throws IOException {
-    deleteFamily(row, family, HConstants.LATEST_TIMESTAMP);
-  }
-
-  /**
-   * Delete all cells for a row with matching column family with timestamps
-   * less than or equal to <i>timestamp</i>.
-   *
-   * @param row The row to operate on
-   * @param family The column family to match
-   * @param timestamp Timestamp to match
-   * @throws IOException
-   */  
-  public void deleteFamily(final String row, final String family,
-      final long timestamp)
-  throws IOException{
-    deleteFamily(Bytes.toBytes(row), Bytes.toBytes(family), timestamp);
-  }
-
-  /**
-   * Delete all cells for a row with matching column family with timestamps
-   * less than or equal to <i>timestamp</i>.
-   *
-   * @param row The row to operate on
-   * @param family The column family to match
-   * @param timestamp Timestamp to match
-   * @throws IOException
-   */
-  public void deleteFamily(final byte [] row, final byte [] family, 
-    final long timestamp)
-  throws IOException {
-    deleteFamily(row,family,timestamp,null);
-  }
-
-  /**
-   * Delete all cells for a row with matching column family with timestamps
-   * less than or equal to <i>timestamp</i>, using existing row lock.
-   *
-   * @param row The row to operate on
-   * @param family The column family to match
-   * @param timestamp Timestamp to match
-   * @param rl Existing row lock
-   * @throws IOException
-   */
-  public void deleteFamily(final byte [] row, final byte [] family, 
-    final long timestamp, final RowLock rl)
-  throws IOException {
-    connection.getRegionServerWithRetries(
-        new ServerCallable<Boolean>(connection, tableName, row) {
-          public Boolean call() throws IOException {
-            long lockId = -1L;
-            if(rl != null) {
-              lockId = rl.getLockId();
-            }
-            server.deleteFamily(location.getRegionInfo().getRegionName(), row, 
-                family, timestamp, lockId);
-            return null;
-          }
-        }
-    );
-  }
-  
-  /**
-   * Delete all cells for a row with matching column family regex 
-   * at all timestamps.
-   *
-   * @param row The row to operate on
-   * @param familyRegex Column family regex
-   * @throws IOException
-   */
-  public void deleteFamilyByRegex(final String row, final String familyRegex) 
-  throws IOException {
-    deleteFamilyByRegex(row, familyRegex, HConstants.LATEST_TIMESTAMP);
-  }
-
-  /**
-   * Delete all cells for a row with matching column family regex 
-   * at all timestamps.
-   *
-   * @param row The row to operate on
-   * @param familyRegex Column family regex
-   * @throws IOException
-   */
-  public void deleteFamilyByRegex(final byte[] row, final String familyRegex) 
-  throws IOException {
-    deleteFamilyByRegex(row, familyRegex, HConstants.LATEST_TIMESTAMP);
-  }
-
-  /**
-   * Delete all cells for a row with matching column family regex
-   * with timestamps less than or equal to <i>timestamp</i>.
-   *
-   * @param row The row to operate on
-   * @param familyRegex Column family regex
-   * @param timestamp Timestamp to match
-   * @throws IOException
-   */  
-  public void deleteFamilyByRegex(final String row, final String familyRegex,
-      final long timestamp)
-  throws IOException{
-    deleteFamilyByRegex(Bytes.toBytes(row), familyRegex, timestamp);
-  }
-
-  /**
-   * Delete all cells for a row with matching column family regex
-   * with timestamps less than or equal to <i>timestamp</i>.
-   *
-   * @param row The row to operate on
-   * @param familyRegex Column family regex
-   * @param timestamp Timestamp to match
-   * @throws IOException
-   */
-  public void deleteFamilyByRegex(final byte [] row, final String familyRegex, 
-    final long timestamp)
-  throws IOException {
-    deleteFamilyByRegex(row,familyRegex,timestamp,null);
-  }
-  
-  /**
-   * Delete all cells for a row with matching column family regex with
-   * timestamps less than or equal to <i>timestamp</i>, using existing
-   * row lock.
-   * 
-   * @param row The row to operate on
-   * @param familyRegex Column Family Regex
-   * @param timestamp Timestamp to match
-   * @param r1 Existing row lock
-   * @throws IOException
-   */
-  public void deleteFamilyByRegex(final byte[] row, final String familyRegex,
-    final long timestamp, final RowLock r1) throws IOException {
-    connection.getRegionServerWithRetries(
-        new ServerCallable<Boolean>(connection, tableName, row) {
-          public Boolean call() throws IOException {
-            long lockId = -1L;
-            if(r1 != null) {
-              lockId = r1.getLockId();
-            }
-            server.deleteFamilyByRegex(location.getRegionInfo().getRegionName(), 
-                row, familyRegex, timestamp, lockId);
-            return null;
-          }
-        }
-    );
-  }
+//  /**
+//   * Completely delete the row's cells.
+//   *
+//   * @param row Key of the row you want to completely delete.
+//   * @throws IOException
+//   */
+//  public void deleteAll(final byte [] row) throws IOException {
+//    deleteAll(row, null);
+//  }
+//
+//  /**
+//   * Completely delete the row's cells.
+//   *
+//   * @param row Key of the row you want to completely delete.
+//   * @throws IOException
+//   */
+//  public void deleteAll(final String row) throws IOException {
+//    deleteAll(row, null);
+//  }
+//  
+//  /**
+//   * Completely delete the row's cells.
+//   *
+//   * @param row Key of the row you want to completely delete.
+//   * @param column column to be deleted
+//   * @throws IOException
+//   */
+//  public void deleteAll(final byte [] row, final byte [] column)
+//  throws IOException {
+//    deleteAll(row, column, HConstants.LATEST_TIMESTAMP);
+//  }
+//
+//  /**
+//   * Completely delete the row's cells.
+//   *
+//   * @param row Key of the row you want to completely delete.
+//   * @param ts Delete all cells of the same timestamp or older.
+//   * @throws IOException
+//   */
+//  public void deleteAll(final byte [] row, final long ts)
+//  throws IOException {
+//    deleteAll(row, null, ts);
+//  }
+//
+//  /**
+//   * Completely delete the row's cells.
+//   *
+//   * @param row Key of the row you want to completely delete.
+//   * @param ts Delete all cells of the same timestamp or older.
+//   * @throws IOException
+//   */
+//  public void deleteAll(final String row, final long ts)
+//  throws IOException {
+//    deleteAll(row, null, ts);
+//  }
+//
+//  /** 
+//   * Delete all cells that match the passed row and column.
+//   * @param row Row to update
+//   * @param column name of column whose value is to be deleted
+//   * @throws IOException 
+//   */
+//  public void deleteAll(final String row, final String column)
+//  throws IOException {
+//    deleteAll(row, column, HConstants.LATEST_TIMESTAMP);
+//  }
+//
+//  /** 
+//   * Delete all cells that match the passed row and column and whose
+//   * timestamp is equal-to or older than the passed timestamp.
+//   * @param row Row to update
+//   * @param column name of column whose value is to be deleted
+//   * @param ts Delete all cells of the same timestamp or older.
+//   * @throws IOException 
+//   */
+//  public void deleteAll(final String row, final String column, final long ts)
+//  throws IOException {
+//    deleteAll(Bytes.toBytes(row),
+//      column != null? Bytes.toBytes(column): null, ts);
+//  }
+//
+//  /** 
+//   * Delete all cells that match the passed row and column and whose
+//   * timestamp is equal-to or older than the passed timestamp.
+//   * @param row Row to update
+//   * @param column name of column whose value is to be deleted
+//   * @param ts Delete all cells of the same timestamp or older.
+//   * @throws IOException 
+//   */
+//  public void deleteAll(final byte [] row, final byte [] column, final long ts)
+//  throws IOException {
+//    deleteAll(row,column,ts,null);
+//  }
+//
+//  /** 
+//   * Delete all cells that match the passed row and column and whose
+//   * timestamp is equal-to or older than the passed timestamp, using an
+//   * existing row lock.
+//   * @param row Row to update
+//   * @param column name of column whose value is to be deleted
+//   * @param ts Delete all cells of the same timestamp or older.
+//   * @param rl Existing row lock
+//   * @throws IOException 
+//   */
+//  public void deleteAll(final byte [] row, final byte [] column, final long ts,
+//      final RowLock rl)
+//  throws IOException {
+//    connection.getRegionServerWithRetries(
+//        new ServerCallable<Boolean>(connection, tableName, row) {
+//          public Boolean call() throws IOException {
+//            long lockId = -1L;
+//            if(rl != null) {
+//              lockId = rl.getLockId();
+//            }
+//            if (column != null) {
+//              this.server.deleteAll(location.getRegionInfo().getRegionName(),
+//                row, column, ts, lockId);
+//            } else {
+//              this.server.deleteAll(location.getRegionInfo().getRegionName(),
+//                  row, ts, lockId);
+//            }
+//            return null;
+//          }
+//        }
+//    );
+//  }
+//  
+//  /** 
+//   * Delete all cells that match the passed row and column.
+//   * @param row Row to update
+//   * @param colRegex column regex expression
+//   * @throws IOException 
+//   */
+//  public void deleteAllByRegex(final String row, final String colRegex)
+//  throws IOException {
+//    deleteAll(row, colRegex, HConstants.LATEST_TIMESTAMP);
+//  }
+//
+//  /** 
+//   * Delete all cells that match the passed row and column and whose
+//   * timestamp is equal-to or older than the passed timestamp.
+//   * @param row Row to update
+//   * @param colRegex Column Regex expression
+//   * @param ts Delete all cells of the same timestamp or older.
+//   * @throws IOException 
+//   */
+//  public void deleteAllByRegex(final String row, final String colRegex, 
+//      final long ts) throws IOException {
+//    deleteAllByRegex(Bytes.toBytes(row), colRegex, ts);
+//  }
+//
+//  /** 
+//   * Delete all cells that match the passed row and column and whose
+//   * timestamp is equal-to or older than the passed timestamp.
+//   * @param row Row to update
+//   * @param colRegex Column Regex expression
+//   * @param ts Delete all cells of the same timestamp or older.
+//   * @throws IOException 
+//   */
+//  public void deleteAllByRegex(final byte [] row, final String colRegex, 
+//      final long ts) throws IOException {
+//    deleteAllByRegex(row, colRegex, ts, null);
+//  }
+//  
+//  /** 
+//   * Delete all cells that match the passed row and column and whose
+//   * timestamp is equal-to or older than the passed timestamp, using an
+//   * existing row lock.
+//   * @param row Row to update
+//   * @param colRegex Column regex expression
+//   * @param ts Delete all cells of the same timestamp or older.
+//   * @param rl Existing row lock
+//   * @throws IOException 
+//   */
+//  public void deleteAllByRegex(final byte [] row, final String colRegex, 
+//      final long ts, final RowLock rl)
+//  throws IOException {
+//    connection.getRegionServerWithRetries(
+//        new ServerCallable<Boolean>(connection, tableName, row) {
+//          public Boolean call() throws IOException {
+//            long lockId = -1L;
+//            if(rl != null) {
+//              lockId = rl.getLockId();
+//            }
+//            this.server.deleteAllByRegex(location.getRegionInfo().getRegionName(),
+//              row, colRegex, ts, lockId);
+//            return null;
+//          }
+//        }
+//    );
+//  }
+//
+//  /**
+//   * Delete all cells for a row with matching column family at all timestamps.
+//   *
+//   * @param row The row to operate on
+//   * @param family The column family to match
+//   * @throws IOException
+//   */
+//  public void deleteFamily(final String row, final String family) 
+//  throws IOException {
+//    deleteFamily(row, family, HConstants.LATEST_TIMESTAMP);
+//  }
+//
+//  /**
+//   * Delete all cells for a row with matching column family at all timestamps.
+//   *
+//   * @param row The row to operate on
+//   * @param family The column family to match
+//   * @throws IOException
+//   */
+//  public void deleteFamily(final byte[] row, final byte[] family) 
+//  throws IOException {
+//    deleteFamily(row, family, HConstants.LATEST_TIMESTAMP);
+//  }
+//
+//  /**
+//   * Delete all cells for a row with matching column family with timestamps
+//   * less than or equal to <i>timestamp</i>.
+//   *
+//   * @param row The row to operate on
+//   * @param family The column family to match
+//   * @param timestamp Timestamp to match
+//   * @throws IOException
+//   */  
+//  public void deleteFamily(final String row, final String family,
+//      final long timestamp)
+//  throws IOException{
+//    deleteFamily(Bytes.toBytes(row), Bytes.toBytes(family), timestamp);
+//  }
+//
+//  /**
+//   * Delete all cells for a row with matching column family with timestamps
+//   * less than or equal to <i>timestamp</i>.
+//   *
+//   * @param row The row to operate on
+//   * @param family The column family to match
+//   * @param timestamp Timestamp to match
+//   * @throws IOException
+//   */
+//  public void deleteFamily(final byte [] row, final byte [] family, 
+//    final long timestamp)
+//  throws IOException {
+//    deleteFamily(row,family,timestamp,null);
+//  }
+//
+//  /**
+//   * Delete all cells for a row with matching column family with timestamps
+//   * less than or equal to <i>timestamp</i>, using existing row lock.
+//   *
+//   * @param row The row to operate on
+//   * @param family The column family to match
+//   * @param timestamp Timestamp to match
+//   * @param rl Existing row lock
+//   * @throws IOException
+//   */
+//  public void deleteFamily(final byte [] row, final byte [] family, 
+//    final long timestamp, final RowLock rl)
+//  throws IOException {
+//    connection.getRegionServerWithRetries(
+//        new ServerCallable<Boolean>(connection, tableName, row) {
+//          public Boolean call() throws IOException {
+//            long lockId = -1L;
+//            if(rl != null) {
+//              lockId = rl.getLockId();
+//            }
+//            server.deleteFamily(location.getRegionInfo().getRegionName(), row, 
+//                family, timestamp, lockId);
+//            return null;
+//          }
+//        }
+//    );
+//  }
+//  
+//  /**
+//   * Delete all cells for a row with matching column family regex 
+//   * at all timestamps.
+//   *
+//   * @param row The row to operate on
+//   * @param familyRegex Column family regex
+//   * @throws IOException
+//   */
+//  public void deleteFamilyByRegex(final String row, final String familyRegex) 
+//  throws IOException {
+//    deleteFamilyByRegex(row, familyRegex, HConstants.LATEST_TIMESTAMP);
+//  }
+//
+//  /**
+//   * Delete all cells for a row with matching column family regex 
+//   * at all timestamps.
+//   *
+//   * @param row The row to operate on
+//   * @param familyRegex Column family regex
+//   * @throws IOException
+//   */
+//  public void deleteFamilyByRegex(final byte[] row, final String familyRegex) 
+//  throws IOException {
+//    deleteFamilyByRegex(row, familyRegex, HConstants.LATEST_TIMESTAMP);
+//  }
+//
+//  /**
+//   * Delete all cells for a row with matching column family regex
+//   * with timestamps less than or equal to <i>timestamp</i>.
+//   *
+//   * @param row The row to operate on
+//   * @param familyRegex Column family regex
+//   * @param timestamp Timestamp to match
+//   * @throws IOException
+//   */  
+//  public void deleteFamilyByRegex(final String row, final String familyRegex,
+//      final long timestamp)
+//  throws IOException{
+//    deleteFamilyByRegex(Bytes.toBytes(row), familyRegex, timestamp);
+//  }
+//
+//  /**
+//   * Delete all cells for a row with matching column family regex
+//   * with timestamps less than or equal to <i>timestamp</i>.
+//   *
+//   * @param row The row to operate on
+//   * @param familyRegex Column family regex
+//   * @param timestamp Timestamp to match
+//   * @throws IOException
+//   */
+//  public void deleteFamilyByRegex(final byte [] row, final String familyRegex, 
+//    final long timestamp)
+//  throws IOException {
+//    deleteFamilyByRegex(row,familyRegex,timestamp,null);
+//  }
+//  
+//  /**
+//   * Delete all cells for a row with matching column family regex with
+//   * timestamps less than or equal to <i>timestamp</i>, using existing
+//   * row lock.
+//   * 
+//   * @param row The row to operate on
+//   * @param familyRegex Column Family Regex
+//   * @param timestamp Timestamp to match
+//   * @param r1 Existing row lock
+//   * @throws IOException
+//   */
+//  public void deleteFamilyByRegex(final byte[] row, final String familyRegex,
+//    final long timestamp, final RowLock r1) throws IOException {
+//    connection.getRegionServerWithRetries(
+//        new ServerCallable<Boolean>(connection, tableName, row) {
+//          public Boolean call() throws IOException {
+//            long lockId = -1L;
+//            if(r1 != null) {
+//              lockId = r1.getLockId();
+//            }
+//            server.deleteFamilyByRegex(location.getRegionInfo().getRegionName(), 
+//                row, familyRegex, timestamp, lockId);
+//            return null;
+//          }
+//        }
+//    );
+//  }
 
   /**
    * Test for the existence of a row in the table.
@@ -1311,102 +1306,79 @@ public class HTable {
     ).booleanValue();
   }
 
-  /**
-   * Commit a BatchUpdate to the table.
-   * If autoFlush is false, the update is buffered
-   * @param batchUpdate
-   * @throws IOException
-   */ 
-  public synchronized void commit(final BatchUpdate batchUpdate) 
-  throws IOException {
-    commit(batchUpdate,null);
-  }
+//  /**
+//   * Commit a BatchUpdate to the table.
+//   * If autoFlush is false, the update is buffered
+//   * @param batchUpdate
+//   * @throws IOException
+//   */ 
+//  public synchronized void commit(final BatchUpdate batchUpdate) 
+//  throws IOException {
+//    commit(batchUpdate,null);
+//  }
+//  
+//  /**
+//   * Commit a BatchUpdate to the table using existing row lock.
+//   * If autoFlush is false, the update is buffered
+//   * @param batchUpdate
+//   * @param rl Existing row lock
+//   * @throws IOException
+//   */ 
+//  public synchronized void commit(final BatchUpdate batchUpdate,
+//      final RowLock rl) 
+//  throws IOException {
+//    checkRowAndColumns(batchUpdate);
+//    if(rl != null) {
+//      batchUpdate.setRowLock(rl.getLockId());
+//    }
+//    writeBuffer.add(batchUpdate);
+//    currentWriteBufferSize += batchUpdate.heapSize();
+//    if (autoFlush || currentWriteBufferSize > writeBufferSize) {
+//      flushCommits();
+//    }
+//  }
+//  
+//  /**
+//   * Commit a List of BatchUpdate to the table.
+//   * If autoFlush is false, the updates are buffered
+//   * @param batchUpdates
+//   * @throws IOException
+//   */ 
+//  public synchronized void commit(final List<BatchUpdate> batchUpdates)
+//      throws IOException {
+//    for (BatchUpdate bu : batchUpdates) {
+//      checkRowAndColumns(bu);
+//      writeBuffer.add(bu);
+//      currentWriteBufferSize += bu.heapSize();
+//    }
+//    if (autoFlush || currentWriteBufferSize > writeBufferSize) {
+//      flushCommits();
+//    }
+//  }
   
-  /**
-   * Commit a BatchUpdate to the table using existing row lock.
-   * If autoFlush is false, the update is buffered
-   * @param batchUpdate
-   * @param rl Existing row lock
-   * @throws IOException
-   */ 
-  public synchronized void commit(final BatchUpdate batchUpdate,
-      final RowLock rl) 
+  public synchronized void commit(final Put put) 
   throws IOException {
-    checkRowAndColumns(batchUpdate);
-    if(rl != null) {
-      batchUpdate.setRowLock(rl.getLockId());
-    }
-    writeBuffer.add(batchUpdate);
-    currentWriteBufferSize += batchUpdate.heapSize();
+    writeBuffer.add(put);
+    currentWriteBufferSize += put.heapSize();
     if (autoFlush || currentWriteBufferSize > writeBufferSize) {
       flushCommits();
     }
   }
   
   /**
-   * Commit a List of BatchUpdate to the table.
+   * Commit a List of Puts to the table.
    * If autoFlush is false, the updates are buffered
    * @param batchUpdates
    * @throws IOException
    */ 
-  public synchronized void commit(final List<BatchUpdate> batchUpdates)
-      throws IOException {
-    for (BatchUpdate bu : batchUpdates) {
-      checkRowAndColumns(bu);
-      writeBuffer.add(bu);
-      currentWriteBufferSize += bu.heapSize();
+  public synchronized void commit(final List<Put> putList)
+  throws IOException {
+    for(Put put : putList) {
+      writeBuffer.add(put);
+      currentWriteBufferSize += put.heapSize();
     }
     if (autoFlush || currentWriteBufferSize > writeBufferSize) {
       flushCommits();
-    }
-  }
-  
-  /**
-   * Commit a BatchUpdate to the table.
-   * If autoFlush is false, the update is buffered
-   * @param batchUpdate
-   * @throws IOException
-   */ 
-  public synchronized void newCommit(final RowUpdates updates) 
-  throws IOException {
-    newCommit(updates, null);
-  }
-  
-  /**
-   * Commit a BatchUpdate to the table using existing row lock.
-   * If autoFlush is false, the update is buffered
-   * @param batchUpdate
-   * @param rl Existing row lock
-   * @throws IOException
-   */ 
-  public synchronized void newCommit(final RowUpdates updates, final RowLock rl) 
-  throws IOException {
-    if(rl != null) {
-      updates.setRowLock(rl.getLockId());
-    }
-    updates.createKeyValuesFromColumns();
-    newWriteBuffer.add(updates);
-    newCurrentWriteBufferSize += updates.heapSize();
-    if (autoFlush || newCurrentWriteBufferSize > writeBufferSize) {
-      newFlushCommits();
-    }
-  }
-  
-  /**
-   * Commit a List of BatchUpdate to the table.
-   * If autoFlush is false, the updates are buffered
-   * @param batchUpdates
-   * @throws IOException
-   */ 
-  public synchronized void newCommit(final List<RowUpdates> updatesList)
-  throws IOException {
-    for (RowUpdates updates : updatesList) {
-      updates.createKeyValuesFromColumns();
-      newWriteBuffer.add(updates);
-      newCurrentWriteBufferSize += updates.heapSize();
-    }
-    if (autoFlush || newCurrentWriteBufferSize > writeBufferSize) {
-      newFlushCommits();
     }
   }  
   
@@ -1438,37 +1410,46 @@ public class HTable {
     ).booleanValue();
   }
   
-  /**
-   * Commit to the table the buffer of BatchUpdate.
-   * Called automaticaly in the commit methods when autoFlush is true.
-   * @throws IOException
-   */
-  public void flushCommits() throws IOException {
-    try {
-      connection.processBatchOfRows(writeBuffer, tableName);
-    } finally {
-      currentWriteBufferSize = 0;
-      writeBuffer.clear();
-    }
-  }
+//  /**
+//   * Commit to the table the buffer of BatchUpdate.
+//   * Called automaticaly in the commit methods when autoFlush is true.
+//   * @throws IOException
+//   */
+//  public void flushCommits() throws IOException {
+//    try {
+//      connection.processBatchOfRows(writeBuffer, tableName);
+//    } finally {
+//      currentWriteBufferSize = 0;
+//      writeBuffer.clear();
+//    }
+//  }
 
   /**
    * Commit to the table the buffer of BatchUpdate.
    * Called automaticaly in the commit methods when autoFlush is true.
    * @throws IOException
    */
-  public void newFlushCommits() throws IOException {
-    if(newWriteBuffer.isEmpty()){
+  public void flushCommits() throws IOException {
+    if(writeBuffer.isEmpty()){
       return;
     }
     try {
-      connection.processListOfRowUpdates(tableName, newWriteBuffer);
+      connection.processListOfPuts(tableName, writeBuffer);
     } finally {
-      newCurrentWriteBufferSize = 0;
-      newWriteBuffer.clear();
+      currentWriteBufferSize = 0;
+      writeBuffer.clear();
     }
   }
   
+//  /**
+//   * Release held resources
+//   * 
+//   * @throws IOException
+//  */
+//  public void close() throws IOException{
+//    flushCommits();
+//  }
+
   /**
    * Release held resources
    * 
@@ -1476,15 +1457,6 @@ public class HTable {
   */
   public void close() throws IOException{
     flushCommits();
-  }
-
-  /**
-   * Release held resources
-   * 
-   * @throws IOException
-  */
-  public void newClose() throws IOException{
-    newFlushCommits();
   }
   
   /**
@@ -1579,7 +1551,7 @@ public class HTable {
    * Get the write buffer 
    * @return the current write buffer
    */
-  public ArrayList<BatchUpdate> getWriteBuffer() {
+  public ArrayList<Put> getWriteBuffer() {
     return writeBuffer;
   }
   

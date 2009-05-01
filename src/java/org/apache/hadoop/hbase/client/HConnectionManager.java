@@ -41,14 +41,15 @@ import org.apache.hadoop.hbase.HRegionLocation;
 import org.apache.hadoop.hbase.HServerAddress;
 import org.apache.hadoop.hbase.HStoreKey;
 import org.apache.hadoop.hbase.HTableDescriptor;
+import org.apache.hadoop.hbase.KeyValue;
 import org.apache.hadoop.hbase.MasterNotRunningException;
 import org.apache.hadoop.hbase.RemoteExceptionHandler;
 import org.apache.hadoop.hbase.TableNotFoundException;
 import org.apache.hadoop.hbase.client.MetaScanner.MetaScannerVisitor;
 import org.apache.hadoop.hbase.io.BatchUpdate;
-import org.apache.hadoop.hbase.io.Cell;
-import org.apache.hadoop.hbase.io.RowResult;
-import org.apache.hadoop.hbase.io.RowUpdates;
+//import org.apache.hadoop.hbase.io.Cell;
+import org.apache.hadoop.hbase.io.Put;
+//import org.apache.hadoop.hbase.io.RowResult;
 import org.apache.hadoop.hbase.ipc.HBaseRPC;
 import org.apache.hadoop.hbase.ipc.HBaseRPCProtocolVersion;
 import org.apache.hadoop.hbase.ipc.HMasterInterface;
@@ -555,9 +556,12 @@ public class HConnectionManager implements HConstants {
             getHRegionConnection(metaLocation.getServerAddress());
 
           // Query the root or meta region for the location of the meta region
-          RowResult regionInfoRow = server.getClosestRowBefore(
+          KeyValue[] kvs = server.getClosestRowBefore(
             metaLocation.getRegionInfo().getRegionName(), metaKey,
             HConstants.COLUMN_FAMILY);
+          Result result = new Result(kvs);
+          
+          RowResult regionInfoRow  = result.rowResult();
           if (regionInfoRow == null) {
             throw new TableNotFoundException(Bytes.toString(tableName));
           }
@@ -973,94 +977,94 @@ public class HConnectionManager implements HConstants {
       return location;
     }
 
-    public void processBatchOfRows(ArrayList<BatchUpdate> list, byte[] tableName)
-        throws IOException {
-      if (list.isEmpty()) {
-        return;
-      }
-      boolean retryOnlyOne = false;
-      int tries = 0;
-      Collections.sort(list);
-      List<BatchUpdate> tempUpdates = new ArrayList<BatchUpdate>();
-      HRegionLocation location =
-        getRegionLocationForRowWithRetries(tableName, list.get(0).getRow(),
-            false);
-      byte [] currentRegion = location.getRegionInfo().getRegionName();
-      byte [] region = currentRegion;
-      boolean isLastRow = false;
-      for (int i = 0; i < list.size() && tries < numRetries; i++) {
-        BatchUpdate batchUpdate = list.get(i);
-        tempUpdates.add(batchUpdate);
-        isLastRow = (i + 1) == list.size();
-        if (!isLastRow) {
-          location = getRegionLocationForRowWithRetries(tableName,
-            list.get(i+1).getRow(), false);
-          region = location.getRegionInfo().getRegionName();
-        }
-        if (!Bytes.equals(currentRegion, region) || isLastRow || retryOnlyOne) {
-          final BatchUpdate[] updates = tempUpdates.toArray(new BatchUpdate[0]);
-          int index = getRegionServerWithRetries(new ServerCallable<Integer>(
-              this, tableName, batchUpdate.getRow()) {
-            public Integer call() throws IOException {
-              int i = server.batchUpdates(location.getRegionInfo()
-                  .getRegionName(), updates);
-              return i;
-            }
-          });
-          if (index != -1) {
-            if (tries == numRetries - 1) {
-              throw new RetriesExhaustedException("Some server",
-                  currentRegion, batchUpdate.getRow(), 
-                  tries, new ArrayList<Throwable>());
-            }
-            long sleepTime = getPauseTime(tries);
-            if (LOG.isDebugEnabled()) {
-              LOG.debug("Reloading region " + Bytes.toString(currentRegion) +
-                " location because regionserver didn't accept updates; " +
-                "tries=" + tries +
-                " of max=" + this.numRetries + ", waiting=" + sleepTime + "ms");
-            }
-            try {
-              Thread.sleep(sleepTime);
-              tries++;
-            } catch (InterruptedException e) {
-              // continue
-            }
-            i = i - updates.length + index;
-            retryOnlyOne = true;
-            location = getRegionLocationForRowWithRetries(tableName, 
-              list.get(i + 1).getRow(), true);
-            region = location.getRegionInfo().getRegionName();
-          }
-          else {
-            retryOnlyOne = false;
-          }
-          currentRegion = region;
-          tempUpdates.clear();
-        }
-      }
-    }
+//    public void processBatchOfRows(ArrayList<BatchUpdate> list, byte[] tableName)
+//        throws IOException {
+//      if (list.isEmpty()) {
+//        return;
+//      }
+//      boolean retryOnlyOne = false;
+//      int tries = 0;
+//      Collections.sort(list);
+//      List<BatchUpdate> tempUpdates = new ArrayList<BatchUpdate>();
+//      HRegionLocation location =
+//        getRegionLocationForRowWithRetries(tableName, list.get(0).getRow(),
+//            false);
+//      byte [] currentRegion = location.getRegionInfo().getRegionName();
+//      byte [] region = currentRegion;
+//      boolean isLastRow = false;
+//      for (int i = 0; i < list.size() && tries < numRetries; i++) {
+//        BatchUpdate batchUpdate = list.get(i);
+//        tempUpdates.add(batchUpdate);
+//        isLastRow = (i + 1) == list.size();
+//        if (!isLastRow) {
+//          location = getRegionLocationForRowWithRetries(tableName,
+//            list.get(i+1).getRow(), false);
+//          region = location.getRegionInfo().getRegionName();
+//        }
+//        if (!Bytes.equals(currentRegion, region) || isLastRow || retryOnlyOne) {
+//          final BatchUpdate[] updates = tempUpdates.toArray(new BatchUpdate[0]);
+//          int index = getRegionServerWithRetries(new ServerCallable<Integer>(
+//              this, tableName, batchUpdate.getRow()) {
+//            public Integer call() throws IOException {
+//              int i = server.batchUpdates(location.getRegionInfo()
+//                  .getRegionName(), updates);
+//              return i;
+//            }
+//          });
+//          if (index != -1) {
+//            if (tries == numRetries - 1) {
+//              throw new RetriesExhaustedException("Some server",
+//                  currentRegion, batchUpdate.getRow(), 
+//                  tries, new ArrayList<Throwable>());
+//            }
+//            long sleepTime = getPauseTime(tries);
+//            if (LOG.isDebugEnabled()) {
+//              LOG.debug("Reloading region " + Bytes.toString(currentRegion) +
+//                " location because regionserver didn't accept updates; " +
+//                "tries=" + tries +
+//                " of max=" + this.numRetries + ", waiting=" + sleepTime + "ms");
+//            }
+//            try {
+//              Thread.sleep(sleepTime);
+//              tries++;
+//            } catch (InterruptedException e) {
+//              // continue
+//            }
+//            i = i - updates.length + index;
+//            retryOnlyOne = true;
+//            location = getRegionLocationForRowWithRetries(tableName, 
+//              list.get(i + 1).getRow(), true);
+//            region = location.getRegionInfo().getRegionName();
+//          }
+//          else {
+//            retryOnlyOne = false;
+//          }
+//          currentRegion = region;
+//          tempUpdates.clear();
+//        }
+//      }
+//    }
 
     //Everything should be grouped by row and families when coming in here
-    public void processListOfRowUpdates(byte[] tableName, List<RowUpdates> list)
+    public void processListOfPuts(byte[] tableName, List<Put> list)
     throws IOException {
       if (list.isEmpty()) {
         return;
       }
       int tries = 0;
-      Iterator<RowUpdates> updatesIterator = list.iterator();
+      Iterator<Put> putIterator = list.iterator();
 
       byte [] currentRow = null;
-      while(updatesIterator.hasNext() && tries < numRetries){
+      while(putIterator.hasNext() && tries < numRetries){
 
         System.out.println("process 1");
-        final RowUpdates currentUpdates = updatesIterator.next();
+        final Put currentUpdates = putIterator.next();
         currentRow = currentUpdates.getRow();
         int index = getRegionServerWithRetries(new ServerCallable<Integer>(
             this, tableName, currentRow) {
           public Integer call() throws IOException {
             System.out.println("updating row");
-            int i = server.updateRow(location.getRegionInfo()
+            int i = server.putRow(location.getRegionInfo()
                 .getRegionName(), currentUpdates);
             return i;
           }

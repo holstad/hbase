@@ -26,8 +26,9 @@ import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.hbase.HBaseConfiguration;
 import org.apache.hadoop.hbase.client.HTable;
-import org.apache.hadoop.hbase.io.BatchUpdate;
+//import org.apache.hadoop.hbase.io.BatchUpdate;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
+import org.apache.hadoop.hbase.io.RowUpdates;
 import org.apache.hadoop.mapred.FileAlreadyExistsException;
 import org.apache.hadoop.mapred.InvalidJobConfException;
 import org.apache.hadoop.mapred.JobConf;
@@ -40,7 +41,7 @@ import org.apache.hadoop.util.Progressable;
  * Convert Map/Reduce output and write it to an HBase table
  */
 public class TableOutputFormat extends
-FileOutputFormat<ImmutableBytesWritable, BatchUpdate> {
+FileOutputFormat<ImmutableBytesWritable, RowUpdates> {
 
   /** JobConf parameter that specifies the output table */
   public static final String OUTPUT_TABLE = "hbase.mapred.outputtable";
@@ -51,7 +52,7 @@ FileOutputFormat<ImmutableBytesWritable, BatchUpdate> {
    * and write to an HBase table
    */
   protected static class TableRecordWriter
-    implements RecordWriter<ImmutableBytesWritable, BatchUpdate> {
+  implements RecordWriter<ImmutableBytesWritable, RowUpdates> {
     private HTable m_table;
 
     /**
@@ -69,8 +70,8 @@ FileOutputFormat<ImmutableBytesWritable, BatchUpdate> {
     }
 
     public void write(ImmutableBytesWritable key,
-        BatchUpdate value) throws IOException {
-      m_table.commit(new BatchUpdate(value));
+        RowUpdates value) throws IOException {
+      m_table.commit(new RowUpdates(value));
     }
   }
   

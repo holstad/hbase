@@ -195,12 +195,34 @@ class Memcache {
     }
   }
 
+//  /**
+//   * Write an update
+//   * @param kv
+//   * @return approximate size of the passed key and value.
+//   */
+//  long add(final KeyValue kv) {
+//    long size = -1;
+//    this.lock.readLock().lock();
+//    try {
+//      boolean notpresent = this.memcache.add(kv);
+//      size = heapSize(kv, notpresent);
+//    } finally {
+//      this.lock.readLock().unlock();
+//    }
+//    return size;
+//  }
+//
+// 
+//  long update(final KeyValue kv, boolean multiFamily) {
+//    
+//  }
+  
   /**
    * Write an update
    * @param kv
    * @return approximate size of the passed key and value.
    */
-  long add(final KeyValue kv) {
+  long put(final KeyValue kv, boolean multiFamily) {
     long size = -1;
     this.lock.readLock().lock();
     try {
@@ -211,19 +233,17 @@ class Memcache {
     }
     return size;
   }
-
   
   /**
    * Write an update
    * @param kv
    * @return approximate size of the passed key and value.
    */
-  long newAdd(final KeyValue kv, boolean multiFamily) {
+  long delete(final KeyValue kv, boolean multiFamily) {
     long size = -1;
     this.lock.readLock().lock();
     long deleteSize = 0L;
     try {
-
       //Have to find out what want to do here, to find the fastest way of removing
       //things that are under a delete.
       //Actions that will take place here are:
@@ -237,71 +257,65 @@ class Memcache {
       byte type = kv.getType();
 
       boolean notpresent = false;
-      if(type != KeyValue.Type.Put.getCode()){
-        List<KeyValue> deletes = new ArrayList<KeyValue>();
-        SortedSet<KeyValue> tailSet = null;
-        if(type == KeyValue.Type.DeleteFamily.getCode()){
-          //need to check row/fam and bigger ts
-          //cases for mem:
-          //1. r/f same but ts bigger, next from headset
-          //2. r/f same and ts smaller or equal, add to deleteList
-          //3. r or f not the same, done get next kv
-          tailSet = this.memcache.tailSet(kv);
-          int tailsize = tailSet.size();
-          int ret = 0;
-          for(KeyValue mem : tailSet){
-            ret = deleteFamilyCompare(mem, kv, multiFamily);
-            if(ret == 0){
-              deletes.add(mem);
-              continue;
-            } else if(ret == 1){
-              break;
-            }
-          }
-          notpresent = this.memcache.add(kv);
-          size = heapSize(kv, notpresent);
-        } else if(type == KeyValue.Type.DeleteColumn.getCode()){
-          deletes = new ArrayList<KeyValue>();
-          //Need to check row/fam/col and bigger ts
-          tailSet = this.memcache.tailSet(kv);
-          int ret = 0;
-          for(KeyValue mem : tailSet){
-            ret = deleteColumnCompare(mem, kv, multiFamily);
-            if(ret == 0){
-              deletes.add(mem);
-              continue;
-            } else if(ret == 1){
-              break;
-            }
-          }
-          notpresent = this.memcache.add(kv);
-          size = heapSize(kv, notpresent);
-        } else {
-          deletes = new ArrayList<KeyValue>();
-          //Need to check row/fam/col/ts
-          tailSet = this.memcache.tailSet(kv);
-          int tailsize = tailSet.size();
-
-          int ret = 0;
-          for(KeyValue mem : tailSet){
-            ret = deleteCompare(mem, kv, multiFamily);
-            if(ret == 0){
-              deletes.add(mem);
-              break;
-            } else if(ret == 1){
-              break;
-            }
+      List<KeyValue> deletes = new ArrayList<KeyValue>();
+      SortedSet<KeyValue> tailSet = null;
+      if(type == KeyValue.Type.DeleteFamily.getCode()){
+        //need to check row/fam and bigger ts
+        //cases for mem:
+        //1. r/f same but ts bigger, next from headset
+        //2. r/f same and ts smaller or equal, add to deleteList
+        //3. r or f not the same, done get next kv
+        tailSet = this.memcache.tailSet(kv);
+        int tailsize = tailSet.size();
+        int ret = 0;
+        for(KeyValue mem : tailSet){
+          ret = deleteFamilyCompare(mem, kv, multiFamily);
+          if(ret == 0){
+            deletes.add(mem);
+            continue;
+          } else if(ret == 1){
+            break;
           }
         }
-
-        for(KeyValue delete : deletes){
-          notpresent = this.memcache.remove(delete);
-          deleteSize += heapSize(delete, notpresent);
-        }
-      } else {
         notpresent = this.memcache.add(kv);
-        int memCacheSize = this.memcache.size();
         size = heapSize(kv, notpresent);
+      } else if(type == KeyValue.Type.DeleteColumn.getCode()){
+        deletes = new ArrayList<KeyValue>();
+        //Need to check row/fam/col and bigger ts
+        tailSet = this.memcache.tailSet(kv);
+        int ret = 0;
+        for(KeyValue mem : tailSet){
+          ret = deleteColumnCompare(mem, kv, multiFamily);
+          if(ret == 0){
+            deletes.add(mem);
+            continue;
+          } else if(ret == 1){
+            break;
+          }
+        }
+        notpresent = this.memcache.add(kv);
+        size = heapSize(kv, notpresent);
+      } else {
+        deletes = new ArrayList<KeyValue>();
+        //Need to check row/fam/col/ts
+        tailSet = this.memcache.tailSet(kv);
+        int tailsize = tailSet.size();
+
+        int ret = 0;
+        for(KeyValue mem : tailSet){
+          ret = deleteCompare(mem, kv, multiFamily);
+          if(ret == 0){
+            deletes.add(mem);
+            break;
+          } else if(ret == 1){
+            break;
+          }
+        }
+      }
+
+      for(KeyValue delete : deletes){
+        notpresent = this.memcache.remove(delete);
+        deleteSize += heapSize(delete, notpresent);
       }
 
     } finally {
@@ -309,6 +323,7 @@ class Memcache {
     }
     return size - deleteSize;
   }
+  
   
   /**
    * 

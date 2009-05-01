@@ -222,7 +222,6 @@ public class Store implements HConstants {
   }
 
   /**
-<<<<<<< HEAD:src/java/org/apache/hadoop/hbase/regionserver/Store.java
    * @param storename
    * @return Return hash of store name; can be used as key in map.
    */
@@ -233,8 +232,6 @@ public class Store implements HConstants {
   }
 
   /**
-=======
->>>>>>> hbase/trunk:src/java/org/apache/hadoop/hbase/regionserver/Store.java
    * @param tabledir
    * @param encodedName Encoded region name.
    * @param family
@@ -396,15 +393,30 @@ public class Store implements HConstants {
    * @param kv
    * @return memcache size delta
    */
-  protected long add(final KeyValue kv) {
-    lock.readLock().lock();
-    try {
-      return this.memcache.add(kv);
-    } finally {
-      lock.readLock().unlock();
-    }
-  }
-
+//  protected long add(final KeyValue kv) {
+//    lock.readLock().lock();
+//    try {
+//      return this.memcache.add(kv);
+//    } finally {
+//      lock.readLock().unlock();
+//    }
+//  }
+//
+//  
+//  /**
+//   * Adds a put or delete to memcache
+//   * 
+//   * @param kv
+//   * @return memcache size delta
+//   */
+//  protected long update(final KeyValue kv) {
+//    lock.readLock().lock();
+//    try {
+//      return this.memcache.update(kv, family.getMultiFamily());
+//    } finally {
+//      lock.readLock().unlock();
+//    }
+//  }
   
   /**
    * Adds a value to the memcache
@@ -412,11 +424,25 @@ public class Store implements HConstants {
    * @param kv
    * @return memcache size delta
    */
-  protected long newAdd(final KeyValue kv) {
+  protected long put(final KeyValue kv) {
     lock.readLock().lock();
     try {
-//      System.out.println("Store " + System.nanoTime());
-      return this.memcache.newAdd(kv, family.getMultiFamily());
+      return this.memcache.put(kv, family.getMultiFamily());
+    } finally {
+      lock.readLock().unlock();
+    }
+  }
+
+  /**
+   * Adds a value to the memcache
+   * 
+   * @param kv
+   * @return memcache size delta
+   */
+  protected long delete(final KeyValue kv) {
+    lock.readLock().lock();
+    try {
+      return this.memcache.delete(kv, family.getMultiFamily());
     } finally {
       lock.readLock().unlock();
     }
@@ -1233,6 +1259,9 @@ public class Store implements HConstants {
       //Should add a setting the the family descriptor that lets you know
       //if there are multiple families in this store
       retCode = sget.compareTo(kv, multiFamily);
+      if (LOG.isDebugEnabled()) {
+        LOG.debug("returncode " + retCode);
+      }
       switch(retCode) {
         //Do not include in result, look at next kv
         case 0: break;

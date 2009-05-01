@@ -17,11 +17,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.hadoop.hbase.io;
+package org.apache.hadoop.hbase.client;
 
-import java.io.DataInput;
-import java.io.DataOutput;
-import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Comparator;
 import java.util.Iterator;
@@ -32,12 +29,11 @@ import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.Map.Entry;
 
-import org.apache.hadoop.hbase.KeyValue;
-import org.apache.hadoop.hbase.rest.exception.HBaseRestException;
-import org.apache.hadoop.hbase.rest.serializer.IRestSerializer;
-import org.apache.hadoop.hbase.rest.serializer.ISerializable;
-import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.io.Writable;
+
+import org.apache.hadoop.hbase.KeyValue;
+import org.apache.hadoop.hbase.io.HbaseMapWritable;
+import org.apache.hadoop.hbase.util.Bytes;
 
 import agilejson.TOJSON;
 
@@ -47,8 +43,7 @@ import agilejson.TOJSON;
  * the timestamp of a cell to a first-class value, making it easy to take note
  * of temporal data. Cell is used all the way from HStore up to HTable.
  */
-public class Cell implements Writable, Iterable<Map.Entry<Long, byte[]>>,
-    ISerializable {
+public class Cell implements Iterable<Map.Entry<Long, byte[]>>{
   protected final SortedMap<Long, byte[]> valueMap = new TreeMap<Long, byte[]>(
       new Comparator<Long>() {
         public int compare(Long l1, Long l2) {
@@ -147,6 +142,76 @@ public class Cell implements Writable, Iterable<Map.Entry<Long, byte[]>>,
     }
   }
 
+  
+  /**
+   * @param results
+   * @return
+   * TODO: This is the glue between old way of doing things and the new.
+   * Herein we are converting our clean KeyValues to Map of Cells.
+   */
+  public static HbaseMapWritable<byte [], Cell> createCells(final List<KeyValue> results) {
+    HbaseMapWritable<byte [], Cell> cells =
+      new HbaseMapWritable<byte [], Cell>();
+    // Walking backward through the list of results though it has no effect
+    // because we're inserting into a sorted map.
+    for (ListIterator<KeyValue> i = results.listIterator(results.size());
+        i.hasPrevious();) {
+      KeyValue kv = i.previous();
+      byte [] column = kv.getColumn();
+      Cell c = cells.get(column);
+      if (c == null) {
+        c = new Cell(kv.getValue(), kv.getTimestamp());
+        cells.put(column, c);
+      } else {
+        c.add(kv.getValue(), kv.getTimestamp());
+      }
+    }
+    return cells;
+  }
+  
+  /**
+   * @param results
+   * @return
+   * TODO: This is the glue between old way of doing things and the new.
+   * Herein we are converting our clean KeyValues to Map of Cells.
+   */
+  public static HbaseMapWritable<byte[],Cell> createCells(
+      final KeyValue[] results) {
+    HbaseMapWritable<byte[],Cell> cells = new HbaseMapWritable<byte[],Cell>();
+    // Walking backward through the list of results though it has no effect
+    // because we're inserting into a sorted map.
+    for(KeyValue kv : results){  
+      byte [] column = kv.getColumn();
+      Cell c = cells.get(column);
+      if (c == null) {
+        c = new Cell(kv.getValue(), kv.getTimestamp());
+        cells.put(column, c);
+      } else {
+        c.add(kv.getValue(), kv.getTimestamp());
+      }
+    }
+    return cells;
+  }
+  
+  
+  /**
+   * @param results
+   * @return Array of Cells.
+   * TODO: This is the glue between old way of doing things and the new.
+   * Herein we are converting our clean KeyValues to Map of Cells.
+   */
+  public static Cell [] createSingleCellArray(final List<KeyValue> results) {
+    if (results == null) return null;
+    int index = 0;
+    Cell [] cells = new Cell[results.size()];
+    for (KeyValue kv: results) {
+      cells[index++] = new Cell(kv.getValue(), kv.getTimestamp());
+    }
+    return cells;
+  }
+  
+  
+  
   /**
    * @see java.lang.Object#toString()
    */
@@ -173,26 +238,6 @@ public class Cell implements Writable, Iterable<Map.Entry<Long, byte[]>>,
     return s.toString();
   }
 
-  //
-  // Writable
-  //
-
-  public void readFields(final DataInput in) throws IOException {
-    int nvalues = in.readInt();
-    for (int i = 0; i < nvalues; i++) {
-      long timestamp = in.readLong();
-      byte[] value = Bytes.readByteArray(in);
-      valueMap.put(timestamp, value);
-    }
-  }
-
-  public void write(final DataOutput out) throws IOException {
-    out.writeInt(valueMap.size());
-    for (Map.Entry<Long, byte[]> entry : valueMap.entrySet()) {
-      out.writeLong(entry.getKey());
-      Bytes.writeByteArray(out, entry.getValue());
-    }
-  }
 
   //
   // Iterable
@@ -222,57 +267,4 @@ public class Cell implements Writable, Iterable<Map.Entry<Long, byte[]>>,
     }
   }
 
-  /**
-   * @param results
-   * @return
-   * TODO: This is the glue between old way of doing things and the new.
-   * Herein we are converting our clean KeyValues to Map of Cells.
-   */
-  public static HbaseMapWritable<byte [], Cell> createCells(final List<KeyValue> results) {
-    HbaseMapWritable<byte [], Cell> cells =
-      new HbaseMapWritable<byte [], Cell>();
-    // Walking backward through the list of results though it has no effect
-    // because we're inserting into a sorted map.
-    for (ListIterator<KeyValue> i = results.listIterator(results.size());
-        i.hasPrevious();) {
-      KeyValue kv = i.previous();
-      byte [] column = kv.getColumn();
-      Cell c = cells.get(column);
-      if (c == null) {
-        c = new Cell(kv.getValue(), kv.getTimestamp());
-        cells.put(column, c);
-      } else {
-        c.add(kv.getValue(), kv.getTimestamp());
-      }
-    }
-    return cells;
-  }
-
-  /**
-   * @param results
-   * @return Array of Cells.
-   * TODO: This is the glue between old way of doing things and the new.
-   * Herein we are converting our clean KeyValues to Map of Cells.
-   */
-  public static Cell [] createSingleCellArray(final List<KeyValue> results) {
-    if (results == null) return null;
-    int index = 0;
-    Cell [] cells = new Cell[results.size()];
-    for (KeyValue kv: results) {
-      cells[index++] = new Cell(kv.getValue(), kv.getTimestamp());
-    }
-    return cells;
-  }
-
-  /*
-   * (non-Javadoc)
-   * 
-   * @see
-   * org.apache.hadoop.hbase.rest.serializer.ISerializable#restSerialize(org
-   * .apache.hadoop.hbase.rest.serializer.IRestSerializer)
-   */
-  public void restSerialize(IRestSerializer serializer)
-      throws HBaseRestException {
-    serializer.serializeCell(this);
-  }
 }

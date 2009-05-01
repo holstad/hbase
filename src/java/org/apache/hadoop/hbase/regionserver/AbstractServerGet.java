@@ -288,7 +288,7 @@ public abstract class AbstractServerGet implements ServerGet{
           return 0;
         } else if(ret >= 1){
           if(deleteIterator.hasNext()){
-            delete.set(deleteIterator.next());
+            delete = new KeyValue(deleteIterator.next());
             continue;
           }
           return 0;
@@ -308,7 +308,7 @@ public abstract class AbstractServerGet implements ServerGet{
         return 0;
       } else if(ret >= 1){
         if(deleteIterator.hasNext()){
-          delete.set(deleteIterator.next());
+          delete = new KeyValue(deleteIterator.next());
           continue;
         }
         return 0;
@@ -343,7 +343,7 @@ public abstract class AbstractServerGet implements ServerGet{
         }
         
         if(deleteIterator.hasNext()){
-          delete.set(deleteIterator.next());
+          delete = new KeyValue(deleteIterator.next());
           continue;
         }
         return 0;
@@ -760,6 +760,10 @@ public abstract class AbstractServerGet implements ServerGet{
     List<Short> mergedVersions = new ArrayList<Short>(size);
     
     if(oldSize == 0){
+      //Not sure if this is the best way to do this, compared to the
+      //mergedColumns object approach that is taken at the end
+      this.columns.addAll(newColumns);
+      this.versions.addAll(newVersions);
       reinit();
       return;
     }
