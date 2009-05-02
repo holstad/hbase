@@ -498,6 +498,11 @@ public class KeyValue implements Writable{
 
   
   public KeyValue(final byte[] row, final byte[] family,
+      final byte[] qualifier, final long timestamp, Type type) {
+    this(row, family, qualifier, timestamp, type, null);
+  }
+  
+  public KeyValue(final byte[] row, final byte[] family,
       final byte[] qualifier, final long timestamp, final byte[] value) {
     this(row, family, qualifier, timestamp, Type.Put, value);
   }
@@ -516,6 +521,8 @@ public class KeyValue implements Writable{
     this.bytes = createByteArray(row, 0, row==null ? 0 : row.length, family, 0,
         family==null ? 0 : family.length, qualifier, qoffset, qlength, 
         Bytes.toBytes(timestamp), type, value, voffset, vlength);
+    this.length = bytes.length;
+    this.offset = 0;
   }
   
   static byte [] createByteArray(final byte [] row, final int roffset,
@@ -531,13 +538,7 @@ public class KeyValue implements Writable{
     if(family == null) {
       throw new IllegalArgumentException("family is null");
     }
-    if(qualifier == null) {
-      throw new IllegalArgumentException("qualifier is null");
-    }
-    if(value == null) {
-      throw new IllegalArgumentException("value is null");
-    }
-
+    
     //Setting up and checking lengths
     if (rlength > Short.MAX_VALUE) {
       throw new IllegalArgumentException("Row > " + Short.MAX_VALUE);
@@ -545,6 +546,16 @@ public class KeyValue implements Writable{
     
     if (flength > Byte.MAX_VALUE) {
       throw new IllegalArgumentException("family > " + Byte.MAX_VALUE);
+    }
+    
+    qlength = qualifier == null ?0 :qlength;
+    if (qlength > Integer.MAX_VALUE) {
+      throw new IllegalArgumentException("qualifier > " + Integer.MAX_VALUE);
+    }
+    
+    vlength = value == null ?0 :vlength;
+    if (vlength > Integer.MAX_VALUE) {
+      throw new IllegalArgumentException("value > " + Integer.MAX_VALUE);
     }
     
     long longkeylength = KEY_INFRASTRUCTURE_SIZE + rlength + flength + qlength;
@@ -573,7 +584,9 @@ public class KeyValue implements Writable{
 
     pos = Bytes.putByte(bytes, pos, type.getCode());
     
-    pos = Bytes.putBytes(bytes, pos, value, voffset, vlength);
+    if (value != null && value.length > 0) {
+      pos = Bytes.putBytes(bytes, pos, value, voffset, vlength);
+    }
     return bytes;
   } 
   
@@ -1579,13 +1592,14 @@ public class KeyValue implements Writable{
   //Writable
   public void readFields(final DataInput in) throws IOException {
     this.length = in.readInt();
-    this.offset = 0;
+    this.offset = in.readInt();
     this.bytes = new byte[this.length];
     in.readFully(this.bytes, this.offset, this.length);
   }
   
   public void write(final DataOutput out) throws IOException {
     out.writeInt(this.length);
+    out.writeInt(this.offset);
     out.write(this.bytes, this.offset, this.bytes.length);
   }
   

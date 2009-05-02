@@ -9,14 +9,14 @@ import org.apache.hadoop.hbase.io.Get;
 import org.apache.hadoop.hbase.io.GetTop;
 import org.apache.hadoop.hbase.util.Bytes;
 
-public class ServerGetTop extends AbstractServerGet {
+public class ServerGetTop extends ServerGet {
 //  private static final Log LOG = LogFactory.getLog(ServerGetTop.class);
 
   private int counter = 0;
 
   public ServerGetTop(Get get){
     super(get);
-    this.counter = ((GetTop)get).getFetches();
+//    this.counter = get.getFetches();
   }
 
   @Override

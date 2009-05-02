@@ -34,8 +34,9 @@ import org.apache.hadoop.hbase.client.HConnectionManager;
 import org.apache.hadoop.hbase.client.HTable;
 import org.apache.hadoop.hbase.client.Scanner;
 //import org.apache.hadoop.hbase.io.BatchUpdate;
-import org.apache.hadoop.hbase.io.Cell;
-import org.apache.hadoop.hbase.io.RowResult;
+//import org.apache.hadoop.hbase.io.Cell;
+//import org.apache.hadoop.hbase.io.RowResult;
+import org.apache.hadoop.hbase.io.Delete;
 import org.apache.hadoop.hbase.io.Put;
 import org.apache.hadoop.hbase.regionserver.HLog;
 import org.apache.hadoop.hbase.regionserver.HRegion;
@@ -287,7 +288,9 @@ class HMerge implements HConstants {
         if(Bytes.equals(regionsToDelete[r], latestRegion.getRegionName())) {
           latestRegion = null;
         }
-        table.deleteAll(regionsToDelete[r]);
+        Delete delete = new Delete(regionsToDelete[r]);
+        table.delete(delete);
+//        table.deleteAll(regionsToDelete[r]);
         if(LOG.isDebugEnabled()) {
           LOG.debug("updated columns in row: " + Bytes.toString(regionsToDelete[r]));
         }

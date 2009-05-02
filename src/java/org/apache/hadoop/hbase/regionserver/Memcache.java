@@ -572,42 +572,42 @@ class Memcache {
       ESTIMATED_KV_HEAP_TAX + 57 + kv.getLength(): 0; // Guess no change in size.
   }
 
-  /**
-   * Look back through all the backlog TreeMaps to find the target.
-   * @param kv
-   * @param numVersions
-   * @return Set of KeyValues. Empty size not null if no results.
-   */
-  List<KeyValue> get(final KeyValue kv, final int numVersions) {
-    List<KeyValue> results = new ArrayList<KeyValue>();
-    get(kv, numVersions, results,
-      new TreeSet<KeyValue>(this.comparatorIgnoreType),
-      System.currentTimeMillis());
-    return results;
-  }
+//  /**
+//   * Look back through all the backlog TreeMaps to find the target.
+//   * @param kv
+//   * @param numVersions
+//   * @return Set of KeyValues. Empty size not null if no results.
+//   */
+//  List<KeyValue> get(final KeyValue kv, final int numVersions) {
+//    List<KeyValue> results = new ArrayList<KeyValue>();
+//    get(kv, numVersions, results,
+//      new TreeSet<KeyValue>(this.comparatorIgnoreType),
+//      System.currentTimeMillis());
+//    return results;
+//  }
 
-  /**
-   * Look back through all the backlog TreeMaps to find the target.
-   * @param key
-   * @param versions
-   * @param results
-   * @param deletes Pass a Set that has a Comparator that ignores key type.
-   * @param now
-   * @return True if enough versions.
-   */
-  boolean get(final KeyValue key, final int versions,
-      List<KeyValue> results, final NavigableSet<KeyValue> deletes,
-      final long now) {
-    this.lock.readLock().lock();
-    try {
-      if (get(this.memcache, key, versions, results, deletes, now)) {
-        return true;
-      }
-      return get(this.snapshot, key, versions , results, deletes, now);
-    } finally {
-      this.lock.readLock().unlock();
-    }
-  }
+//  /**
+//   * Look back through all the backlog TreeMaps to find the target.
+//   * @param key
+//   * @param versions
+//   * @param results
+//   * @param deletes Pass a Set that has a Comparator that ignores key type.
+//   * @param now
+//   * @return True if enough versions.
+//   */
+//  boolean get(final KeyValue key, final int versions,
+//      List<KeyValue> results, final NavigableSet<KeyValue> deletes,
+//      final long now) {
+//    this.lock.readLock().lock();
+//    try {
+//      if (get(this.memcache, key, versions, results, deletes, now)) {
+//        return true;
+//      }
+//      return get(this.snapshot, key, versions , results, deletes, now);
+//    } finally {
+//      this.lock.readLock().unlock();
+//    }
+//  }
 
   /**
    * @param kv Find the row that comes after this one.  If null, we return the
@@ -676,71 +676,71 @@ class Memcache {
    * @return True if we found enough results for passed <code>columns</code>
    * and <code>numVersions</code>.
    */
-  boolean getFull(final KeyValue key, NavigableSet<byte []> columns,
-      final Pattern columnPattern,
-      int numVersions, final Map<KeyValue, HRegion.Counter> versionsCount,
-      final NavigableSet<KeyValue> deletes,
-      final List<KeyValue> results, final long now) {
-    this.lock.readLock().lock();
-    try {
-      // Used to be synchronized but now with weak iteration, no longer needed.
-      if (getFull(this.memcache, key, columns, columnPattern, numVersions,
-        versionsCount, deletes, results, now)) {
-        // Has enough results.
-        return true;
-      }
-      return getFull(this.snapshot, key, columns, columnPattern, numVersions,
-        versionsCount, deletes, results, now);
-    } finally {
-      this.lock.readLock().unlock();
-    }
-  }
+//  boolean getFull(final KeyValue key, NavigableSet<byte []> columns,
+//      final Pattern columnPattern,
+//      int numVersions, final Map<KeyValue, HRegion.Counter> versionsCount,
+//      final NavigableSet<KeyValue> deletes,
+//      final List<KeyValue> results, final long now) {
+//    this.lock.readLock().lock();
+//    try {
+//      // Used to be synchronized but now with weak iteration, no longer needed.
+//      if (getFull(this.memcache, key, columns, columnPattern, numVersions,
+//        versionsCount, deletes, results, now)) {
+//        // Has enough results.
+//        return true;
+//      }
+//      return getFull(this.snapshot, key, columns, columnPattern, numVersions,
+//        versionsCount, deletes, results, now);
+//    } finally {
+//      this.lock.readLock().unlock();
+//    }
+//  }
 
-  /*
-   * @param set
-   * @param target Where to start searching.
-   * @param columns
-   * @param versions
-   * @param versionCounter
-   * @param deletes Pass a Set that has a Comparator that ignores key type.
-   * @param keyvalues
-   * @return True if enough results found.
-   */
-  private boolean getFull(final ConcurrentSkipListSet<KeyValue> set,
-      final KeyValue target, final Set<byte []> columns,
-      final Pattern columnPattern,
-      final int versions, final Map<KeyValue, HRegion.Counter> versionCounter,
-      final NavigableSet<KeyValue> deletes, List<KeyValue> keyvalues,
-      final long now) {
-    boolean hasEnough = false;
-    if (target == null) {
-      return hasEnough;
-    }
-    NavigableSet<KeyValue> tailset = set.tailSet(target);
-    if (tailset == null || tailset.isEmpty()) {
-      return hasEnough;
-    }
-    // TODO: This loop same as in HStore.getFullFromStoreFile.  Make sure they
-    // are the same.
-    for (KeyValue kv: tailset) {
-      // Make sure we have not passed out the row.  If target key has a
-      // column on it, then we are looking explicit key+column combination.  If
-      // we've passed it out, also break.
-      if (target.isEmptyColumn()? !this.comparator.matchingRows(target, kv):
-          !this.comparator.matchingRowColumn(target, kv)) {
-        break;
-      }
-      if (!Store.getFullCheck(this.comparator, target, kv, columns, columnPattern)) {
-        continue;
-      }
-      if (Store.doKeyValue(kv, versions, versionCounter, columns, deletes, now,
-          this.ttl, keyvalues, tailset)) {
-        hasEnough = true;
-        break;
-      }
-    }
-    return hasEnough;
-  }
+//  /*
+//   * @param set
+//   * @param target Where to start searching.
+//   * @param columns
+//   * @param versions
+//   * @param versionCounter
+//   * @param deletes Pass a Set that has a Comparator that ignores key type.
+//   * @param keyvalues
+//   * @return True if enough results found.
+//   */
+//  private boolean getFull(final ConcurrentSkipListSet<KeyValue> set,
+//      final KeyValue target, final Set<byte []> columns,
+//      final Pattern columnPattern,
+//      final int versions, final Map<KeyValue, HRegion.Counter> versionCounter,
+//      final NavigableSet<KeyValue> deletes, List<KeyValue> keyvalues,
+//      final long now) {
+//    boolean hasEnough = false;
+//    if (target == null) {
+//      return hasEnough;
+//    }
+//    NavigableSet<KeyValue> tailset = set.tailSet(target);
+//    if (tailset == null || tailset.isEmpty()) {
+//      return hasEnough;
+//    }
+//    // TODO: This loop same as in HStore.getFullFromStoreFile.  Make sure they
+//    // are the same.
+//    for (KeyValue kv: tailset) {
+//      // Make sure we have not passed out the row.  If target key has a
+//      // column on it, then we are looking explicit key+column combination.  If
+//      // we've passed it out, also break.
+//      if (target.isEmptyColumn()? !this.comparator.matchingRows(target, kv):
+//          !this.comparator.matchingRowColumn(target, kv)) {
+//        break;
+//      }
+//      if (!Store.getFullCheck(this.comparator, target, kv, columns, columnPattern)) {
+//        continue;
+//      }
+//      if (Store.doKeyValue(kv, versions, versionCounter, columns, deletes, now,
+//          this.ttl, keyvalues, tailset)) {
+//        hasEnough = true;
+//        break;
+//      }
+//    }
+//    return hasEnough;
+//  }
 
   
   /**
@@ -750,20 +750,20 @@ class Memcache {
    * @return 0 if need to go to next storefile, 1 if done
    * @throws IOException
    */
-  int newget(ServerGet sget, List<KeyValue> results, boolean multiFamily)
+  int getRow(ServerGet sget, List<KeyValue> results, boolean multiFamily)
   throws IOException {
     this.lock.readLock().lock();
     int retCode = 0;
     try {
       // Used to be synchronized but now with weak iteration, no longer needed.
-      retCode = internalNewGet(this.memcache, sget, results, multiFamily);
+      retCode = internalGetRow(this.memcache, sget, results, multiFamily);
       if(retCode == -1){
         throw new IOException("Internal error in get, return code = -1");
       } else if(retCode == 0){
         sget.mergeGets();
         sget.mergeDeletes(multiFamily);
         sget.clear();
-        retCode = internalNewGet(this.snapshot, sget, results, multiFamily);
+        retCode = internalGetRow(this.snapshot, sget, results, multiFamily);
         if(retCode == -1){
           throw new IOException("Internal error in get, return code = -1");
         }
@@ -781,7 +781,7 @@ class Memcache {
    * @param result
    * @return -1 if error ,0 if not ready and 1 if ready
    */
-  private int internalNewGet(SortedSet<KeyValue> set, ServerGet sget,
+  private int internalGetRow(SortedSet<KeyValue> set, ServerGet sget,
       List<KeyValue> result, boolean multiFamily)
   throws IOException{
     if (set.isEmpty()){
@@ -988,44 +988,44 @@ class Memcache {
     }
   }
 
-  /*
-   * Examine a single map for the desired key.
-   *
-   * TODO - This is kinda slow.  We need a data structure that allows for 
-   * proximity-searches, not just precise-matches.
-   * 
-   * @param set
-   * @param key
-   * @param results
-   * @param versions
-   * @param keyvalues
-   * @param deletes Pass a Set that has a Comparator that ignores key type.
-   * @param now
-   * @return True if enough versions.
-   */
-  private boolean get(final ConcurrentSkipListSet<KeyValue> set,
-      final KeyValue key, final int versions,
-      final List<KeyValue> keyvalues,
-      final NavigableSet<KeyValue> deletes,
-      final long now) {
-    NavigableSet<KeyValue> tailset = set.tailSet(key);
-    if (tailset.isEmpty()) {
-      return false;
-    }
-    boolean enoughVersions = false;
-    for (KeyValue kv : tailset) {
-      if (this.comparator.matchingRowColumn(kv, key)) {
-        if (Store.doKeyValue(kv, versions, deletes, now, this.ttl, keyvalues,
-            tailset)) {
-          break;
-        }
-      } else {
-        // By L.N. HBASE-684, map is sorted, so we can't find match any more.
-        break;
-      }
-    }
-    return enoughVersions;
-  }
+//  /*
+//   * Examine a single map for the desired key.
+//   *
+//   * TODO - This is kinda slow.  We need a data structure that allows for 
+//   * proximity-searches, not just precise-matches.
+//   * 
+//   * @param set
+//   * @param key
+//   * @param results
+//   * @param versions
+//   * @param keyvalues
+//   * @param deletes Pass a Set that has a Comparator that ignores key type.
+//   * @param now
+//   * @return True if enough versions.
+//   */
+//  private boolean get(final ConcurrentSkipListSet<KeyValue> set,
+//      final KeyValue key, final int versions,
+//      final List<KeyValue> keyvalues,
+//      final NavigableSet<KeyValue> deletes,
+//      final long now) {
+//    NavigableSet<KeyValue> tailset = set.tailSet(key);
+//    if (tailset.isEmpty()) {
+//      return false;
+//    }
+//    boolean enoughVersions = false;
+//    for (KeyValue kv : tailset) {
+//      if (this.comparator.matchingRowColumn(kv, key)) {
+//        if (Store.doKeyValue(kv, versions, deletes, now, this.ttl, keyvalues,
+//            tailset)) {
+//          break;
+//        }
+//      } else {
+//        // By L.N. HBASE-684, map is sorted, so we can't find match any more.
+//        break;
+//      }
+//    }
+//    return enoughVersions;
+//  }
 
   /*
    * @param set
@@ -1167,18 +1167,18 @@ class Memcache {
     byte [] column = Bytes.toBytes("col:umn");
     for (int i = 0; i < count; i++) {
       // Give each its own ts
-      size += memcache1.add(new KeyValue(Bytes.toBytes(i), column, i));
+      size += memcache1.put(new KeyValue(Bytes.toBytes(i), column, i), false);
     }
     LOG.info("memcache1 estimated size=" + size);
     for (int i = 0; i < count; i++) {
-      size += memcache1.add(new KeyValue(Bytes.toBytes(i), column, i));
+      size += memcache1.put(new KeyValue(Bytes.toBytes(i), column, i), false);
     }
     LOG.info("memcache1 estimated size (2nd loading of same data)=" + size);
     // Make a variably sized memcache.
     Memcache memcache2 = new Memcache();
     for (int i = 0; i < count; i++) {
-      size += memcache2.add(new KeyValue(Bytes.toBytes(i), column, i,
-        new byte[i]));
+      size += memcache2.put(new KeyValue(Bytes.toBytes(i), column, i,
+        new byte[i]), false);
     }
     LOG.info("memcache2 estimated size=" + size);
     final int seconds = 30;

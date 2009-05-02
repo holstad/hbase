@@ -88,7 +88,7 @@ public class TestNewMemcache extends TestCase {
   }
   
   public void testAdd(){
-    memcache.newAdd(put1, multiFamily);
+    memcache.put(put1, multiFamily);
     
     KeyValue kv = memcache.memcache.first();
     int ret = kvComparator.compare(put1, kv);
@@ -96,20 +96,20 @@ public class TestNewMemcache extends TestCase {
   }
 
   public void testMultiAdd(){
-    memcache.newAdd(put1, multiFamily);
+    memcache.put(put1, multiFamily);
     assertEquals(1, memcache.memcache.size());
 
-    memcache.newAdd(put1, multiFamily);
+    memcache.put(put1, multiFamily);
     assertEquals(1, memcache.memcache.size());
     
   
-    memcache.newAdd(put2, multiFamily);
+    memcache.put(put2, multiFamily);
     assertEquals(2, memcache.memcache.size());
 
-    memcache.newAdd(put3, multiFamily);
+    memcache.put(put3, multiFamily);
     assertEquals(3, memcache.memcache.size());
     
-    memcache.newAdd(put4, multiFamily);
+    memcache.put(put4, multiFamily);
     assertEquals(4, memcache.memcache.size());
 
     if(PRINT){
@@ -124,10 +124,10 @@ public class TestNewMemcache extends TestCase {
   
   public void testAddAndDelete(){
     //Adding put
-    memcache.newAdd(put1, multiFamily);
+    memcache.put(put1, multiFamily);
 
     //Adding delete for the same ts
-    memcache.newAdd(del1, multiFamily);
+    memcache.delete(del1, multiFamily);
 
     
     if(PRINT){
@@ -140,10 +140,10 @@ public class TestNewMemcache extends TestCase {
   
   public void testAddAndDeleteColumn(){
     //Adding put
-    memcache.newAdd(put1, multiFamily);
+    memcache.put(put1, multiFamily);
 
     //Adding deletecolumn
-    memcache.newAdd(delCol1, multiFamily);
+    memcache.delete(delCol1, multiFamily);
     assertEquals(1, memcache.memcache.size()); 
 
     if(PRINT){
@@ -155,10 +155,10 @@ public class TestNewMemcache extends TestCase {
 
   public void testAddAndDeleteFamily(){
     //Adding put
-    memcache.newAdd(put1, multiFamily);
+    memcache.put(put1, multiFamily);
 
     //Adding deleteFamily
-    memcache.newAdd(delFam1, multiFamily);
+    memcache.delete(delFam1, multiFamily);
 
     assertEquals(1, memcache.memcache.size()); 
 
@@ -171,19 +171,19 @@ public class TestNewMemcache extends TestCase {
 
   public void testAddAndMultiDelete(){
     //Adding put
-    memcache.newAdd(put1, multiFamily);
+    memcache.put(put1, multiFamily);
     assertEquals(1, memcache.memcache.size()); 
 
     //Adding delete for the same ts
-    memcache.newAdd(del1, multiFamily);
+    memcache.delete(del1, multiFamily);
     assertEquals(0, memcache.memcache.size()); 
     
     //Adding delete for the same ts
-    memcache.newAdd(delCol1, multiFamily);
+    memcache.delete(delCol1, multiFamily);
     assertEquals(1, memcache.memcache.size()); 
     
     //Adding delete for the same ts
-    memcache.newAdd(delFam1, multiFamily);
+    memcache.delete(delFam1, multiFamily);
     assertEquals(1, memcache.memcache.size());
     
     if(PRINT){
@@ -196,30 +196,30 @@ public class TestNewMemcache extends TestCase {
   
   public void testAddAddAddMultiDeleteAdd(){
     //Adding put with a different row
-    memcache.newAdd(put3, multiFamily);
+    memcache.put(put3, multiFamily);
     assertEquals(1, memcache.memcache.size());
     
     //Adding put with a different family
-    memcache.newAdd(put2, multiFamily);
+    memcache.put(put2, multiFamily);
     assertEquals(2, memcache.memcache.size()); 
 
     //Adding put 
-    memcache.newAdd(put1, multiFamily);
+    memcache.put(put1, multiFamily);
     assertEquals(3, memcache.memcache.size()); 
     
     if(PRINT){
       printMemCache();
     }
     //Adding delete for the same ts
-    memcache.newAdd(del1, multiFamily);
+    memcache.delete(del1, multiFamily);
     assertEquals(2, memcache.memcache.size()); 
     
     //Adding delete for the same ts
-    memcache.newAdd(delCol1, multiFamily);
+    memcache.delete(delCol1, multiFamily);
     assertEquals(3, memcache.memcache.size()); 
     
     //Adding delete for the same ts
-    memcache.newAdd(delFam1, multiFamily);
+    memcache.delete(delFam1, multiFamily);
     assertEquals(2, memcache.memcache.size());
     
     if(PRINT){

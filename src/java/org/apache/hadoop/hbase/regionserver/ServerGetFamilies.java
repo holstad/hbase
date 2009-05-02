@@ -14,7 +14,7 @@ import org.apache.hadoop.hbase.regionserver.Key;
 //import org.apache.hadoop.hbase.io.GetFamilies;
 import org.apache.hadoop.hbase.util.Bytes;
 
-public class ServerGetFamilies extends AbstractServerGet{
+public class ServerGetFamilies extends ServerGet{
   
 //  private List<byte[]> newColumns = null;
 //  private List<KeyValue> newColumns = null;

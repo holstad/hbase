@@ -29,7 +29,8 @@ import org.apache.hadoop.hbase.io.Delete;
 import org.apache.hadoop.hbase.io.Get;
 import org.apache.hadoop.hbase.io.HbaseMapWritable;
 import org.apache.hadoop.hbase.io.Put;
-import org.apache.hadoop.hbase.io.RowResult;
+import org.apache.hadoop.hbase.io.Update;
+//import org.apache.hadoop.hbase.io.RowResult;
 //import org.apache.hadoop.hbase.io.RowUpdates;
 //import org.apache.hadoop.hbase.io.TimeRange;
 
@@ -233,15 +234,18 @@ public interface HRegionInterface extends HBaseRPCProtocolVersion {
 //  public List<KeyValue> newGet(final byte [] regionName, Get get,
 //      final long lockId)
 //  throws IOException;
-  public void deleteRow(final byte[] regionName, Delete delete)
-  throws IOException;
+//  public void deleteRow(final byte[] regionName, Delete delete)
+//  throws IOException;
   
   public KeyValue[] getRow(final byte[] regionName, Get get,
       final long lockId)
   throws IOException;
   
   
-  public int putRow(final byte[] regionName, final Put put)
+//  public int putRow(final byte[] regionName, final Put put)
+//  throws IOException;
+ 
+  public int updateRow(final byte[] regionName, final Update update)
   throws IOException;
   
 //  /**

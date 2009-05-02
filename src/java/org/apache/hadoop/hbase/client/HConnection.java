@@ -27,7 +27,7 @@ import org.apache.hadoop.hbase.HRegionLocation;
 import org.apache.hadoop.hbase.HServerAddress;
 import org.apache.hadoop.hbase.HTableDescriptor;
 import org.apache.hadoop.hbase.MasterNotRunningException;
-import org.apache.hadoop.hbase.io.Put;
+import org.apache.hadoop.hbase.io.Update;
 import org.apache.hadoop.hbase.ipc.HMasterInterface;
 import org.apache.hadoop.hbase.ipc.HRegionInterface;
 import org.apache.hadoop.hbase.zookeeper.ZooKeeperWrapper;
@@ -190,6 +190,6 @@ public interface HConnection {
    * @param tableName The name of the table
    * @throws IOException
    */
-  public void processListOfPuts( byte[] tableName, List<Put> list)
+  public void processListOfUpdates(byte[] tableName, List<Update> list)
   throws IOException;
 }

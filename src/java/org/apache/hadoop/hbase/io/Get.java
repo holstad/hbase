@@ -9,6 +9,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.SortedSet;
+import java.util.TreeMap;
 import java.util.TreeSet;
 
 import org.apache.hadoop.io.Writable;
@@ -45,7 +46,7 @@ import org.apache.hadoop.hbase.util.Bytes;
 public class Get implements Writable{
   private byte[] row = null;
   private Map<byte[], Set<byte[]>> familyMap =
-    new HashMap<byte[], Set<byte[]>>();
+    new TreeMap<byte[], Set<byte[]>>(Bytes.BYTES_COMPARATOR);
   
     
   private long rowLock = 0L;
@@ -105,28 +106,45 @@ public class Get implements Writable{
   
   
   
+  public Map<byte[], Set<byte[]>> getFamilyMap(){
+    return this.familyMap;
+  }
+  
+  public byte[] getRow(){
+    return this.row;
+  }
+  
+  public long getRowLock(){
+    return this.rowLock;
+  } 
+
+  public int getMaxVersions(){
+    return this.maxVersions;
+  } 
+
+  public TimeRange getTimeRange(){
+    return this.tr;
+  } 
+  
+  
   //Writable
   public void readFields(final DataInput in)
   throws IOException {
     this.row = Bytes.readByteArray(in);
     int familyMapSize = in.readInt();
-    this.familyMap = new HashMap<byte[], Set<byte[]>>();
+    this.familyMap = new TreeMap<byte[], Set<byte[]>>(Bytes.BYTES_COMPARATOR);
     byte[] family = null;
-    
     Set<byte[]> set = null;
     int listSize = 0;
-    KeyValue kv = null;
-    
     for(int i=0; i<familyMapSize; i++){
       family = Bytes.readByteArray(in);
       listSize = in.readInt();
-      list = new ArrayList<KeyValue>(listSize);
+      set = new TreeSet<byte[]>(Bytes.BYTES_COMPARATOR);
       for(int j=0; j<listSize; j++){
-        kv = new KeyValue();
-        kv.readFields(in);
-        list.add(kv);
+        byte[] qf = Bytes.readByteArray(in);
+        set.add(qf);
       }
-      this.familyMap.put(family, list);
+      this.familyMap.put(family, set);
     }
 
     this.rowLock = in.readLong();

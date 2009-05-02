@@ -30,8 +30,10 @@ import java.util.List;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.hbase.client.HTable;
-import org.apache.hadoop.hbase.io.BatchUpdate;
-import org.apache.hadoop.hbase.io.Cell;
+//import org.apache.hadoop.hbase.io.BatchUpdate;
+//import org.apache.hadoop.hbase.io.Cell;
+import org.apache.hadoop.hbase.io.Get;
+import org.apache.hadoop.hbase.io.Put;
 import org.apache.hadoop.hbase.util.Bytes;
 
 /**
@@ -58,13 +60,20 @@ public class RegionHistorian implements HConstants {
 
   
   private static enum HistorianColumnKey  {
-    REGION_CREATION ( Bytes.toBytes(COLUMN_FAMILY_HISTORIAN_STR+"creation")),
-    REGION_OPEN ( Bytes.toBytes(COLUMN_FAMILY_HISTORIAN_STR+"open")),
-    REGION_SPLIT ( Bytes.toBytes(COLUMN_FAMILY_HISTORIAN_STR+"split")),
-    REGION_COMPACTION ( Bytes.toBytes(COLUMN_FAMILY_HISTORIAN_STR+"compaction")),
-    REGION_FLUSH ( Bytes.toBytes(COLUMN_FAMILY_HISTORIAN_STR+"flush")),
-    REGION_ASSIGNMENT ( Bytes.toBytes(COLUMN_FAMILY_HISTORIAN_STR+"assignment"));
+//    REGION_CREATION ( Bytes.toBytes(COLUMN_FAMILY_HISTORIAN_STR+"creation")),
+//    REGION_OPEN ( Bytes.toBytes(COLUMN_FAMILY_HISTORIAN_STR+"open")),
+//    REGION_SPLIT ( Bytes.toBytes(COLUMN_FAMILY_HISTORIAN_STR+"split")),
+//    REGION_COMPACTION ( Bytes.toBytes(COLUMN_FAMILY_HISTORIAN_STR+"compaction")),
+//    REGION_FLUSH ( Bytes.toBytes(COLUMN_FAMILY_HISTORIAN_STR+"flush")),
+//    REGION_ASSIGNMENT ( Bytes.toBytes(COLUMN_FAMILY_HISTORIAN_STR+"assignment"));
 
+    REGION_CREATION ( Bytes.toBytes("creation")),
+    REGION_OPEN ( Bytes.toBytes("open")),
+    REGION_SPLIT ( Bytes.toBytes("split")),
+    REGION_COMPACTION ( Bytes.toBytes("compaction")),
+    REGION_FLUSH ( Bytes.toBytes("flush")),
+    REGION_ASSIGNMENT ( Bytes.toBytes("assignment"));
+    
   byte[] key;
 
     HistorianColumnKey(byte[] key) {
@@ -114,14 +123,16 @@ public class RegionHistorian implements HConstants {
        * To be changed when HTable.getRow handles versions.
        */
       for (HistorianColumnKey keyEnu : HistorianColumnKey.values()) {
-        byte[] columnKey = keyEnu.key;
-        Cell[] cells = this.metaTable.get(Bytes.toBytes(regionName),
-            columnKey, ALL_VERSIONS);
-        if (cells != null) {
-          for (Cell cell : cells) {
-            informations.add(historian.new RegionHistoryInformation(cell
-                .getTimestamp(), Bytes.toString(columnKey).split(":")[1], Bytes
-                .toString(cell.getValue())));
+        byte[] qualifier = keyEnu.key;
+        Get get = new Get(Bytes.toBytes(regionName));
+        get.addColumn(COLUMN_FAMILY_HISTORIAN, qualifier);
+        get.setMaxVersions(ALL_VERSIONS);
+        KeyValue[] kvs = this.metaTable.get(get);
+        if(kvs != null){
+          for (KeyValue kv : kvs) {
+            informations.add(historian.new RegionHistoryInformation(
+                kv.getTimestamp(), Bytes.toString(qualifier),
+                Bytes.toString(kv.getValue())));
           }
         }
       }
@@ -138,8 +149,8 @@ public class RegionHistorian implements HConstants {
    * @param serverName
    */
   public void addRegionAssignment(HRegionInfo info, String serverName) {
-    add(HistorianColumnKey.REGION_ASSIGNMENT.key, "Region assigned to server "
-        + serverName, info);
+    add(COLUMN_FAMILY_HISTORIAN, HistorianColumnKey.REGION_ASSIGNMENT.key, 
+        "Region assigned to server " + serverName, info);
   }
 
   /**
@@ -147,7 +158,8 @@ public class RegionHistorian implements HConstants {
    * @param info
    */
   public void addRegionCreation(HRegionInfo info) {
-    add(HistorianColumnKey.REGION_CREATION.key, "Region creation", info);
+    add(COLUMN_FAMILY_HISTORIAN, HistorianColumnKey.REGION_CREATION.key, 
+        "Region creation", info);
   }
 
   /**
@@ -156,8 +168,8 @@ public class RegionHistorian implements HConstants {
    * @param address
    */
   public void addRegionOpen(HRegionInfo info, HServerAddress address) {
-    add(HistorianColumnKey.REGION_OPEN.key, "Region opened on server : "
-        + address.getHostname(), info);
+    add(COLUMN_FAMILY_HISTORIAN, HistorianColumnKey.REGION_OPEN.key, 
+        "Region opened on server : " + address.getHostname(), info);
   }
 
   /**
@@ -171,8 +183,8 @@ public class RegionHistorian implements HConstants {
      HRegionInfo newInfo2) {
     HRegionInfo[] infos = new HRegionInfo[] { newInfo1, newInfo2 };
     for (HRegionInfo info : infos) {
-      add(HistorianColumnKey.REGION_SPLIT.key, SPLIT_PREFIX +
-        oldInfo.getRegionNameAsString(), info);
+      add(COLUMN_FAMILY_HISTORIAN, HistorianColumnKey.REGION_SPLIT.key, 
+          SPLIT_PREFIX + oldInfo.getRegionNameAsString(), info);
     }
   }
 
@@ -188,7 +200,7 @@ public class RegionHistorian implements HConstants {
     // such danger compacting; compactions are not allowed when
     // Flusher#flushSomeRegions is run.
     if (LOG.isDebugEnabled()) {
-      add(HistorianColumnKey.REGION_COMPACTION.key,
+      add(COLUMN_FAMILY_HISTORIAN, HistorianColumnKey.REGION_COMPACTION.key,
         "Region compaction completed in " + timeTaken, info);
     }
   }
@@ -205,17 +217,19 @@ public class RegionHistorian implements HConstants {
     // logging of flushes.
   }
 
+//  /**
+
   /**
    * Method to add an event with LATEST_TIMESTAMP.
    * @param column
    * @param text
    * @param info
    */
-  private void add(byte[] column,
-      String text, HRegionInfo info) {
-    add(column, text, info, LATEST_TIMESTAMP);
+  private void add(byte[] family, byte[] qualifier, String text,
+      HRegionInfo info) {
+    add(family, qualifier, text, info, LATEST_TIMESTAMP);
   }
-
+  
   /**
    * Method to add an event with provided information.
    * @param column
@@ -223,24 +237,23 @@ public class RegionHistorian implements HConstants {
    * @param info
    * @param timestamp
    */
-  private void add(byte[] column,
-      String text, HRegionInfo info, long timestamp) {
+  private void add(byte[] family, byte[] qualifier, String text,
+      HRegionInfo info, long timestamp) {
     if (!isOnline()) {
       // Its a noop
       return;
     }
     if (!info.isMetaRegion()) {
-      BatchUpdate batch = new BatchUpdate(info.getRegionName());
-      batch.setTimestamp(timestamp);
-      batch.put(column, Bytes.toBytes(text));
+      Put put = new Put(info.getRegionName());
+      put.add(family, qualifier, timestamp, Bytes.toBytes(text));
       try {
-        this.metaTable.commit(batch);
+        this.metaTable.commit(put);
       } catch (IOException ioe) {
         LOG.warn("Unable to '" + text + "'", ioe);
       }
     }
   }
-
+  
   /**
    * Inner class that only contains information about an event.
    * 

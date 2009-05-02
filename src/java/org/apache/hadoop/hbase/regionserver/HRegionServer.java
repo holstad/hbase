@@ -87,7 +87,8 @@ import org.apache.hadoop.hbase.io.Get;
 import org.apache.hadoop.hbase.io.GetColumns;
 import org.apache.hadoop.hbase.io.HbaseMapWritable;
 import org.apache.hadoop.hbase.io.Put;
-import org.apache.hadoop.hbase.io.RowResult;
+import org.apache.hadoop.hbase.io.Update;
+//import org.apache.hadoop.hbase.io.RowResult;
 //import org.apache.hadoop.hbase.io.RowUpdates;
 //import org.apache.hadoop.hbase.io.TimeRange;
 import org.apache.hadoop.hbase.ipc.HBaseRPC;
@@ -1626,7 +1627,7 @@ public class HRegionServer implements HConstants, HRegionInterface,
       HRegion region = getRegion(regionName);
       List<KeyValue> result = new ArrayList<KeyValue>();
 
-      region.newget(get, result, getLockFromId(lockId));
+      region.getRow(get, result, getLockFromId(lockId));
       
       LOG.info("newGet: result.isEmpty " +result.isEmpty());
       if (LOG.isDebugEnabled()) {
@@ -1651,7 +1652,7 @@ public class HRegionServer implements HConstants, HRegionInterface,
       // locate the region we're operating on
       HRegion region = getRegion(regionName);
       // ask the region for all the data 
-      KeyValue[] kvs = region.getClosestRowBefore(row, columnFamily);
+      KeyValue[] kvs = region.getClosestRowBefore(row, family);
       return kvs;
     } catch (Throwable t) {
       throw convertThrowableToIOE(cleanup(t));
@@ -1730,28 +1731,7 @@ public class HRegionServer implements HConstants, HRegionInterface,
 //    return -1;
 //  }
 
-//  public int updateRow(final byte [] regionName, final Update update)
-//  throws IOException {
-//    int i = 0;
-//    checkOpen();
-//    try {
-//      boolean writeToWAL = true;
-//      this.cacheFlusher.reclaimMemcacheMemory();
-//      this.requestCount.incrementAndGet();
-//      Integer lock = getLockFromId(update.getRowLock());
-//      HRegion region = getRegion(regionName);
-//      region.updateRow(update, lock, writeToWAL);
-//    } catch(WrongRegionException ex) {
-//      return i;
-//    } catch (NotServingRegionException ex) {
-//      return i;
-//    } catch (Throwable t) {
-//      throw convertThrowableToIOE(cleanup(t));
-//    }
-//    return -1;  
-//  }
-  
-  public void deleteRow(final byte [] regionName, final Delete delete)
+  public int updateRow(final byte [] regionName, final Update update)
   throws IOException {
     int i = 0;
     checkOpen();
@@ -1759,30 +1739,9 @@ public class HRegionServer implements HConstants, HRegionInterface,
       boolean writeToWAL = true;
       this.cacheFlusher.reclaimMemcacheMemory();
       this.requestCount.incrementAndGet();
-      Integer lock = getLockFromId(delete.getRowLock());
+      Integer lock = getLockFromId(update.getRowLock());
       HRegion region = getRegion(regionName);
-      region.deleteRow(delete, lock, writeToWAL);
-    } catch(WrongRegionException ex) {
-//      return i;
-    } catch (NotServingRegionException ex) {
-//      return i;
-    } catch (Throwable t) {
-      throw convertThrowableToIOE(cleanup(t));
-    }
-//    return -1;  
-  }
-  
-  public int putRow(final byte [] regionName, final Put put)
-  throws IOException {
-    int i = 0;
-    checkOpen();
-    try {
-      boolean writeToWAL = true;
-      this.cacheFlusher.reclaimMemcacheMemory();
-      this.requestCount.incrementAndGet();
-      Integer lock = getLockFromId(put.getRowLock());
-      HRegion region = getRegion(regionName);
-      region.putRow(put, lock, writeToWAL);
+      region.updateRow(update, lock, writeToWAL);
     } catch(WrongRegionException ex) {
       return i;
     } catch (NotServingRegionException ex) {
@@ -1792,6 +1751,48 @@ public class HRegionServer implements HConstants, HRegionInterface,
     }
     return -1;  
   }
+  
+//  public void deleteRow(final byte [] regionName, final Delete delete)
+//  throws IOException {
+//    int i = 0;
+//    checkOpen();
+//    try {
+//      boolean writeToWAL = true;
+//      this.cacheFlusher.reclaimMemcacheMemory();
+//      this.requestCount.incrementAndGet();
+//      Integer lock = getLockFromId(delete.getRowLock());
+//      HRegion region = getRegion(regionName);
+//      region.deleteRow(delete, lock, writeToWAL);
+//    } catch(WrongRegionException ex) {
+////      return i;
+//    } catch (NotServingRegionException ex) {
+////      return i;
+//    } catch (Throwable t) {
+//      throw convertThrowableToIOE(cleanup(t));
+//    }
+////    return -1;  
+//  }
+//  
+//  public int putRow(final byte [] regionName, final Put put)
+//  throws IOException {
+//    int i = 0;
+//    checkOpen();
+//    try {
+//      boolean writeToWAL = true;
+//      this.cacheFlusher.reclaimMemcacheMemory();
+//      this.requestCount.incrementAndGet();
+//      Integer lock = getLockFromId(put.getRowLock());
+//      HRegion region = getRegion(regionName);
+//      region.putRow(put, lock, writeToWAL);
+//    } catch(WrongRegionException ex) {
+//      return i;
+//    } catch (NotServingRegionException ex) {
+//      return i;
+//    } catch (Throwable t) {
+//      throw convertThrowableToIOE(cleanup(t));
+//    }
+//    return -1;  
+//  }
 
   
   public boolean checkAndSave(final byte [] regionName, final Put put,

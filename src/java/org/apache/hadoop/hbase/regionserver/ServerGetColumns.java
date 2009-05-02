@@ -9,7 +9,7 @@ import org.apache.hadoop.hbase.io.Get;
 import org.apache.hadoop.hbase.util.Bytes;
 
 
-public class ServerGetColumns extends AbstractServerGet {
+public class ServerGetColumns extends ServerGet {
   
 //  private List<Key> newDeletes = new ArrayList<Key>();
 

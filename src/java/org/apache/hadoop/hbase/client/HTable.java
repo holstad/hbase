@@ -44,11 +44,13 @@ import org.apache.hadoop.hbase.filter.StopRowFilter;
 import org.apache.hadoop.hbase.filter.WhileMatchRowFilter;
 import org.apache.hadoop.hbase.io.BatchOperation;
 import org.apache.hadoop.hbase.io.BatchUpdate;
-import org.apache.hadoop.hbase.io.Cell;
+//import org.apache.hadoop.hbase.io.Cell;
+import org.apache.hadoop.hbase.io.Delete;
 import org.apache.hadoop.hbase.io.Get;
 import org.apache.hadoop.hbase.io.HbaseMapWritable;
 import org.apache.hadoop.hbase.io.Put;
 import org.apache.hadoop.hbase.io.RowResult;
+import org.apache.hadoop.hbase.io.Update;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.hbase.util.Writables;
 
@@ -60,7 +62,8 @@ public class HTable {
   private final byte [] tableName;
   protected final int scannerTimeout;
   private volatile HBaseConfiguration configuration;
-  private ArrayList<Put> writeBuffer;
+//  private ArrayList<Put> writeBuffer;
+  private ArrayList<Update> writeBuffer = null;
   private long writeBufferSize;
   private boolean autoFlush;
   private long currentWriteBufferSize;
@@ -116,7 +119,7 @@ public class HTable {
       conf.getInt("hbase.regionserver.lease.period", 60 * 1000);
     this.configuration = conf;
     this.connection.locateRegion(tableName, HConstants.EMPTY_START_ROW);
-    this.writeBuffer = new ArrayList<Put>();
+    this.writeBuffer = new ArrayList<Update>();
     this.writeBufferSize = 
       this.configuration.getLong("hbase.client.write.buffer", 2097152);
     this.autoFlush = true;
@@ -1356,7 +1359,16 @@ public class HTable {
 //    }
 //  }
   
-  public synchronized void commit(final Put put) 
+  public synchronized void delete(final Delete delete)
+  throws IOException {
+    writeBuffer.add(delete);
+    currentWriteBufferSize += delete.heapSize();
+    if (autoFlush || currentWriteBufferSize > writeBufferSize) {
+      flushCommits();
+    }
+  }
+  
+  public synchronized void put(final Put put)
   throws IOException {
     writeBuffer.add(put);
     currentWriteBufferSize += put.heapSize();
@@ -1365,45 +1377,55 @@ public class HTable {
     }
   }
   
-  /**
-   * Commit a List of Puts to the table.
-   * If autoFlush is false, the updates are buffered
-   * @param batchUpdates
-   * @throws IOException
-   */ 
-  public synchronized void commit(final List<Put> putList)
-  throws IOException {
-    for(Put put : putList) {
-      writeBuffer.add(put);
-      currentWriteBufferSize += put.heapSize();
-    }
-    if (autoFlush || currentWriteBufferSize > writeBufferSize) {
-      flushCommits();
-    }
-  }  
+//  public synchronized void commit(final Put put) 
+//  throws IOException {
+//    writeBuffer.add(put);
+//    currentWriteBufferSize += put.heapSize();
+//    if (autoFlush || currentWriteBufferSize > writeBufferSize) {
+//      flushCommits();
+//    }
+//  }
+//  
+//  /**
+//   * Commit a List of Puts to the table.
+//   * If autoFlush is false, the updates are buffered
+//   * @param batchUpdates
+//   * @throws IOException
+//   */ 
+//  public synchronized void commit(final List<Put> putList)
+//  throws IOException {
+//    for(Put put : putList) {
+//      writeBuffer.add(put);
+//      currentWriteBufferSize += put.heapSize();
+//    }
+//    if (autoFlush || currentWriteBufferSize > writeBufferSize) {
+//      flushCommits();
+//    }
+//  }  
   
   
   /**
    * Atomically checks if a row's values match
    * the expectedValues. If it does, it uses the
    * batchUpdate to update the row.
-   * @param batchUpdate batchupdate to apply if check is successful
+   * @param Put put to apply if check is successful
    * @param expectedValues values to check
    * @param rl rowlock
    * @throws IOException
    */
-  public synchronized boolean checkAndSave(final BatchUpdate batchUpdate,
+  public synchronized boolean checkAndSave(final Put put,
     final HbaseMapWritable<byte[],byte[]> expectedValues, final RowLock rl)
   throws IOException {
-    checkRowAndColumns(batchUpdate);
-    if(rl != null) {
-      batchUpdate.setRowLock(rl.getLockId());
-    }
+//    checkRowAndColumns(put);
+    //RowLock need to be set in put
+//    if(rl != null) {
+//      put.setRowLock(rl.getLockId());
+//    }
     return connection.getRegionServerWithRetries(
-      new ServerCallable<Boolean>(connection, tableName, batchUpdate.getRow()) {
+      new ServerCallable<Boolean>(connection, tableName, put.getRow()) {
         public Boolean call() throws IOException {
           return server.checkAndSave(location.getRegionInfo().getRegionName(),
-            batchUpdate, expectedValues)?
+            put, expectedValues)?
               Boolean.TRUE: Boolean.FALSE;
         }
       }
@@ -1434,7 +1456,7 @@ public class HTable {
       return;
     }
     try {
-      connection.processListOfPuts(tableName, writeBuffer);
+      connection.processListOfUpdates(tableName, writeBuffer);
     } finally {
       currentWriteBufferSize = 0;
       writeBuffer.clear();
@@ -1467,15 +1489,15 @@ public class HTable {
    * @throws IllegalArgumentException
    * @throws IOException
    */
-  private void checkRowAndColumns(BatchUpdate bu)
-      throws IllegalArgumentException, IOException {
-    if (bu.getRow() == null || bu.getRow().length > HConstants.MAX_ROW_LENGTH) {
-      throw new IllegalArgumentException("Row key is invalid");
-    }
-    for (BatchOperation bo : bu) {
-      HStoreKey.getFamily(bo.getColumn());
-    }
-  }
+//  private void checkRowAndColumns(Put put)
+//      throws IllegalArgumentException, IOException {
+//    if (put.getRow() == null || put.getRow().length > HConstants.MAX_ROW_LENGTH) {
+//      throw new IllegalArgumentException("Row key is invalid");
+//    }
+//    for (BatchOperation bo : bu) {
+//      HStoreKey.getFamily(bo.getColumn());
+//    }
+//  }
 
   /**
    * Obtain a row lock
@@ -1551,7 +1573,7 @@ public class HTable {
    * Get the write buffer 
    * @return the current write buffer
    */
-  public ArrayList<Put> getWriteBuffer() {
+  public ArrayList<Update> getWriteBuffer() {
     return writeBuffer;
   }
   

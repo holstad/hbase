@@ -1074,41 +1074,41 @@ public class Store implements HConstants {
    * @param now -  Where to start searching.  Specifies a timestamp.
    * @throws IOException
    */
-  public void getFull(KeyValue key, final NavigableSet<byte []> columns,
-      final Pattern columnPattern,
-      final int numVersions, Map<KeyValue, HRegion.Counter> versionsCounter,
-      List<KeyValue> keyvalues, final long now)
-  throws IOException {
-    // if the key is null, we're not even looking for anything. return.
-    if (key == null) {
-      return;
-    }
-    int versions = versionsToReturn(numVersions);
-    NavigableSet<KeyValue> deletes =
-      new TreeSet<KeyValue>(this.comparatorIgnoringType);
-    // Create a Map that has results by column so we can keep count of versions.
-    // It duplicates columns but doing check of columns, we don't want to make
-    // column set each time.
-    this.lock.readLock().lock();
-    try {
-      // get from the memcache first.
-      if (this.memcache.getFull(key, columns, columnPattern, versions,
-          versionsCounter, deletes, keyvalues, now)) {
-        // May have gotten enough results, enough to return.
-        return;
-      }
-      Map<Long, StoreFile> m = this.storefiles.descendingMap();
-      for (Iterator<Map.Entry<Long, StoreFile>> i = m.entrySet().iterator();
-          i.hasNext();) {
-        if (getFullFromStoreFile(i.next().getValue(), key, columns,
-            columnPattern, versions, versionsCounter, deletes, keyvalues)) {
-          return;
-        }
-      }
-    } finally {
-      this.lock.readLock().unlock();
-    }
-  }
+//  public void getFull(KeyValue key, final NavigableSet<byte []> columns,
+//      final Pattern columnPattern,
+//      final int numVersions, Map<KeyValue, HRegion.Counter> versionsCounter,
+//      List<KeyValue> keyvalues, final long now)
+//  throws IOException {
+//    // if the key is null, we're not even looking for anything. return.
+//    if (key == null) {
+//      return;
+//    }
+//    int versions = versionsToReturn(numVersions);
+//    NavigableSet<KeyValue> deletes =
+//      new TreeSet<KeyValue>(this.comparatorIgnoringType);
+//    // Create a Map that has results by column so we can keep count of versions.
+//    // It duplicates columns but doing check of columns, we don't want to make
+//    // column set each time.
+//    this.lock.readLock().lock();
+//    try {
+//      // get from the memcache first.
+//      if (this.memcache.getFull(key, columns, columnPattern, versions,
+//          versionsCounter, deletes, keyvalues, now)) {
+//        // May have gotten enough results, enough to return.
+//        return;
+//      }
+//      Map<Long, StoreFile> m = this.storefiles.descendingMap();
+//      for (Iterator<Map.Entry<Long, StoreFile>> i = m.entrySet().iterator();
+//          i.hasNext();) {
+//        if (getFullFromStoreFile(i.next().getValue(), key, columns,
+//            columnPattern, versions, versionsCounter, deletes, keyvalues)) {
+//          return;
+//        }
+//      }
+//    } finally {
+//      this.lock.readLock().unlock();
+//    }
+//  }
 
   /*
    * @param f
@@ -1123,38 +1123,38 @@ public class Store implements HConstants {
    * and <code>columns</code> passed.
    * @throws IOException
    */
-  private boolean getFullFromStoreFile(StoreFile f, KeyValue target, 
-    Set<byte []> columns, final Pattern columnPattern, int versions, 
-    Map<KeyValue, HRegion.Counter> versionCounter,
-    NavigableSet<KeyValue> deletes,
-    List<KeyValue> keyvalues) 
-  throws IOException {
-    long now = System.currentTimeMillis();
-    HFileScanner scanner = f.getReader().getScanner();
-    if (!getClosest(scanner, target)) {
-      return false;
-    }
-    boolean hasEnough = false;
-    do {
-      KeyValue kv = scanner.getKeyValue();
-      // Make sure we have not passed out the row.  If target key has a
-      // column on it, then we are looking explicit key+column combination.  If
-      // we've passed it out, also break.
-      if (target.isEmptyColumn()? !this.comparator.matchingRows(target, kv):
-          !this.comparator.matchingRowColumn(target, kv)) {
-        break;
-      }
-      if (!Store.getFullCheck(this.comparator, target, kv, columns, columnPattern)) {
-        continue;
-      }
-      if (Store.doKeyValue(kv, versions, versionCounter, columns, deletes, now,
-          this.ttl, keyvalues, null)) {
-        hasEnough = true;
-        break;
-      }
-    } while (scanner.next());
-    return hasEnough;
-  }
+//  private boolean getFullFromStoreFile(StoreFile f, KeyValue target, 
+//    Set<byte []> columns, final Pattern columnPattern, int versions, 
+//    Map<KeyValue, HRegion.Counter> versionCounter,
+//    NavigableSet<KeyValue> deletes,
+//    List<KeyValue> keyvalues) 
+//  throws IOException {
+//    long now = System.currentTimeMillis();
+//    HFileScanner scanner = f.getReader().getScanner();
+//    if (!getClosest(scanner, target)) {
+//      return false;
+//    }
+//    boolean hasEnough = false;
+//    do {
+//      KeyValue kv = scanner.getKeyValue();
+//      // Make sure we have not passed out the row.  If target key has a
+//      // column on it, then we are looking explicit key+column combination.  If
+//      // we've passed it out, also break.
+//      if (target.isEmptyColumn()? !this.comparator.matchingRows(target, kv):
+//          !this.comparator.matchingRowColumn(target, kv)) {
+//        break;
+//      }
+//      if (!Store.getFullCheck(this.comparator, target, kv, columns, columnPattern)) {
+//        continue;
+//      }
+//      if (Store.doKeyValue(kv, versions, versionCounter, columns, deletes, now,
+//          this.ttl, keyvalues, null)) {
+//        hasEnough = true;
+//        break;
+//      }
+//    } while (scanner.next());
+//    return hasEnough;
+//  }
 
   /**
    * Code shared by {@link Memcache#getFull(KeyValue, NavigableSet, Pattern, int, Map, NavigableSet, List, long)}
@@ -1166,25 +1166,25 @@ public class Store implements HConstants {
    * @param columnPattern
    * @return True if <code>candidate</code> matches column and timestamp.
    */
-  static boolean getFullCheck(final KeyValue.KVComparator c,
-      final KeyValue target, final KeyValue candidate,
-      final Set<byte []> columns, final Pattern columnPattern) {
-    // Does column match?
-    if (!Store.matchingColumns(candidate, columns)) {
-      return false;
-    }
-    // if the column pattern is not null, we use it for column matching.
-    // we will skip the keys whose column doesn't match the pattern.
-    if (columnPattern != null) {
-      if (!(columnPattern.matcher(candidate.getColumnString()).matches())) {
-        return false;
-      }
-    }
-    if (c.compareTimestamps(target, candidate) > 0)  {
-      return false;
-    }
-    return true; 
-  }
+//  static boolean getFullCheck(final KeyValue.KVComparator c,
+//      final KeyValue target, final KeyValue candidate,
+//      final Set<byte []> columns, final Pattern columnPattern) {
+//    // Does column match?
+//    if (!Store.matchingColumns(candidate, columns)) {
+//      return false;
+//    }
+//    // if the column pattern is not null, we use it for column matching.
+//    // we will skip the keys whose column doesn't match the pattern.
+//    if (columnPattern != null) {
+//      if (!(columnPattern.matcher(candidate.getColumnString()).matches())) {
+//        return false;
+//      }
+//    }
+//    if (c.compareTimestamps(target, candidate) > 0)  {
+//      return false;
+//    }
+//    return true; 
+//  }
 
   
   /**
@@ -1193,7 +1193,7 @@ public class Store implements HConstants {
    *
    * The returned object should map column names to Cells.
    */
-  void newget(ServerGet sget, List<KeyValue> result)
+  void getRow(ServerGet sget, List<KeyValue> result)
   throws IOException {
     this.lock.readLock().lock();
     sget.setTTL(ttl);
@@ -1202,7 +1202,7 @@ public class Store implements HConstants {
     
     // get from the memcache first.
     boolean multiFamily = family.getMultiFamily();
-    retCode = this.memcache.newget(sget, result, multiFamily);
+    retCode = this.memcache.getRow(sget, result, multiFamily);
     
     if(retCode == 1){
       return;
@@ -1213,7 +1213,7 @@ public class Store implements HConstants {
         sget.mergeGets();
         sget.mergeDeletes(multiFamily);
         sget.clear();
-        retCode = newgetFromStoreFile(entry.getValue(), sget, result,
+        retCode = getRowFromStoreFile(entry.getValue(), sget, result,
           multiFamily);
         if(retCode == 1){
           break;
@@ -1232,7 +1232,7 @@ public class Store implements HConstants {
    * @return 
    * @throws IOException
    */
-  private int newgetFromStoreFile(StoreFile sf, ServerGet sget, 
+  private int getRowFromStoreFile(StoreFile sf, ServerGet sget, 
       List<KeyValue> result, boolean multiFamily) 
   throws IOException {
     HFileScanner scanner = sf.getReader().getScanner();
@@ -1307,63 +1307,63 @@ public class Store implements HConstants {
    * @return values for the specified versions
    * @throws IOException
    */
-  List<KeyValue> get(final KeyValue key, final int numVersions)
-  throws IOException {
-    // This code below is very close to the body of the getKeys method.  Any 
-    // changes in the flow below should also probably be done in getKeys.
-    // TODO: Refactor so same code used.
-    long now = System.currentTimeMillis();
-    int versions = versionsToReturn(numVersions);
-    // Keep a list of deleted cell keys.  We need this because as we go through
-    // the memcache and store files, the cell with the delete marker may be
-    // in one store and the old non-delete cell value in a later store.
-    // If we don't keep around the fact that the cell was deleted in a newer
-    // record, we end up returning the old value if user is asking for more
-    // than one version. This List of deletes should not be large since we
-    // are only keeping rows and columns that match those set on the get and
-    // which have delete values.  If memory usage becomes an issue, could
-    // redo as bloom filter.  Use sorted set because test for membership should
-    // be faster than calculating a hash.  Use a comparator that ignores ts.
-    NavigableSet<KeyValue> deletes =
-      new TreeSet<KeyValue>(this.comparatorIgnoringType);
-    List<KeyValue> keyvalues = new ArrayList<KeyValue>();
-    this.lock.readLock().lock();
-    try {
-      // Check the memcache
-      if (this.memcache.get(key, versions, keyvalues, deletes, now)) {
-        return keyvalues;
-      }
-      Map<Long, StoreFile> m = this.storefiles.descendingMap();
-      boolean hasEnough = false;
-      for (Map.Entry<Long, StoreFile> e: m.entrySet()) {
-        StoreFile f = e.getValue();
-        HFileScanner scanner = f.getReader().getScanner();
-        if (!getClosest(scanner, key)) {
-          // Move to next file.
-          continue;
-        }
-        do {
-          KeyValue kv = scanner.getKeyValue();
-          // Make sure below matches what happens up in Memcache#get.
-          if (this.comparator.matchingRowColumn(kv, key)) {
-            if (doKeyValue(kv, versions, deletes, now, this.ttl, keyvalues, null)) {
-              hasEnough = true;
-              break;
-            }
-          } else {
-            // Row and column don't match. Must have gone past. Move to next file.
-            break;
-          }
-        } while (scanner.next());
-        if (hasEnough) {
-          break; // Break out of files loop.
-        }
-      }
-      return keyvalues.isEmpty()? null: keyvalues;
-    } finally {
-      this.lock.readLock().unlock();
-    }
-  }
+//  List<KeyValue> get(final KeyValue key, final int numVersions)
+//  throws IOException {
+//    // This code below is very close to the body of the getKeys method.  Any 
+//    // changes in the flow below should also probably be done in getKeys.
+//    // TODO: Refactor so same code used.
+//    long now = System.currentTimeMillis();
+//    int versions = versionsToReturn(numVersions);
+//    // Keep a list of deleted cell keys.  We need this because as we go through
+//    // the memcache and store files, the cell with the delete marker may be
+//    // in one store and the old non-delete cell value in a later store.
+//    // If we don't keep around the fact that the cell was deleted in a newer
+//    // record, we end up returning the old value if user is asking for more
+//    // than one version. This List of deletes should not be large since we
+//    // are only keeping rows and columns that match those set on the get and
+//    // which have delete values.  If memory usage becomes an issue, could
+//    // redo as bloom filter.  Use sorted set because test for membership should
+//    // be faster than calculating a hash.  Use a comparator that ignores ts.
+//    NavigableSet<KeyValue> deletes =
+//      new TreeSet<KeyValue>(this.comparatorIgnoringType);
+//    List<KeyValue> keyvalues = new ArrayList<KeyValue>();
+//    this.lock.readLock().lock();
+//    try {
+//      // Check the memcache
+//      if (this.memcache.getRow(key, versions, keyvalues, deletes, now)) {
+//        return keyvalues;
+//      }
+//      Map<Long, StoreFile> m = this.storefiles.descendingMap();
+//      boolean hasEnough = false;
+//      for (Map.Entry<Long, StoreFile> e: m.entrySet()) {
+//        StoreFile f = e.getValue();
+//        HFileScanner scanner = f.getReader().getScanner();
+//        if (!getClosest(scanner, key)) {
+//          // Move to next file.
+//          continue;
+//        }
+//        do {
+//          KeyValue kv = scanner.getKeyValue();
+//          // Make sure below matches what happens up in Memcache#get.
+//          if (this.comparator.matchingRowColumn(kv, key)) {
+//            if (doKeyValue(kv, versions, deletes, now, this.ttl, keyvalues, null)) {
+//              hasEnough = true;
+//              break;
+//            }
+//          } else {
+//            // Row and column don't match. Must have gone past. Move to next file.
+//            break;
+//          }
+//        } while (scanner.next());
+//        if (hasEnough) {
+//          break; // Break out of files loop.
+//        }
+//      }
+//      return keyvalues.isEmpty()? null: keyvalues;
+//    } finally {
+//      this.lock.readLock().unlock();
+//    }
+//  }
 
   /*
    * Small method to check if we are over the max number of versions

@@ -7,6 +7,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.TreeMap;
 
 import org.apache.hadoop.io.Writable;
 
@@ -19,12 +20,13 @@ import org.apache.hadoop.hbase.util.Bytes;
  * Class used for putting data into HBase 
  *
  */
-public class Delete implements HeapSize, Writable{
+public class Delete extends Update implements HeapSize, Writable{
 //  protected final KeyValue.Type TYPE = KeyValue.Type.Put;
   private byte[] row = null;
   private long ts = HConstants.LATEST_TIMESTAMP;
   private long rl = -1l;
-  private Map<byte[], List<KeyValue>> familyMap = null;
+  private Map<byte[], List<KeyValue>> familyMap = 
+    new TreeMap<byte[], List<KeyValue>>(Bytes.BYTES_COMPARATOR);
   
   /**
    * Don't use this constructor, only for use with serialization
@@ -40,14 +42,45 @@ public class Delete implements HeapSize, Writable{
     this.rl = rl;
   }
   
-  public void deleteFamily(byte[] family){}
-  public void deleteFamily(byte[] family, long ts){}
+  public void deleteColumn(byte[] family, byte[] qualifier){
+    deleteColumn(family, qualifier, this.ts);
+  }
+  public void deleteColumn(byte[] family, byte[] qualifier, long ts){
+    List<KeyValue> list = familyMap.get(family);
+    if(list == null){
+      list = new ArrayList();
+    }
+    list.add(new KeyValue(
+        this.row, family, qualifier, ts, KeyValue.Type.Delete));
+    familyMap.put(family, list);
+  }
   
-  public void deleteColumn(byte[] family, byte[] qualifier){}
-  public void deleteColumn(byte[] family, byte[] qualifier, long ts){}
-
-  public void deleteColumns(byte[] family, byte[] qualifier){}
-  public void deleteColumns(byte[] family, byte[] qualifier, long ts){}
+  public void deleteColumns(byte[] family, byte[] qualifier){
+    deleteColumns(family, qualifier, this.ts);
+  }
+  public void deleteColumns(byte[] family, byte[] qualifier, long ts){
+    List<KeyValue> list = familyMap.get(family);
+    if(list == null){
+      list = new ArrayList();
+    }
+    list.add(new KeyValue(
+        this.row, family, qualifier, ts, KeyValue.Type.DeleteColumn));
+    familyMap.put(family, list);
+  }
+  
+  public void deleteFamily(byte[] family){
+    deleteFamily(family, this.ts);
+  }
+  public void deleteFamily(byte[] family, long ts){
+    List<KeyValue> list = familyMap.get(family);
+    if(list == null){
+      list = new ArrayList();
+    } else if(!list.isEmpty()){
+      list.clear();
+    }
+    list.add(new KeyValue(row, family, ts, KeyValue.Type.DeleteFamily));
+    familyMap.put(family, list);
+  }
   
   public Map<byte[], List<KeyValue>> getFamilyMap(){
     return this.familyMap;
@@ -61,6 +94,9 @@ public class Delete implements HeapSize, Writable{
     return this.rl;
   } 
   
+  public long getTimeStamp(){
+    return this.ts;
+  }
   
   
   public String toString(){
@@ -94,44 +130,44 @@ public class Delete implements HeapSize, Writable{
   //Writable
   public void readFields(final DataInput in)
   throws IOException {
-//    this.row = Bytes.readByteArray(in);
-//    int familyMapSize = in.readInt();
-//    this.familyMap = new HashMap<byte[],List<KeyValue>>();
-//    byte[] family = null;
-//    
-//    List<KeyValue> list = null;
-//    int listSize = 0;
-//    KeyValue kv = null;
-//    
-//    for(int i=0; i<familyMapSize; i++){
-//      family = Bytes.readByteArray(in);
-//      listSize = in.readInt();
-//      list = new ArrayList<KeyValue>(listSize);
-//      for(int j=0; j<listSize; j++){
-//        kv = new KeyValue();
-//        kv.readFields(in);
-//        list.add(kv);
-//      }
-//      this.familyMap.put(family, list);
-//    }
-//    this.rl = in.readLong();
+    this.row = Bytes.readByteArray(in);
+    int familyMapSize = in.readInt();
+    this.familyMap = new TreeMap<byte[],List<KeyValue>>(Bytes.BYTES_COMPARATOR);
+
+    byte[] family = null;
+    
+    List<KeyValue> list = null;
+    int listSize = 0;
+    KeyValue kv = null;
+    
+    for(int i=0; i<familyMapSize; i++){
+      family = Bytes.readByteArray(in);
+      listSize = in.readInt();
+      list = new ArrayList<KeyValue>(listSize);
+      for(int j=0; j<listSize; j++){
+        kv = new KeyValue();
+        kv.readFields(in);
+        list.add(kv);
+      }
+      this.familyMap.put(family, list);
+    }
+    this.rl = in.readLong();
   }  
   
   public void write(final DataOutput out)
   throws IOException {
-//    Bytes.writeByteArray(out, this.row);
-//    out.writeInt(familyMap.size());
-//    List<KeyValue> tmpList = null;
-//    for(Map.Entry<byte[], List<KeyValue>> entry : familyMap.entrySet()){
-//      Bytes.writeByteArray(out, entry.getKey());
-//      tmpList = entry.getValue();
-//      out.writeInt(tmpList.size());
-//      for(KeyValue kv : tmpList){
-//        kv.write(out);
-//      }
-//    }
-//    out.writeLong(this.rl);
+    Bytes.writeByteArray(out, this.row);
+    out.writeInt(familyMap.size());
+    List<KeyValue> tmpList = null;
+    for(Map.Entry<byte[], List<KeyValue>> entry : familyMap.entrySet()){
+      Bytes.writeByteArray(out, entry.getKey());
+      tmpList = entry.getValue();
+      out.writeInt(tmpList.size());
+      for(KeyValue kv : tmpList){
+        kv.write(out);
+      }
+    }
+    out.writeLong(this.rl);
   }
   
 }
-

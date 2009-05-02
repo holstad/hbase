@@ -7,6 +7,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.TreeMap;
 
 import org.apache.hadoop.io.Writable;
 
@@ -19,12 +20,13 @@ import org.apache.hadoop.hbase.util.Bytes;
  * Class used for putting data into HBase 
  *
  */
-public class Put implements HeapSize, Writable{
+public class Put extends Update implements HeapSize, Writable{
   private final KeyValue.Type TYPE = KeyValue.Type.Put;
   private byte[] row = null;
-  private long ts = HConstants.LATEST_TIMESTAMP;
-  private long rl = -1l;
-  private Map<byte[], List<KeyValue>> familyMap = null;
+  private long timestamp = HConstants.LATEST_TIMESTAMP;
+  private long rowLock = -1l;
+  private Map<byte[], List<KeyValue>> familyMap =
+    new TreeMap<byte[], List<KeyValue>>(Bytes.BYTES_COMPARATOR);
   
   /**
    * Don't use this constructor, only for use with serialization
@@ -34,9 +36,9 @@ public class Put implements HeapSize, Writable{
   public Put(byte[] row){
     this.row = row;
   }
-  public Put(byte[] row, long rl){
+  public Put(byte[] row, long rowLock){
     this.row = row;
-    this.rl = rl;
+    this.rowLock = rowLock;
   }
   
   /**
@@ -45,18 +47,18 @@ public class Put implements HeapSize, Writable{
    */
   public Put(Put putToCopy) {
     this(putToCopy.getRow());
-    this.familyMap = new HashMap<byte[], List<KeyValue>>();
+    this.familyMap = new TreeMap<byte[], List<KeyValue>>(Bytes.BYTES_COMPARATOR);
     for(Map.Entry<byte[], List<KeyValue>> entry :
       putToCopy.getFamilyMap().entrySet()){
       this.familyMap.put(entry.getKey(), entry.getValue());
     }
-    this.rl = putToCopy.getRowLock();
+    this.rowLock = putToCopy.getRowLock();
   }
   
   
   
   public KeyValue add(byte[] family, byte[] qualifier, byte[] value){
-    return add(family, qualifier, this.ts, value);
+    return add(family, qualifier, this.timestamp, value);
   }
   
   public KeyValue add(byte[] family, byte[] qualifier, long ts, byte[] value){
@@ -79,7 +81,7 @@ public class Put implements HeapSize, Writable{
   }
   
   public long getRowLock(){
-    return this.rl;
+    return this.rowLock;
   }  
   
   
@@ -116,7 +118,8 @@ public class Put implements HeapSize, Writable{
   throws IOException {
     this.row = Bytes.readByteArray(in);
     int familyMapSize = in.readInt();
-    this.familyMap = new HashMap<byte[],List<KeyValue>>();
+    this.familyMap = new TreeMap<byte[],List<KeyValue>>(Bytes.BYTES_COMPARATOR);
+
     byte[] family = null;
     
     List<KeyValue> list = null;
@@ -134,7 +137,7 @@ public class Put implements HeapSize, Writable{
       }
       this.familyMap.put(family, list);
     }
-    this.rl = in.readLong();
+    this.rowLock = in.readLong();
   }  
   
   public void write(final DataOutput out)
@@ -150,7 +153,7 @@ public class Put implements HeapSize, Writable{
         kv.write(out);
       }
     }
-    out.writeLong(this.rl);
+    out.writeLong(this.rowLock);
   }
   
 }

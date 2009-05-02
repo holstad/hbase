@@ -169,7 +169,7 @@ public interface HConstants {
   static final byte[] COLUMN_FAMILY = "info".getBytes();
   
   /** The META historian column family (string) */
-  static final String COLUMN_FAMILY_HISTORIAN_STR = "historian:";
+  static final String COLUMN_FAMILY_HISTORIAN_STR = "historian";
 
   /** The ROOT and META column family */
 //  static final byte [] COLUMN_FAMILY = Bytes.toBytes(COLUMN_FAMILY_STR);

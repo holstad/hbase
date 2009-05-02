@@ -47,6 +47,7 @@ import org.apache.hadoop.hbase.io.Get;
 import org.apache.hadoop.hbase.io.GetColumns;
 import org.apache.hadoop.hbase.io.GetFamilies;
 import org.apache.hadoop.hbase.io.GetTop;
+import org.apache.hadoop.hbase.io.Put;
 import org.apache.hadoop.hbase.io.TimeRange;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.hdfs.MiniDFSCluster;
@@ -60,25 +61,18 @@ public class TestNewGet extends HBaseTestCase implements HConstants {
   // private MiniDFSCluster miniHdfs;
   //    
   private static byte[] row = "row1".getBytes();
-  private static byte[] fam = "fam1:".getBytes();
-  private static byte[] getFam = "fam1".getBytes();
-  private static byte[] col1 = "col1".getBytes();
-  private static byte[] col2 = "col2".getBytes();
-  private static byte[] col3 = "col3".getBytes();
-  private static byte[] col4 = "col4".getBytes();
-  private static byte[] col5 = "col5".getBytes();
-  private static byte[] col6 = "col6".getBytes();
+  private static byte[] setfam = "fam1:".getBytes();
+  private static byte[] fam = "fam1".getBytes();
+  private static byte[] qf1 = "qf1".getBytes();
+  private static byte[] qf2 = "qf2".getBytes();
+  private static byte[] qf3 = "qf3".getBytes();
+  private static byte[] qf4 = "qf4".getBytes();
+  private static byte[] qf5 = "qf5".getBytes();
+  private static byte[] qf6 = "qf6".getBytes();
 
   private static byte[] val = "val1".getBytes();
-  private static byte[] column1 = Bytes.add(fam, col1);
-  private static byte[] column2 = Bytes.add(fam, col2);
-  private static byte[] column3 = Bytes.add(fam, col3);
-  private static byte[] column4 = Bytes.add(fam, col4);
-  private static byte[] column5 = Bytes.add(fam, col5);
-  private static byte[] column6 = Bytes.add(fam, col6);
   
   HRegion region = null;
-//  BatchUpdate batchUpdate = null;
   List<KeyValue> results = null;
   
   TimeRange tr = null;
@@ -104,10 +98,14 @@ public class TestNewGet extends HBaseTestCase implements HConstants {
   throws IOException{
     results = new ArrayList<KeyValue>();
 
-    oldPut();
-    KeyValue oldKv = new KeyValue(row, column2, val);
+    put();
+    KeyValue oldKv = new KeyValue(row, fam, qf2, 0L, val);
     // Create Get object
-    Get get = new GetColumns(row, getFam, col2, (short)1, tr);
+//    Get get = new GetColumns(row, getFam, col2, (short)1, tr);
+    Get get = new Get(row);
+    get.addColumn(fam, qf2);
+    get.setMaxVersions(1);
+    get.setTimeRange(Bytes.toLong(tr.getMax()), Bytes.toLong(tr.getMin()));
     if(PRINT) System.out.println("get " + get);
     
     //TODO see why this loops forever, something with the lock in
@@ -124,10 +122,15 @@ public class TestNewGet extends HBaseTestCase implements HConstants {
 //    }
 
     flush();
-    oldPut();
+    put();
     
-    get = new GetColumns(row, getFam, col2, (short)2, tr);
-    results = region.newget(get, results, null);
+//    get = new GetColumns(row, getFam, col2, (short)2, tr);
+    get = new Get(row);
+    get.addColumn(fam, qf2);
+    get.setMaxVersions(2);
+    get.setTimeRange(Bytes.toLong(tr.getMax()), Bytes.toLong(tr.getMin()));
+    
+    results = region.getRow(get, results, null);
     if(PRINT) System.out.println("got result with size " + results.size());
 
     if (results.size() > 0) {
@@ -139,23 +142,29 @@ public class TestNewGet extends HBaseTestCase implements HConstants {
     }
     
     flush();
-    oldPut();
+    put();
     
     // Testing getting from memcache and storeFile 2 versions + comparing timers
     // to see which one is faster
     int v2Fetch = 3;
     results = new ArrayList<KeyValue>();
-    List<byte[]> columns = new ArrayList<byte[]>(2);
-    columns.add(col1);
-    columns.add(col3);
-    columns.add(col5);
-    get = new GetColumns(row, getFam, columns, (short)v2Fetch, tr);
-
+//    List<byte[]> columns = new ArrayList<byte[]>(2);
+//    columns.add(col1);
+//    columns.add(col3);
+//    columns.add(col5);
+//    get = new GetColumns(row, getFam, columns, (short)v2Fetch, tr);
+    get = new Get(row);
+    get.addColumn(fam, qf1);
+    get.addColumn(fam, qf2);
+    get.addColumn(fam, qf3);
+    get.setMaxVersions(v2Fetch);
+    get.setTimeRange(Bytes.toLong(tr.getMax()), Bytes.toLong(tr.getMin()));
+    
     long start = 0L;
     long stop = 0L;
     
     start = System.nanoTime();
-    results = region.newget(get, results, null);
+    results = region.getRow(get, results, null);
     stop = System.nanoTime();
     if(PRINT) System.out.println("GetColumns");
     if(PRINT) System.out.println("new timer " +(stop-start));
@@ -170,122 +179,138 @@ public class TestNewGet extends HBaseTestCase implements HConstants {
     
 
     //Old way of getting data 
-    Map<byte [], Cell> oldRes = null;
-    byte [] row = get.getRow();
-    NavigableSet<byte[]> cols =
-      new ConcurrentSkipListSet<byte[]>(Bytes.BYTES_COMPARATOR);
-    cols.add(column1);
-    cols.add(column3);
-    cols.add(column5);
-    oldRes = region.getFull(row, cols, LATEST_TIMESTAMP, v2Fetch, null);
-    oldRes = null;
-    start = System.nanoTime();
-    oldRes = region.getFull(row, cols, LATEST_TIMESTAMP, v2Fetch, null);
-    stop = System.nanoTime();
-    if(PRINT) System.out.println("old timer " +(stop-start));
-    int oldVersions = 0;
-    for(Map.Entry<byte[], Cell> entry : oldRes.entrySet()){
-      oldVersions += entry.getValue().getNumValues();
-    }
-    assertEquals(oldVersions, newVersions);
+//    Map<byte [], Cell> oldRes = null;
+//    byte [] row = get.getRow();
+//    NavigableSet<byte[]> cols =
+//      new ConcurrentSkipListSet<byte[]>(Bytes.BYTES_COMPARATOR);
+//    cols.add(column1);
+//    cols.add(column3);
+//    cols.add(column5);
+//    oldRes = region.getFull(row, cols, LATEST_TIMESTAMP, v2Fetch, null);
+//    oldRes = null;
+//    start = System.nanoTime();
+//    oldRes = region.getFull(row, cols, LATEST_TIMESTAMP, v2Fetch, null);
+//    stop = System.nanoTime();
+//    if(PRINT) System.out.println("old timer " +(stop-start));
+//    int oldVersions = 0;
+//    for(Map.Entry<byte[], Cell> entry : oldRes.entrySet()){
+//      oldVersions += entry.getValue().getNumValues();
+//    }
+//    assertEquals(oldVersions, newVersions);
   }
   
   
-  public void testGetFamilies()
+  public void stestGetFamilies()
   throws IOException {
     long start = 0L;
     long stop = 0L;
     
     results = new ArrayList<KeyValue>();
-    oldPut();
+    put();
     flush();
     
-    Get get = new GetFamilies(row, getFam, (short)1, tr);
-    region.newget(get, results, null);
+//    Get get = new GetFamilies(row, getFam, (short)1, tr);
+    Get get = new Get(row);
+    get.addFamily(fam);
+    get.setMaxVersions(1);
+    get.setTimeRange(Bytes.toLong(tr.getMax()), Bytes.toLong(tr.getMin()));
+    region.getRow(get, results, null);
     
-    oldPut();
+    put();
     flush();
     
     results.clear();
     
     int v2Fetch = 2;
-    get = new GetFamilies(row, getFam, (short)v2Fetch, tr);
+//    get = new GetFamilies(row, getFam, (short)v2Fetch, tr);
+    get = new Get(row);
+    get.addFamily(fam);
+    get.setMaxVersions(v2Fetch);
+    get.setTimeRange(Bytes.toLong(tr.getMax()), Bytes.toLong(tr.getMin()));
+    
     start = System.nanoTime();
-    region.newget(get, results, null);
+    region.getRow(get, results, null);
     stop = System.nanoTime();
     if(PRINT) System.out.println("GetFamilies");
     if(PRINT) System.out.println("new timer " +(stop-start));
     
-    NavigableSet<byte[]> cols =
-      new ConcurrentSkipListSet<byte[]>(Bytes.BYTES_COMPARATOR);
-      cols.add(fam);
-    start = System.nanoTime();
-    Map<byte[],Cell> oldRes = region.getFull(row, cols, LATEST_TIMESTAMP,
-        v2Fetch, null);
-    stop = System.nanoTime();
-    if(PRINT) System.out.println("old timer " +(stop-start));
-    int oldVersions = 0;
-    for(Map.Entry<byte[], Cell> entry : oldRes.entrySet()){
-      oldVersions += entry.getValue().getNumValues();
-    }
-    assertEquals(oldVersions, results.size());
+    
+    //Old
+//    NavigableSet<byte[]> cols =
+//      new ConcurrentSkipListSet<byte[]>(Bytes.BYTES_COMPARATOR);
+//      cols.add(fam);
+//    start = System.nanoTime();
+//    Map<byte[],Cell> oldRes = region.getFull(row, cols, LATEST_TIMESTAMP,
+//        v2Fetch, null);
+//    stop = System.nanoTime();
+//    if(PRINT) System.out.println("old timer " +(stop-start));
+//    int oldVersions = 0;
+//    for(Map.Entry<byte[], Cell> entry : oldRes.entrySet()){
+//      oldVersions += entry.getValue().getNumValues();
+//    }
+//    assertEquals(oldVersions, results.size());
   }
   
-  public void testGetTop()
-  throws IOException {
-    results = new ArrayList<KeyValue>();
-    long start = 0L;
-    long stop = 0L;
-    int nrToFetch = 5;
+//  public void testGetTop()
+//  throws IOException {
+//    results = new ArrayList<KeyValue>();
+//    long start = 0L;
+//    long stop = 0L;
+//    int nrToFetch = 5;
+//
+//    
+//    oldPut();
+//    
+//    flush();
+//    oldPut();
+//    Get get = new GetTop(row, fam, nrToFetch, tr);
+//    region.newget(get, results, null);
+//    
+//    flush();
+//    oldPut();
+//    
+//    nrToFetch = 5;
+//    if(PRINT) System.out.println("Trying to fetch " +nrToFetch+
+//        " KeyValues");
+//    results = new ArrayList<KeyValue>();
+//    get = new GetTop(row, fam, nrToFetch, tr);
+//    
+//    start = System.nanoTime();
+//    region.newget(get, results, null);
+//    stop = System.nanoTime();
+//    if(PRINT) System.out.println("GetTop");
+//    if(PRINT) System.out.println("new timer " +(stop-start));
+//    if(PRINT) System.out.println("result size " +results.size());
+//    assertEquals(nrToFetch, results.size());
+//  }
+  
+  
+//  private void oldPut() 
+//  throws IOException{
+//    BatchUpdate batchUpdate = new BatchUpdate(row);
+//    batchUpdate.put(column1, val);
+//    batchUpdate.put(column2, val);
+//    batchUpdate.put(column3, val);
+//    batchUpdate.put(column4, val);
+//    batchUpdate.put(column5, val);
+//    region.batchUpdate(batchUpdate, null);
+//  }
 
-    
-    oldPut();
-    
-    flush();
-    oldPut();
-    Get get = new GetTop(row, fam, nrToFetch, tr);
-    region.newget(get, results, null);
-    
-    flush();
-    oldPut();
-    
-    nrToFetch = 5;
-    if(PRINT) System.out.println("Trying to fetch " +nrToFetch+
-        " KeyValues");
-    results = new ArrayList<KeyValue>();
-    get = new GetTop(row, fam, nrToFetch, tr);
-    
-    start = System.nanoTime();
-    region.newget(get, results, null);
-    stop = System.nanoTime();
-    if(PRINT) System.out.println("GetTop");
-    if(PRINT) System.out.println("new timer " +(stop-start));
-    if(PRINT) System.out.println("result size " +results.size());
-    assertEquals(nrToFetch, results.size());
-    
-  }
-  
-  
-  private void oldPut() 
+  private void put() 
   throws IOException{
-    BatchUpdate batchUpdate = new BatchUpdate(row);
-    batchUpdate.put(column1, val);
-    batchUpdate.put(column2, val);
-    batchUpdate.put(column3, val);
-    batchUpdate.put(column4, val);
-    batchUpdate.put(column5, val);
-    region.batchUpdate(batchUpdate, null);
+    Put put = new Put(row);
+    put.add(fam, qf1, val);
+    put.add(fam, qf2, val);
+    put.add(fam, qf3, val);
+    put.add(fam, qf4, val);
+    put.add(fam, qf5, val);
+    region.putRow(put, null, false);
   }
   
   private void createRegion(){
     try {
       HTableDescriptor htd = new HTableDescriptor(getName());
       htd.addFamily(new HColumnDescriptor(fam));
-      // FileSystem filesystem = FileSystem.get(conf);
-      // Path rootdir = filesystem.makeQualified(
-      // new Path(conf.get(HConstants.HBASE_DIR)));
-      // filesystem.mkdirs(rootdir);
-
       region = createNewHRegion(htd, null, null);
     } catch(Exception e){}
   }

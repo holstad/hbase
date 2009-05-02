@@ -48,7 +48,7 @@ import org.apache.hadoop.hbase.TableNotFoundException;
 import org.apache.hadoop.hbase.client.MetaScanner.MetaScannerVisitor;
 import org.apache.hadoop.hbase.io.BatchUpdate;
 //import org.apache.hadoop.hbase.io.Cell;
-import org.apache.hadoop.hbase.io.Put;
+import org.apache.hadoop.hbase.io.Update;
 //import org.apache.hadoop.hbase.io.RowResult;
 import org.apache.hadoop.hbase.ipc.HBaseRPC;
 import org.apache.hadoop.hbase.ipc.HBaseRPCProtocolVersion;
@@ -1046,25 +1046,25 @@ public class HConnectionManager implements HConstants {
 //    }
 
     //Everything should be grouped by row and families when coming in here
-    public void processListOfPuts(byte[] tableName, List<Put> list)
+    public void processListOfUpdates(byte[] tableName, List<Update> list)
     throws IOException {
       if (list.isEmpty()) {
         return;
       }
       int tries = 0;
-      Iterator<Put> putIterator = list.iterator();
+      Iterator<Update> updateIterator = list.iterator();
 
       byte [] currentRow = null;
-      while(putIterator.hasNext() && tries < numRetries){
+      while(updateIterator.hasNext() && tries < numRetries){
 
         System.out.println("process 1");
-        final Put currentUpdates = putIterator.next();
+        final Update currentUpdates = updateIterator.next();
         currentRow = currentUpdates.getRow();
         int index = getRegionServerWithRetries(new ServerCallable<Integer>(
             this, tableName, currentRow) {
           public Integer call() throws IOException {
             System.out.println("updating row");
-            int i = server.putRow(location.getRegionInfo()
+            int i = server.updateRow(location.getRegionInfo()
                 .getRegionName(), currentUpdates);
             return i;
           }

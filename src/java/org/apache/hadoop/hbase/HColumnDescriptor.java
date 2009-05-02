@@ -284,7 +284,7 @@ public class HColumnDescriptor implements ISerializable, WritableComparable<HCol
       final int maxValueLength, final int timeToLive, final boolean bloomFilter,
       final boolean multifamily) {
     isLegalFamilyName(familyName);
-    this.name = stripColon(familyName);
+    this.name = familyName;
     if (maxVersions <= 0) {
       // TODO: Allow maxVersion of 0 to be the way you say "Keep all versions".
       // Until there is support, consider 0 or < 0 -- a configuration error.
@@ -321,10 +321,10 @@ public class HColumnDescriptor implements ISerializable, WritableComparable<HCol
     if (b == null) {
       return b;
     }
-    if (b[b.length - 1] != ':') {
-      throw new IllegalArgumentException("Family names must end in a colon: " +
-        Bytes.toString(b));
-    }
+//    if (b[b.length - 1] != ':') {
+//      throw new IllegalArgumentException("Family names must end in a colon: " +
+//        Bytes.toString(b));
+//    }
     for (int i = 0; i < (b.length - 1); i++) {
       if (Character.isISOControl(b[i])) {
         throw new IllegalArgumentException("Illegal character <" + b[i] +

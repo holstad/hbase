@@ -63,11 +63,11 @@ import org.apache.hadoop.hbase.io.Delete;
 import org.apache.hadoop.hbase.io.Get;
 import org.apache.hadoop.hbase.io.GetColumns;
 import org.apache.hadoop.hbase.io.GetFamilies;
-import org.apache.hadoop.hbase.io.GetRow;
+//import org.apache.hadoop.hbase.io.GetRow;
 import org.apache.hadoop.hbase.io.HbaseMapWritable;
 import org.apache.hadoop.hbase.io.Put;
 //import org.apache.hadoop.hbase.io.RowResult;
-//import org.apache.hadoop.hbase.io.RowUpdates;
+import org.apache.hadoop.hbase.io.Update;
 import org.apache.hadoop.hbase.io.Reference.Range;
 import org.apache.hadoop.hbase.ipc.HRegionInterface;
 import org.apache.hadoop.hbase.util.Bytes;
@@ -1080,40 +1080,38 @@ public class HRegion implements HConstants {
    * @return the result
    * @throws IOException
    */
-  public List<KeyValue> get(Get get, List<KeyValue> result,
+  public List<KeyValue> getRow(Get get, List<KeyValue> result,
       final Integer lockid)
   throws IOException {
 //    if (LOG.isDebugEnabled()) {
 //      LOG.debug("newget: entering");
 //    }
     ServerGet serverGet = null; 
-    
-    if(get instanceof GetRow){
-      ((GetRow)get).setFamilies(regionInfo.getTableDesc().getFamiliesKeys());
-      serverGet = new ServerGetFamilies(get);
-    } else if(get instanceof GetFamilies){
-      serverGet = new ServerGetFamilies(get);
-
-    } else if(get instanceof GetColumns){
-      serverGet = new ServerGetColumns(get);
-
-    } else { 
-      serverGet = new ServerGetTop(get);
+    //Find out what kind of get that we are dealing with
+    if(get.getFamilyMap().isEmpty()){
+      for(byte[] family: regionInfo.getTableDesc().getFamiliesKeys()){
+        get.addFamily(family);
+      }
     }
     
     Integer lid = getLock(lockid, get.getRow());
 
     try {
       byte[] family = null;
-      for(Map.Entry<byte[],List<byte[]>> entry : get.getFamilyMap().entrySet()){
+      for(Map.Entry<byte[],Set<byte[]>> entry : get.getFamilyMap().entrySet()){
         //For locality groups will probably end up with a list of stores
         //so have to add a loop or something
+
         family = entry.getKey();
         Store store = stores.get(family);
         if (store != null) {
-          serverGet.setFamily(family);
-          serverGet.setColumns(entry.getValue());
-          store.newget(serverGet, result);
+          //Checking if what kind of get this is
+          if(entry.getValue().isEmpty()){
+            serverGet = new ServerGetColumns(get);
+          } else {
+            serverGet = new ServerGetFamilies(get);
+          }
+          store.getRow(serverGet, result);
         }
       }
       return result;
@@ -1167,7 +1165,13 @@ public class HRegion implements HConstants {
       if (!this.comparator.matchingRows(kv, key)) {
         kv = new KeyValue(key.getRow(), HConstants.LATEST_TIMESTAMP);
       }
-      store.getFull(kv, null, null, 1, null, results, System.currentTimeMillis());
+      
+      
+//      store.getFull(kv, null, null, 1, null, results, System.currentTimeMillis());
+      Get get = new Get();
+      get.setTimeStamp(HConstants.LATEST_TIMESTAMP);
+      get.setMaxVersions(1);
+      store.getRow(new ServerGet(get), results);
       // Convert to RowResult.  TODO: Remove need to do this.
       return results.toArray(new KeyValue[0]);
     } finally {
@@ -1259,43 +1263,89 @@ public class HRegion implements HConstants {
 //    }
 //  } 
   
-  public void putRow(Put put, Integer lockid, boolean writeToWAL)
-  throws IOException {
-    checkReadOnly();
-    
-    // Do a rough check that we have resources to accept a write.  The check is
-    // 'rough' in that between the resource check and the call to obtain a 
-    // read lock, resources may run out.  For now, the thought is that this
-    // will be extremely rare; we'll deal with it when it happens.
-    checkResources();
-    splitsAndClosesLock.readLock().lock();
-    try {
-      // We obtain a per-row lock, so other clients will block while one client
-      // performs an update. The read lock is released by the client calling
-      // #commit or #abort or if the HRegionServer lease on the lock expires.
-      // See HRegionServer#RegionListener for how the expire on HRegionServer
-      // invokes a HRegion#abort.
-      byte[] row = put.getRow();
-      // If we did not pass an existing row lock, obtain a new one
-      Integer lid = getLock(lockid, row);
-      try {
-        for(Map.Entry<byte[], List<KeyValue>> entry :
-          put.getFamilyMap().entrySet()){
-          byte[] family = entry.getKey();
-          checkFamily(family);
-          put(family, entry.getValue(), writeToWAL);
-        }
-      }
-      
-      finally {
-        if(lockid == null) releaseRowLock(lid);
-      }
-    } finally {
-      splitsAndClosesLock.readLock().unlock();
-    }
-  }
+//  public void putRow(Put put, Integer lockid, boolean writeToWAL)
+//  throws IOException {
+//    checkReadOnly();
+//    
+//    // Do a rough check that we have resources to accept a write.  The check is
+//    // 'rough' in that between the resource check and the call to obtain a 
+//    // read lock, resources may run out.  For now, the thought is that this
+//    // will be extremely rare; we'll deal with it when it happens.
+//    checkResources();
+//    splitsAndClosesLock.readLock().lock();
+//    try {
+//      // We obtain a per-row lock, so other clients will block while one client
+//      // performs an update. The read lock is released by the client calling
+//      // #commit or #abort or if the HRegionServer lease on the lock expires.
+//      // See HRegionServer#RegionListener for how the expire on HRegionServer
+//      // invokes a HRegion#abort.
+//      byte[] row = put.getRow();
+//      // If we did not pass an existing row lock, obtain a new one
+//      Integer lid = getLock(lockid, row);
+//      try {
+//        for(Map.Entry<byte[], List<KeyValue>> entry :
+//          put.getFamilyMap().entrySet()){
+//          byte[] family = entry.getKey();
+//          checkFamily(family);
+//          put(family, entry.getValue(), writeToWAL);
+//        }
+//      }
+//      
+//      finally {
+//        if(lockid == null) releaseRowLock(lid);
+//      }
+//    } finally {
+//      splitsAndClosesLock.readLock().unlock();
+//    }
+//  }
+//
+//  public void deleteRow(Delete delete, Integer lockid, boolean writeToWAL)
+//  throws IOException {
+//    checkReadOnly();
+//    
+//    // Do a rough check that we have resources to accept a write.  The check is
+//    // 'rough' in that between the resource check and the call to obtain a 
+//    // read lock, resources may run out.  For now, the thought is that this
+//    // will be extremely rare; we'll deal with it when it happens.
+//    checkResources();
+//    splitsAndClosesLock.readLock().lock();
+//    try {
+//      // We obtain a per-row lock, so other clients will block while one client
+//      // performs an update. The read lock is released by the client calling
+//      // #commit or #abort or if the HRegionServer lease on the lock expires.
+//      // See HRegionServer#RegionListener for how the expire on HRegionServer
+//      // invokes a HRegion#abort.
+//      byte[] row = delete.getRow();
+//      // If we did not pass an existing row lock, obtain a new one
+//      Integer lid = getLock(lockid, row);
+//      try {
+//        //Check to see if this is a deleteRow insert
+//        if(delete.getFamilyMap().isEmpty()){
+//          KeyValue kv = null;
+//          List<KeyValue> list = null;
+//          for(byte[] family : regionInfo.getTableDesc().getFamiliesKeys()){
+//            delete.deleteFamily(family);
+//          }
+//        }
+//        
+//        for(Map.Entry<byte[], List<KeyValue>> entry :
+//          delete.getFamilyMap().entrySet()){
+//          byte[] family = entry.getKey();
+//          checkFamily(family);
+//          delete(family, entry.getValue(), writeToWAL);
+//        }
+//      }
+//      
+//      finally {
+//        if(lockid == null) releaseRowLock(lid);
+//      }
+//    } finally {
+//      splitsAndClosesLock.readLock().unlock();
+//    }
+//  }
 
-  public void deleteRow(Delete delete, Integer lockid, boolean writeToWAL)
+  
+  public void updateRow(Update update, Integer lockid, boolean writeToWAL)
   throws IOException {
     checkReadOnly();
     
@@ -1311,19 +1361,32 @@ public class HRegion implements HConstants {
       // #commit or #abort or if the HRegionServer lease on the lock expires.
       // See HRegionServer#RegionListener for how the expire on HRegionServer
       // invokes a HRegion#abort.
-      byte[] row = delete.getRow();
+      byte[] row = update.getRow();
       // If we did not pass an existing row lock, obtain a new one
       Integer lid = getLock(lockid, row);
       try {
-        for(Map.Entry<byte[], List<KeyValue>> entry :
-          delete.getFamilyMap().entrySet()){
-          
-        }
-        for(Map.Entry<byte[], List<KeyValue>> entry :
-          delete.getFamilyMap().entrySet()){
-          byte[] family = entry.getKey();
-          checkFamily(family);
-          delete(family, entry.getValue(), writeToWAL);
+        //Check to see if this is a deleteRow insert
+        if(update instanceof Delete){
+          if(update.getFamilyMap().isEmpty()){
+            KeyValue kv = null;
+            List<KeyValue> list = null;
+            for(byte[] family : regionInfo.getTableDesc().getFamiliesKeys()){
+              ((Delete)update).deleteFamily(family);
+            }
+          }
+          for(Map.Entry<byte[], List<KeyValue>> entry :
+            update.getFamilyMap().entrySet()){
+            byte[] family = entry.getKey();
+            checkFamily(family);
+            deleteRow(family, entry.getValue(), writeToWAL);
+          }
+        } else {
+          for(Map.Entry<byte[], List<KeyValue>> entry :
+            update.getFamilyMap().entrySet()){
+            byte[] family = entry.getKey();
+            checkFamily(family);
+            putRow(family, entry.getValue(), writeToWAL);
+          }
         }
       }
       
@@ -1334,7 +1397,6 @@ public class HRegion implements HConstants {
       splitsAndClosesLock.readLock().unlock();
     }
   }
-  
   
   
   
@@ -1351,9 +1413,12 @@ public class HRegion implements HConstants {
    * @return true if update was applied
    * @throws IOException
    */
-  public boolean checkAndSave(Put put,
-      HbaseMapWritable<byte[], byte[]> expectedValues, Integer lockid,
+//  public boolean checkAndSave(Put put,
+//      HbaseMapWritable<byte[], byte[]> expectedValues, Integer lockid,
+//    boolean writeToWAL)
+  public boolean checkAndSave(Put put, KeyValue[] expected, Integer lockid,
     boolean writeToWAL)
+  
   throws IOException {
     // This is basically a copy of batchUpdate with the atomic check and save
     // added in. So you should read this method with batchUpdate. I will
@@ -1372,8 +1437,12 @@ public class HRegion implements HConstants {
           new TreeSet<byte []>(Bytes.BYTES_COMPARATOR);
         keySet.addAll(expectedValues.keySet());
         
-        Map<byte[],Cell> actualValues = getFull(row, keySet,
-          HConstants.LATEST_TIMESTAMP, 1,lid);
+//        Map<byte[],Cell> actualValues = getFull(row, keySet,
+//          HConstants.LATEST_TIMESTAMP, 1,lid);
+        
+        Get get = new Get(row);
+        List<KeyValue> actualValues = new ArrayList<KeyValue>();
+        getRow(get, actualValues, lid);
         
         for (byte[] key : keySet) {
           // If test fails exit
@@ -1687,13 +1756,16 @@ public class HRegion implements HConstants {
     checkRow(row);
     Integer lid = getLock(lockid, row);
     try {
+      Get get = new Get(row);
       if(family == null){
-        return !getRow(row).isEmpty();
       } else if(qualifier == null){
-        return !getFamily(row, family).isEmpty();
+        get.addFamily(family);
       } else {
-        return !getColumn(row, family, qualifier)).isEmpty();
+        get.addColumn(family, qualifier);
       }
+      List<KeyValue> result = new ArrayList<KeyValue>();
+      getRow(get, result, lid);
+      return !result.isEmpty();
     } finally {
       if (lockid == null) releaseRowLock(lid);
     }
@@ -1746,13 +1818,12 @@ public class HRegion implements HConstants {
    * Add updates first to the hlog and then add values to memcache.
    * Warning: Assumption is caller has lock on passed in row.
    */
-  private void put(byte[] family, List<KeyValue> kvs) throws IOException {
-    this.put(family, kvs, true);
+  private void putRow(byte[] family, List<KeyValue> kvs) throws IOException {
+    this.putRow(family, kvs, true);
   }
   
-  public void put(byte[] family, List<KeyValue> kvs, boolean writeToWAL)
+  public void putRow(byte[] family, List<KeyValue> kvs, boolean writeToWAL)
   throws IOException {
-//    long currTime = System.currentTimeMillis();
     byte[] currTime = Bytes.toBytes(System.currentTimeMillis());
     boolean flush = false;
     this.updatesLock.readLock().lock();
@@ -1796,12 +1867,13 @@ public class HRegion implements HConstants {
    * Add updates first to the hlog and then add values to memcache.
    * Warning: Assumption is caller has lock on passed in row.
    */
-  private void delete(byte[] family, List<KeyValue> kvs) throws IOException {
-    this.delete(family, kvs, true);
+  private void deleteRow(byte[] family, List<KeyValue> kvs) throws IOException {
+    this.deleteRow(family, kvs, true);
   }
   
-  public void delete(byte[] family, List<KeyValue> kvs, boolean writeToWAL)
+  public void deleteRow(byte[] family, List<KeyValue> kvs, boolean writeToWAL)
   throws IOException {
+    byte[] currTime = Bytes.toBytes(System.currentTimeMillis());
     boolean flush = false;
     this.updatesLock.readLock().lock();
     try {
@@ -1812,7 +1884,22 @@ public class HRegion implements HConstants {
       }
       long size = 0;
       Store store = getStore(family);
+      byte[] bytes = null;
+      int keyLen = 0;
+      int tsInitOffset = 2*Bytes.SIZEOF_INT - Bytes.SIZEOF_BYTE - 
+        Bytes.SIZEOF_LONG;
+      int tsOffset = 0;
       for (KeyValue kv: kvs) {
+        //Checking time in KeyValue. If time is LATEST_TIMESTAMP change it
+        //inplace to now
+        bytes = kv.getBuffer();
+        keyLen = Bytes.toInt(bytes, 0);
+        tsOffset = tsInitOffset + keyLen;
+        if(Bytes.compareTo(bytes, tsOffset, Bytes.SIZEOF_LONG, 
+            LONG_MAX_BYTES, 0, Bytes.SIZEOF_LONG) == 0){
+          Bytes.putBytes(bytes, tsOffset, currTime, 0, Bytes.SIZEOF_LONG);
+        }
+      
         size = this.memcacheSize.addAndGet(store.delete(kv));
       }
       flush = isFlushSize(size);
@@ -1920,6 +2007,7 @@ public class HRegion implements HConstants {
     if (family == null) {
       return;
     }
+    System.out.println(new String(family));
     if (!regionInfo.getTableDesc().hasFamily(family)) {
       throw new NoSuchColumnFamilyException("Column family on " +
           Bytes.toString(family) + " does not exist in region " +
@@ -2329,7 +2417,7 @@ public class HRegion implements HConstants {
       List<KeyValue> edits = new ArrayList<KeyValue>();
       edits.add(new KeyValue(row, COLUMN_FAMILY, COL_REGIONINFO, System.currentTimeMillis(),
         Writables.getBytes(r.getRegionInfo())));
-      meta.put(COLUMN_FAMILY, edits);
+      meta.putRow(COLUMN_FAMILY, edits);
     } finally {
       meta.releaseRowLock(lid);
     }
@@ -2367,14 +2455,14 @@ public class HRegion implements HConstants {
     Put put = new Put(info.getRegionName());
     info.setOffline(true);
     put.add(COLUMN_FAMILY, COL_REGIONINFO, Writables.getBytes(info));
-    srvr.putRow(metaRegionName, put);
+    srvr.updateRow(metaRegionName, put);
 //    b.put(COL_REGIONINFO, Writables.getBytes(info));
     
     Delete delete = new Delete(info.getRegionName());
     //TODO check if it should be column or columns
     delete.deleteColumn(COLUMN_FAMILY, COL_SERVER);
     delete.deleteColumn(COLUMN_FAMILY, COL_STARTCODE);
-    srvr.deleteRow(metaRegionName, delete);
+    srvr.updateRow(metaRegionName, delete);
     
 //    b.delete(COL_SERVER);
 //    b.delete(COL_STARTCODE);
@@ -2397,7 +2485,7 @@ public class HRegion implements HConstants {
     Delete delete = new Delete(info.getRegionName());
     delete.deleteColumns(COLUMN_FAMILY, COL_SERVER);
     delete.deleteColumns(COLUMN_FAMILY, COL_STARTCODE);
-    srvr.deleteRow(metaRegionName, delete);
+    srvr.updateRow(metaRegionName, delete);
     
 //    BatchUpdate b = new BatchUpdate(info.getRegionName());
 //    b.delete(COL_SERVER);
@@ -2723,31 +2811,38 @@ public class HRegion implements HConstants {
 
       Store store = getStore(family);
 
-      List<KeyValue> c;
+      Get get = new Get(row);
+      get.addColumn(family, qualifier);
+      get.setMaxVersions(1);
+      ServerGet sget = new ServerGet(get);
+      List<KeyValue> result = new ArrayList<KeyValue>();
+      boolean multiFamily = false;
+      
       // Try the memcache first.
       store.lock.readLock().lock();
       try {
-        c = store.memcache.get(kv, 1);
+        store.memcache.getRow(sget, result, multiFamily);
       } finally {
         store.lock.readLock().unlock();
       }
       // Pick the latest value out of List<Cell> c:
-      if (c.size() >= 1) {
+      if (result.size() >= 1) {
         // Use the memcache timestamp value.
         LOG.debug("Overwriting the memcache value for " + Bytes.toString(row) +
           "/" + Bytes.toString(qualifier));
-        ts = c.get(0).getTimestamp();
-        value = c.get(0).getValue();
+        ts = result.get(0).getTimestamp();
+        value = result.get(0).getValue();
       }
 
       if (value == null) {
         // Check the store (including disk) for the previous value.
-        c = store.get(kv, 1);
-        if (c != null && c.size() == 1) {
+        result.clear();
+        store.getRow(sget, result);
+        if (result != null && result.size() == 1) {
           LOG.debug("Using HFile previous value for " + Bytes.toString(row) +
             "/" + Bytes.toString(qualifier));
-          value = c.get(0).getValue();
-        } else if (c != null && c.size() > 1) {
+          value = result.get(0).getValue();
+        } else if (result != null && result.size() > 1) {
           throw new DoNotRetryIOException("more than 1 value returned in " +
             "incrementColumnValue from Store");
         }
@@ -2764,10 +2859,7 @@ public class HRegion implements HConstants {
 
       Put put = new Put(row);
       put.add(family, qualifier, ts, value);
-      putRow(put, lid, true);
-//      BatchUpdate b = new BatchUpdate(row, ts);
-//      b.put(column, value);
-//      batchUpdate(b, lid, true);
+      updateRow(put, lid, true);
       return Bytes.toLong(value);
     } finally {
       splitsAndClosesLock.readLock().unlock();
