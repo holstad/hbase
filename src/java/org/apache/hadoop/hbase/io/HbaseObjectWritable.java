@@ -24,8 +24,6 @@ import java.io.IOException;
 import java.lang.reflect.Array;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.ArrayList;
-import java.util.List;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -47,8 +45,8 @@ import org.apache.hadoop.io.ObjectWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.io.Writable;
 import org.apache.hadoop.io.WritableFactories;
-import org.apache.hadoop.hbase.io.Cell;
-import org.apache.hadoop.hbase.io.RowResult;
+//import org.apache.hadoop.hbase.io.Cell;
+//import org.apache.hadoop.hbase.io.RowResult;
 import org.apache.hadoop.hbase.util.Bytes;
 
 /** 
@@ -114,20 +112,20 @@ public class HbaseObjectWritable implements Writable, Configurable {
     addToMap(RowFilterInterface.class, code++);
     addToMap(RowFilterSet.class, code++);
     addToMap(HRegionInfo.class, code++);
-    addToMap(BatchUpdate.class, code++);
+//    addToMap(BatchUpdate.class, code++);
     addToMap(HServerAddress.class, code++);
     try {
       addToMap(Class.forName("[Lorg.apache.hadoop.hbase.HMsg;"), code++);
     } catch (ClassNotFoundException e) {
       e.printStackTrace();
     }
-    addToMap(Cell.class, code++);
-    try {
-      addToMap(Class.forName("[Lorg.apache.hadoop.hbase.io.Cell;"), code++);
-    } catch (ClassNotFoundException e) {
-      e.printStackTrace();
-    }
-    addToMap(RowResult.class, code++);
+//    addToMap(Cell.class, code++);
+//    try {
+//      addToMap(Class.forName("[Lorg.apache.hadoop.hbase.io.Cell;"), code++);
+//    } catch (ClassNotFoundException e) {
+//      e.printStackTrace();
+//    }
+//    addToMap(RowResult.class, code++);
     addToMap(HRegionInfo[].class, code++);
     addToMap(MapWritable.class, code++);
     try {
@@ -135,11 +133,14 @@ public class HbaseObjectWritable implements Writable, Configurable {
     } catch (ClassNotFoundException e) {
       e.printStackTrace();
     }
-    addToMap(BatchUpdate[].class, code++);
+//    addToMap(BatchUpdate[].class, code++);
     
     //New from 0.20
+    addToMap(Delete.class, code++);
     addToMap(Get.class, code++);
-    addToMap(RowUpdates.class, code++);
+    addToMap(Put.class, code++);
+    addToMap(Update.class, code++);
+//    addToMap(RowUpdates.class, code++);
     addToMap(KeyValue.class, code++);
     addToMap(KeyValue[].class, code++);
   }

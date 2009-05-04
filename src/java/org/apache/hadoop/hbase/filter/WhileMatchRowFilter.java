@@ -26,7 +26,7 @@ import java.util.List;
 import java.util.SortedMap;
 
 import org.apache.hadoop.hbase.KeyValue;
-import org.apache.hadoop.hbase.io.Cell;
+//import org.apache.hadoop.hbase.io.Cell;
 
 /**
  * WhileMatchRowFilter is a wrapper filter that filters everything after the 

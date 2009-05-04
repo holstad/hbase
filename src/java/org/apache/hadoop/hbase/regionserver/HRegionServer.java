@@ -1731,7 +1731,7 @@ public class HRegionServer implements HConstants, HRegionInterface,
 //    return -1;
 //  }
 
-  public int updateRow(final byte [] regionName, final Update update)
+  public int updateRow(final byte[] regionName, final Update update)
   throws IOException {
     int i = 0;
     checkOpen();

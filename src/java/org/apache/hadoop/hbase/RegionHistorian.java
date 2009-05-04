@@ -247,7 +247,7 @@ public class RegionHistorian implements HConstants {
       Put put = new Put(info.getRegionName());
       put.add(family, qualifier, timestamp, Bytes.toBytes(text));
       try {
-        this.metaTable.commit(put);
+        this.metaTable.put(put);
       } catch (IOException ioe) {
         LOG.warn("Unable to '" + text + "'", ioe);
       }

@@ -26,7 +26,7 @@ import java.util.List;
 import java.util.SortedMap;
 
 import org.apache.hadoop.hbase.KeyValue;
-import org.apache.hadoop.hbase.io.Cell;
+//import org.apache.hadoop.hbase.io.Cell;
 import org.apache.hadoop.hbase.util.Bytes;
 
 /**

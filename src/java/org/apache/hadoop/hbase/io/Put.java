@@ -24,7 +24,7 @@ public class Put extends Update implements HeapSize, Writable{
   private final KeyValue.Type TYPE = KeyValue.Type.Put;
   private byte[] row = null;
   private long timestamp = HConstants.LATEST_TIMESTAMP;
-  private long rowLock = -1l;
+  private long rowLock = -1L;
   private Map<byte[], List<KeyValue>> familyMap =
     new TreeMap<byte[], List<KeyValue>>(Bytes.BYTES_COMPARATOR);
   

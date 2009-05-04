@@ -38,6 +38,7 @@ import org.apache.hadoop.hbase.client.Scanner;
 //import org.apache.hadoop.hbase.io.RowResult;
 import org.apache.hadoop.hbase.io.Delete;
 import org.apache.hadoop.hbase.io.Put;
+import org.apache.hadoop.hbase.io.Update;
 import org.apache.hadoop.hbase.regionserver.HLog;
 import org.apache.hadoop.hbase.regionserver.HRegion;
 import org.apache.hadoop.hbase.regionserver.InternalScanner;
@@ -300,7 +301,7 @@ class HMerge implements HConstants {
       Put put = new Put(newRegion.getRegionName());
       put.add(COLUMN_FAMILY, COL_REGIONINFO,
           Writables.getBytes(newRegion.getRegionInfo()));
-      table.commit(put);
+      table.put(put);
 
       if(LOG.isDebugEnabled()) {
         LOG.debug("updated columns in row: "
@@ -370,15 +371,23 @@ class HMerge implements HConstants {
     throws IOException {
       byte[][] regionsToDelete = {oldRegion1, oldRegion2};
       for(int r = 0; r < regionsToDelete.length; r++) {
-        RowUpdates updates = new RowUpdates(regionsToDelete[r]);
+//        RowUpdates updates = new RowUpdates(regionsToDelete[r]);
+        Delete delete = new Delete(regionsToDelete[r]);
         
 //        BatchUpdate b = new BatchUpdate(regionsToDelete[r]);
-        b.delete(COL_REGIONINFO);
-        b.delete(COL_SERVER);
-        b.delete(COL_STARTCODE);
-        b.delete(COL_SPLITA);
-        b.delete(COL_SPLITB);
-        root.batchUpdate(b,null);
+        delete.deleteColumn(COLUMN_FAMILY, COL_REGIONINFO);
+        delete.deleteColumn(COLUMN_FAMILY, COL_SERVER);
+        delete.deleteColumn(COLUMN_FAMILY, COL_STARTCODE);
+        delete.deleteColumn(COLUMN_FAMILY, COL_SPLITA);
+        delete.deleteColumn(COLUMN_FAMILY, COL_SPLITB);
+        
+//        b.delete(COL_REGIONINFO);
+//        b.delete(COL_SERVER);
+//        b.delete(COL_STARTCODE);
+//        b.delete(COL_SPLITA);
+//        b.delete(COL_SPLITB);
+//        root.batchUpdate(b,null);
+        root.updateRow(delete);
 
         if(LOG.isDebugEnabled()) {
           LOG.debug("updated columns in row: " + Bytes.toString(regionsToDelete[r]));
@@ -386,9 +395,12 @@ class HMerge implements HConstants {
       }
       HRegionInfo newInfo = newRegion.getRegionInfo();
       newInfo.setOffline(true);
-      BatchUpdate b = new BatchUpdate(newRegion.getRegionName());
-      b.put(COL_REGIONINFO, Writables.getBytes(newInfo));
-      root.batchUpdate(b,null);
+      Put put = new Put(newRegion.getRegionName());
+      put.add(COLUMN_FAMILY, COL_REGIONINFO, Writables.getBytes(newInfo));
+      root.putRow(put);
+//      BatchUpdate b = new BatchUpdate(newRegion.getRegionName());
+//      b.put(COL_REGIONINFO, Writables.getBytes(newInfo));
+//      root.batchUpdate(b,null);
       if(LOG.isDebugEnabled()) {
         LOG.debug("updated columns in row: " + Bytes.toString(newRegion.getRegionName()));
       }

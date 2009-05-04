@@ -29,9 +29,9 @@ import org.apache.hadoop.hbase.client.Scanner;
 import org.apache.hadoop.hbase.client.ScannerCallable;
 import org.apache.hadoop.hbase.client.ServerCallable;
 import org.apache.hadoop.hbase.filter.RowFilterInterface;
-import org.apache.hadoop.hbase.io.BatchUpdate;
-import org.apache.hadoop.hbase.io.Cell;
-import org.apache.hadoop.hbase.io.RowResult;
+//import org.apache.hadoop.hbase.io.BatchUpdate;
+//import org.apache.hadoop.hbase.io.Cell;
+//import org.apache.hadoop.hbase.io.RowResult;
 import org.apache.hadoop.hbase.ipc.TransactionalRegionInterface;
 
 /**

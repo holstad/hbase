@@ -54,7 +54,8 @@ import org.apache.hadoop.hbase.HMsg;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.hbase.util.Pair;
 import org.apache.hadoop.hbase.util.Threads;
-import org.apache.hadoop.hbase.io.BatchUpdate;
+//import org.apache.hadoop.hbase.io.BatchUpdate;
+import org.apache.hadoop.hbase.io.Put;
 import org.apache.hadoop.hbase.util.Writables;
 import org.apache.hadoop.hbase.zookeeper.ZooKeeperWrapper;
 
@@ -656,9 +657,13 @@ class RegionManager implements HConstants {
     // 3. Insert into meta
     HRegionInfo info = region.getRegionInfo();
     byte [] regionName = region.getRegionName();
-    BatchUpdate b = new BatchUpdate(regionName);
-    b.put(COL_REGIONINFO, Writables.getBytes(info));
-    server.batchUpdate(metaRegionName, b, -1L);
+    Put put = new Put(regionName);
+    put.add(COLUMN_FAMILY, COL_REGIONINFO, Writables.getBytes(info));
+    server.updateRow(metaRegionName, put);
+    
+//    BatchUpdate b = new BatchUpdate(regionName);
+//    b.put(COL_REGIONINFO, Writables.getBytes(info));
+//    server.batchUpdate(metaRegionName, b, -1L);
     
     // 4. Close the new region to flush it to disk.  Close its log file too.
     region.close();

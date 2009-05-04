@@ -46,7 +46,7 @@ import org.apache.hadoop.hbase.MasterNotRunningException;
 import org.apache.hadoop.hbase.RemoteExceptionHandler;
 import org.apache.hadoop.hbase.TableNotFoundException;
 import org.apache.hadoop.hbase.client.MetaScanner.MetaScannerVisitor;
-import org.apache.hadoop.hbase.io.BatchUpdate;
+//import org.apache.hadoop.hbase.io.BatchUpdate;
 //import org.apache.hadoop.hbase.io.Cell;
 import org.apache.hadoop.hbase.io.Update;
 //import org.apache.hadoop.hbase.io.RowResult;

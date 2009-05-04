@@ -49,6 +49,7 @@ import org.apache.hadoop.hbase.HServerInfo;
 import org.apache.hadoop.hbase.HServerLoad;
 import org.apache.hadoop.hbase.HStoreKey;
 import org.apache.hadoop.hbase.HTableDescriptor;
+import org.apache.hadoop.hbase.KeyValue;
 import org.apache.hadoop.hbase.LocalHBaseCluster;
 import org.apache.hadoop.hbase.MasterNotRunningException;
 import org.apache.hadoop.hbase.RegionHistorian;
@@ -57,9 +58,10 @@ import org.apache.hadoop.hbase.TableExistsException;
 import org.apache.hadoop.hbase.client.HBaseAdmin;
 import org.apache.hadoop.hbase.client.ServerConnection;
 import org.apache.hadoop.hbase.client.ServerConnectionManager;
-import org.apache.hadoop.hbase.io.Cell;
+//import org.apache.hadoop.hbase.io.Cell;
+import org.apache.hadoop.hbase.io.Get;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
-import org.apache.hadoop.hbase.io.RowResult;
+//import org.apache.hadoop.hbase.io.RowResult;
 import org.apache.hadoop.hbase.ipc.HBaseRPC;
 import org.apache.hadoop.hbase.ipc.HBaseRPCProtocolVersion;
 import org.apache.hadoop.hbase.ipc.HBaseServer;
@@ -796,10 +798,21 @@ public class HMaster extends Thread implements HConstants, HMasterInterface,
     for (MetaRegion m: regions) {
       byte [] metaRegionName = m.getRegionName();
       HRegionInterface srvr = connection.getHRegionConnection(m.getServer());
+//      RowResult data = srvr.getRow(metaRegionName, regionName, 
+//        new byte[][] {COL_REGIONINFO, COL_SERVER},
+//        HConstants.LATEST_TIMESTAMP, 1, -1L);
+      Get get = new Get(, -1L);
+      get.addColumn(COLUMN_FAMILY, COL_REGIONINFO);
+      get.addColumn(COLUMN_FAMILY, COL_SERVER);
+      get.setTimeStamp(HConstants.LATEST_TIMESTAMP);
+      get.setMaxVersions(1);
+      
+      KeyValue[] data = srvr.getRow(get);
+      
       RowResult data = srvr.getRow(metaRegionName, regionName, 
-        new byte[][] {COL_REGIONINFO, COL_SERVER},
-        HConstants.LATEST_TIMESTAMP, 1, -1L);
-      if(data == null || data.size() <= 0) continue;
+          new byte[][] {COL_REGIONINFO, COL_SERVER},
+          HConstants.LATEST_TIMESTAMP, 1, -1L);
+      if(data == null || data.length <= 0) continue;
       HRegionInfo info = Writables.getHRegionInfo(data.get(COL_REGIONINFO));
       Cell cell = data.get(COL_SERVER);
       if(cell != null) {
