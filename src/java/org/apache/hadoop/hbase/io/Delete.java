@@ -28,6 +28,9 @@ public class Delete extends Update implements HeapSize, Writable{
   private Map<byte[], List<KeyValue>> familyMap = 
     new TreeMap<byte[], List<KeyValue>>(Bytes.BYTES_COMPARATOR);
   
+  //For temporary use
+//  private static final int DELIMITER = ':'; 
+  
   /**
    * Don't use this constructor, only for use with serialization
    */
@@ -40,6 +43,30 @@ public class Delete extends Update implements HeapSize, Writable{
     this.row = row;
     this.ts = ts;
     this.rl = rl;
+  }
+  
+  /**
+   * Should not be used by client, used internally during a short period
+   * @param column
+   */
+  public void deleteColumn(byte[] column){
+    int len = column.length;
+    int i=0;
+    byte b = 0;
+    for(; i<len; i++){
+      b = column[i];
+      if(b == ':'){
+        break;
+      }
+    }
+    byte[] family = new byte[i];
+    System.arraycopy(column, 0, family, 0, i);
+    i++;
+    int qLen = len - i;
+    byte[] qualifier = new byte[qLen];
+    System.arraycopy(column, i, qualifier, 0, qLen);
+    
+    deleteColumn(family, qualifier, this.ts);
   }
   
   public void deleteColumn(byte[] family, byte[] qualifier){
@@ -97,6 +124,8 @@ public class Delete extends Update implements HeapSize, Writable{
   public long getTimeStamp(){
     return this.ts;
   }
+  
+  
   
   
   public String toString(){

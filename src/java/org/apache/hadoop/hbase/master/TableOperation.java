@@ -31,7 +31,8 @@ import org.apache.hadoop.hbase.HServerInfo;
 import org.apache.hadoop.hbase.MasterNotRunningException;
 import org.apache.hadoop.hbase.RemoteExceptionHandler;
 import org.apache.hadoop.hbase.TableNotFoundException;
-//import org.apache.hadoop.hbase.io.RowResult;
+import org.apache.hadoop.hbase.client.RowResult;
+import org.apache.hadoop.hbase.io.Scan;
 import org.apache.hadoop.hbase.ipc.HRegionInterface;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.hbase.util.Writables;
@@ -76,13 +77,17 @@ abstract class TableOperation implements HConstants {
       boolean tableExists = false;
 
       // Open a scanner on the meta region
-      long scannerId = server.openScanner(m.getRegionName(),
-          COLUMN_FAMILY_ARRAY, tableName, HConstants.LATEST_TIMESTAMP, null);
+      Scan scan = new Scan(tableName);
+      scan.addFamily(COLUMN_FAMILY);
+      long scannerId = server.openScanner(m.getRegionName(), scan);
+      
+//      long scannerId = server.openScanner(m.getRegionName(),
+//          COLUMN_FAMILY_ARRAY, tableName, HConstants.LATEST_TIMESTAMP, null);
 
       List<byte []> emptyRows = new ArrayList<byte []>();
       try {
         while (true) {
-          RowResult values = server.next(scannerId);
+          RowResult values = server.next(scannerId).rowResult();
           if(values == null || values.size() == 0) {
             break;
           }

@@ -35,7 +35,9 @@ import org.apache.hadoop.hbase.client.transactional.TransactionalTable;
 import org.apache.hadoop.hbase.filter.RowFilterInterface;
 //import org.apache.hadoop.hbase.io.Cell;
 import org.apache.hadoop.hbase.io.HbaseMapWritable;
-//import org.apache.hadoop.hbase.io.RowResult;
+import org.apache.hadoop.hbase.io.Scan;
+//import org.apache.hadoop.hbase.client.RowResult;
+import org.apache.hadoop.hbase.client.Result;
 import org.apache.hadoop.hbase.util.Bytes;
 
 /** HTable extended with indexed support. */
@@ -132,30 +134,35 @@ public class IndexedTable extends TransactionalTable {
   private class ScannerWrapper implements Scanner {
 
     private Scanner indexScanner;
-    private byte[][] columns;
+//    private byte[][] columns;
+    private Scan scan = null;
 
-    public ScannerWrapper(Scanner indexScanner, byte[][] columns) {
+//    public ScannerWrapper(Scanner indexScanner, byte[][] columns) {
+//      this.indexScanner = indexScanner;
+//      this.columns = columns;
+//    }
+    public ScannerWrapper(Scanner indexScanner, Scan scan) {
       this.indexScanner = indexScanner;
-      this.columns = columns;
+      this.scan = scan;
     }
 
     /** {@inheritDoc} */
-    public RowResult next() throws IOException {
-        RowResult[] result = next(1);
+    public Result next() throws IOException {
+        Result[] result = next(1);
         if (result == null || result.length < 1)
           return null;
         return result[0];
     }
 
     /** {@inheritDoc} */
-    public RowResult[] next(int nbRows) throws IOException {
-      RowResult[] indexResult = indexScanner.next(nbRows);
+    public Result[] next(int nbRows) throws IOException {
+      Result[] indexResult = indexScanner.next(nbRows);
       if (indexResult == null) {
         return null;
       }
-      RowResult[] result = new RowResult[indexResult.length];
+      Result[] result = new Result[indexResult.length];
       for (int i = 0; i < indexResult.length; i++) {
-        RowResult row = indexResult[i];
+        RowResult row = indexResult[i].rowResult();
         byte[] baseRow = row.get(INDEX_BASE_ROW_COLUMN).getValue();
         LOG.debug("next index row [" + Bytes.toString(row.getRow())
             + "] -> base row [" + Bytes.toString(baseRow) + "]");
@@ -163,8 +170,8 @@ public class IndexedTable extends TransactionalTable {
           new HbaseMapWritable<byte[], Cell>();
         if (columns != null && columns.length > 0) {
           LOG.debug("Going to base table for remaining columns");
-          RowResult baseResult = IndexedTable.this.getRow(baseRow, columns);
-          
+//          RowResult baseResult = IndexedTable.this.getRow(baseRow, columns);
+          Result baseResult = IndexedTable.this.getRow(baseRow, columns);
           if (baseResult != null) {
             colValues.putAll(baseResult);
           }
@@ -187,11 +194,11 @@ public class IndexedTable extends TransactionalTable {
     }
 
     /** {@inheritDoc} */
-    public Iterator<RowResult> iterator() {
+    public Iterator<Result> iterator() {
       // FIXME, copied from HTable.ClientScanner. Extract this to common base
       // class?
-      return new Iterator<RowResult>() {
-        RowResult next = null;
+      return new Iterator<Result>() {
+        Result next = null;
 
         public boolean hasNext() {
           if (next == null) {
@@ -205,11 +212,11 @@ public class IndexedTable extends TransactionalTable {
           return true;
         }
 
-        public RowResult next() {
+        public Result next() {
           if (!hasNext()) {
             return null;
           }
-          RowResult temp = next;
+          Result temp = next;
           next = null;
           return temp;
         }

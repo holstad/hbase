@@ -6,6 +6,7 @@ import org.apache.hadoop.hbase.HBaseConfiguration;
 import org.apache.hadoop.hbase.HConstants;
 import org.apache.hadoop.hbase.HRegionInfo;
 import org.apache.hadoop.hbase.io.RowResult;
+import org.apache.hadoop.hbase.io.Scan;
 import org.apache.hadoop.hbase.util.Bytes;
 
 /**
@@ -49,15 +50,20 @@ class MetaScanner implements HConstants {
     // Scan over each meta region
     ScannerCallable callable = null;
     do {
-      callable = new ScannerCallable(connection, META_TABLE_NAME,
-        COLUMN_FAMILY_ARRAY, startRow, LATEST_TIMESTAMP, null);
+      Scan scan = new Scan(startRow);
+//      Scan scan = new Scan(startRow, stopRow);
+      scan.addFamily(COLUMN_FAMILY);
+      callable = new ScannerCallable(connection, META_TABLE_NAME, scan);
+//      callable = new ScannerCallable(connection, META_TABLE_NAME,
+//        COLUMN_FAMILY_ARRAY, startRow, LATEST_TIMESTAMP, null);
+      
       // Open scanner
       connection.getRegionServerWithRetries(callable);
       try {
-        RowResult r = null;
+        Result r = null;
         do {
-          RowResult [] rrs = connection.getRegionServerWithRetries(callable);
-          if (rrs == null || rrs.length == 0 || rrs[0].size() == 0) {
+          Result [] rrs = connection.getRegionServerWithRetries(callable);
+          if (rrs == null || rrs.length == 0) {
             break;
           }
           r = rrs[0];
@@ -85,6 +91,6 @@ class MetaScanner implements HConstants {
      * @return A boolean to know if it should continue to loop in the region
      * @throws IOException
      */
-    public boolean processRow(RowResult rowResult) throws IOException;
+    public boolean processRow(Result result) throws IOException;
   }
 }

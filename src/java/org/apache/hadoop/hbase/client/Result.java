@@ -30,4 +30,12 @@ public class Result {
     return RowResult.createRowResult(kvs);
   }
   
+  /**
+   * Method that returns the value of the first KeyValue in the underlaying 
+   * KeyValue[]
+   * @return value from first KeyValue byte[] 
+   */
+  public byte[] value(){
+    return kvs[0].getValue();
+  }
 }

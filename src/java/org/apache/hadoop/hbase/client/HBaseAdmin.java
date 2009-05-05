@@ -33,9 +33,11 @@ import org.apache.hadoop.hbase.HTableDescriptor;
 import org.apache.hadoop.hbase.MasterNotRunningException;
 import org.apache.hadoop.hbase.RegionException;
 import org.apache.hadoop.hbase.RemoteExceptionHandler;
+import org.apache.hadoop.hbase.client.Result;
 //import org.apache.hadoop.hbase.io.Cell;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 //import org.apache.hadoop.hbase.io.RowResult;
+import org.apache.hadoop.hbase.io.Scan;
 import org.apache.hadoop.hbase.ipc.HMasterInterface;
 import org.apache.hadoop.hbase.ipc.HRegionInterface;
 import org.apache.hadoop.hbase.util.Bytes;
@@ -237,16 +239,19 @@ public class HBaseAdmin {
     for (int tries = 0; tries < numRetries; tries++) {
       long scannerId = -1L;
       try {
+        Scan scan = new Scan(tableName);
+        scan.addFamily(HConstants.COL_REGIONINFO);
         scannerId =
           server.openScanner(firstMetaServer.getRegionInfo().getRegionName(),
-            HConstants.COL_REGIONINFO_ARRAY, tableName,
-            HConstants.LATEST_TIMESTAMP, null);
-        RowResult values = server.next(scannerId);
-        if (values == null || values.size() == 0) {
+            scan);
+        Result values = server.next(scannerId);
+        if (values == null) {
           break;
         }
         boolean found = false;
-        for (Map.Entry<byte [], Cell> e: values.entrySet()) {
+        //TODO fix so that the conversion from Result to RowResult is not needed
+        RowResult rRes = values.rowResult();
+        for (Map.Entry<byte [], Cell> e: rRes.entrySet()) {
           if (Bytes.equals(e.getKey(), HConstants.COL_REGIONINFO)) {
             info = (HRegionInfo) Writables.getWritable(
               e.getValue().getValue(), info);

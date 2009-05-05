@@ -21,13 +21,13 @@ package org.apache.hadoop.hbase.client;
 
 import java.io.Closeable;
 import java.io.IOException;
-import org.apache.hadoop.hbase.io.RowResult;
+import org.apache.hadoop.hbase.client.Result;
 
 /**
  * Interface for client-side scanning.
  * Go to {@link HTable} to obtain instances.
  */
-public interface Scanner extends Closeable, Iterable<RowResult> {
+public interface Scanner extends Closeable, Iterable<Result> {
   /**
    * Grab the next row's worth of values. The scanner will return a RowResult
    * that contains both the row's key and a map of byte[] column names to Cell 
@@ -38,14 +38,14 @@ public interface Scanner extends Closeable, Iterable<RowResult> {
    * exhausted.
    * @throws IOException
    */  
-  public RowResult next() throws IOException;
+  public Result next() throws IOException;
   
   /**
    * @param nbRows number of rows to return
    * @return Between zero and <param>nbRows</param> RowResults
    * @throws IOException
    */
-  public RowResult [] next(int nbRows) throws IOException;
+  public Result[] next(int nbRows) throws IOException;
   
   /**
    * Closes the scanner and releases any resources it has allocated

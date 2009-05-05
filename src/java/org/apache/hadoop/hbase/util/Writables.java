@@ -24,7 +24,7 @@ import java.io.DataOutputStream;
 import java.io.IOException;
 
 import org.apache.hadoop.hbase.HRegionInfo;
-import org.apache.hadoop.hbase.io.Cell;
+import org.apache.hadoop.hbase.client.Cell;
 import org.apache.hadoop.io.DataInputBuffer;
 import org.apache.hadoop.io.Writable;
 
@@ -113,7 +113,7 @@ public class Writables {
    * @return A HRegionInfo instance built out of passed <code>bytes</code>.
    * @throws IOException
    */
-  public static HRegionInfo getHRegionInfo(final byte [] bytes)
+  public static HRegionInfo getHRegionInfo(final byte[] bytes)
   throws IOException {
     return (HRegionInfo)getWritable(bytes, new HRegionInfo());
   }

@@ -49,6 +49,7 @@ import org.apache.hadoop.hbase.io.Delete;
 import org.apache.hadoop.hbase.io.Get;
 import org.apache.hadoop.hbase.io.HbaseMapWritable;
 import org.apache.hadoop.hbase.io.Put;
+import org.apache.hadoop.hbase.io.Scan;
 //import org.apache.hadoop.hbase.io.RowResult;
 import org.apache.hadoop.hbase.io.Update;
 import org.apache.hadoop.hbase.util.Bytes;
@@ -236,7 +237,9 @@ public class HTable {
   public byte [][] getStartKeys() throws IOException {
     final List<byte[]> keyList = new ArrayList<byte[]>();
     MetaScannerVisitor visitor = new MetaScannerVisitor() {
-      public boolean processRow(RowResult rowResult) throws IOException {
+      public boolean processRow(Result result) throws IOException {
+        RowResult rowResult = result.rowResult();
+        
         HRegionInfo info = Writables.getHRegionInfo(
             rowResult.get(HConstants.COL_REGIONINFO));
         if (Bytes.equals(info.getTableDesc().getName(), getTableName())) {
@@ -262,7 +265,8 @@ public class HTable {
       new TreeMap<HRegionInfo, HServerAddress>();
 
     MetaScannerVisitor visitor = new MetaScannerVisitor() {
-      public boolean processRow(RowResult rowResult) throws IOException {
+      public boolean processRow(Result result) throws IOException {
+        RowResult rowResult = result.rowResult();
         HRegionInfo info = Writables.getHRegionInfo(
             rowResult.get(HConstants.COL_REGIONINFO));
         
@@ -656,235 +660,235 @@ public class HTable {
     }
 
   /** 
-   * Get a scanner on the current table starting at first row.
-   * Return the specified columns.
-   *
-   * @param columns columns to scan. If column name is a column family, all
-   * columns of the specified column family are returned.  Its also possible
-   * to pass a regex in the column qualifier. A column qualifier is judged to
-   * be a regex if it contains at least one of the following characters:
-   * <code>\+|^&*$[]]}{)(</code>.
-   * @return scanner
-   * @throws IOException
-   */
-  public Scanner getScanner(final String [] columns)
-  throws IOException {
-    return getScanner(Bytes.toByteArrays(columns), HConstants.EMPTY_START_ROW);
-  }
-
-  /** 
-   * Get a scanner on the current table starting at the specified row.
-   * Return the specified columns.
-   *
-   * @param columns columns to scan. If column name is a column family, all
-   * columns of the specified column family are returned.  Its also possible
-   * to pass a regex in the column qualifier. A column qualifier is judged to
-   * be a regex if it contains at least one of the following characters:
-   * <code>\+|^&*$[]]}{)(</code>.
-   * @param startRow starting row in table to scan
-   * @return scanner
-   * @throws IOException
-   */
-  public Scanner getScanner(final String [] columns, final String startRow)
-  throws IOException {
-    return getScanner(Bytes.toByteArrays(columns), Bytes.toBytes(startRow));
-  }
-
-  /** 
-   * Get a scanner on the current table starting at first row.
-   * Return the specified columns.
-   *
-   * @param columns columns to scan. If column name is a column family, all
-   * columns of the specified column family are returned.  Its also possible
-   * to pass a regex in the column qualifier. A column qualifier is judged to
-   * be a regex if it contains at least one of the following characters:
-   * <code>\+|^&*$[]]}{)(</code>.
-   * @return scanner
-   * @throws IOException
-   */
-  public Scanner getScanner(final byte[][] columns)
-  throws IOException {
-    return getScanner(columns, HConstants.EMPTY_START_ROW,
-      HConstants.LATEST_TIMESTAMP, null);
-  }
-
-  /** 
-   * Get a scanner on the current table starting at the specified row.
-   * Return the specified columns.
-   *
-   * @param columns columns to scan. If column name is a column family, all
-   * columns of the specified column family are returned.  Its also possible
-   * to pass a regex in the column qualifier. A column qualifier is judged to
-   * be a regex if it contains at least one of the following characters:
-   * <code>\+|^&*$[]]}{)(</code>.
-   * @param startRow starting row in table to scan
-   * @return scanner
-   * @throws IOException
-   */
-  public Scanner getScanner(final byte[][] columns, final byte [] startRow)
-  throws IOException {
-    return getScanner(columns, startRow, HConstants.LATEST_TIMESTAMP, null);
-  }
-  
-  /** 
-   * Get a scanner on the current table starting at the specified row.
-   * Return the specified columns.
-   *
-   * @param columns columns to scan. If column name is a column family, all
-   * columns of the specified column family are returned.  Its also possible
-   * to pass a regex in the column qualifier. A column qualifier is judged to
-   * be a regex if it contains at least one of the following characters:
-   * <code>\+|^&*$[]]}{)(</code>.
-   * @param startRow starting row in table to scan
-   * @param timestamp only return results whose timestamp <= this value
-   * @return scanner
-   * @throws IOException
-   */
-  public Scanner getScanner(final byte[][] columns, final byte [] startRow,
-    long timestamp)
-  throws IOException {
-    return getScanner(columns, startRow, timestamp, null);
-  }
-  
-  /** 
-   * Get a scanner on the current table starting at the specified row.
-   * Return the specified columns.
-   *
-   * @param columns columns to scan. If column name is a column family, all
-   * columns of the specified column family are returned.  Its also possible
-   * to pass a regex in the column qualifier. A column qualifier is judged to
-   * be a regex if it contains at least one of the following characters:
-   * <code>\+|^&*$[]]}{)(</code>.
-   * @param startRow starting row in table to scan
-   * @param filter a row filter using row-key regexp and/or column data filter.
-   * @return scanner
-   * @throws IOException
-   */
-  public Scanner getScanner(final byte[][] columns, final byte [] startRow,
-    RowFilterInterface filter)
-  throws IOException { 
-    return getScanner(columns, startRow, HConstants.LATEST_TIMESTAMP, filter);
-  }
-  
-  /** 
-   * Get a scanner on the current table starting at the specified row and
-   * ending just before <code>stopRow<code>.
-   * Return the specified columns.
-   *
-   * @param columns columns to scan. If column name is a column family, all
-   * columns of the specified column family are returned.  Its also possible
-   * to pass a regex in the column qualifier. A column qualifier is judged to
-   * be a regex if it contains at least one of the following characters:
-   * <code>\+|^&*$[]]}{)(</code>.
-   * @param startRow starting row in table to scan
-   * @param stopRow Row to stop scanning on. Once we hit this row we stop
-   * returning values; i.e. we return the row before this one but not the
-   * <code>stopRow</code> itself.
-   * @return scanner
-   * @throws IOException
-   */
-  public Scanner getScanner(final byte [][] columns,
-    final byte [] startRow, final byte [] stopRow)
-  throws IOException {
-    return getScanner(columns, startRow, stopRow,
-      HConstants.LATEST_TIMESTAMP);
-  }
-
-  /** 
-   * Get a scanner on the current table starting at the specified row and
-   * ending just before <code>stopRow<code>.
-   * Return the specified columns.
-   *
-   * @param columns columns to scan. If column name is a column family, all
-   * columns of the specified column family are returned.  Its also possible
-   * to pass a regex in the column qualifier. A column qualifier is judged to
-   * be a regex if it contains at least one of the following characters:
-   * <code>\+|^&*$[]]}{)(</code>.
-   * @param startRow starting row in table to scan
-   * @param stopRow Row to stop scanning on. Once we hit this row we stop
-   * returning values; i.e. we return the row before this one but not the
-   * <code>stopRow</code> itself.
-   * @param timestamp only return results whose timestamp <= this value
-   * @return scanner
-   * @throws IOException
-   */
-  public Scanner getScanner(final String [] columns,
-    final String startRow, final String stopRow, final long timestamp)
-  throws IOException {
-    return getScanner(Bytes.toByteArrays(columns), Bytes.toBytes(startRow),
-      Bytes.toBytes(stopRow), timestamp);
-  }
-
-  /** 
-   * Get a scanner on the current table starting at the specified row and
-   * ending just before <code>stopRow<code>.
-   * Return the specified columns.
-   *
-   * @param columns columns to scan. If column name is a column family, all
-   * columns of the specified column family are returned.  Its also possible
-   * to pass a regex in the column qualifier. A column qualifier is judged to
-   * be a regex if it contains at least one of the following characters:
-   * <code>\+|^&*$[]]}{)(</code>.
-   * @param startRow starting row in table to scan
-   * @param stopRow Row to stop scanning on. Once we hit this row we stop
-   * returning values; i.e. we return the row before this one but not the
-   * <code>stopRow</code> itself.
-   * @param timestamp only return results whose timestamp <= this value
-   * @return scanner
-   * @throws IOException
-   */
-  public Scanner getScanner(final byte [][] columns,
-    final byte [] startRow, final byte [] stopRow, final long timestamp)
-  throws IOException {
-    return getScanner(columns, startRow, timestamp,
-      new WhileMatchRowFilter(new StopRowFilter(stopRow)));
-  }
-
-  /** 
-   * Get a scanner on the current table starting at the specified row.
-   * Return the specified columns.
-   *
-   * @param columns columns to scan. If column name is a column family, all
-   * columns of the specified column family are returned.  Its also possible
-   * to pass a regex in the column qualifier. A column qualifier is judged to
-   * be a regex if it contains at least one of the following characters:
-   * <code>\+|^&*$[]]}{)(</code>.
-   * @param startRow starting row in table to scan
-   * @param timestamp only return results whose timestamp <= this value
-   * @param filter a row filter using row-key regexp and/or column data filter.
-   * @return scanner
-   * @throws IOException
-   */
-  public Scanner getScanner(String[] columns,
-    String startRow, long timestamp, RowFilterInterface filter)
-  throws IOException {
-    return getScanner(Bytes.toByteArrays(columns), Bytes.toBytes(startRow),
-      timestamp, filter);
-  }
-
-  /** 
-   * Get a scanner on the current table starting at the specified row.
-   * Return the specified columns.
-   *
-   * @param columns columns to scan. If column name is a column family, all
-   * columns of the specified column family are returned.  Its also possible
-   * to pass a regex in the column qualifier. A column qualifier is judged to
-   * be a regex if it contains at least one of the following characters:
-   * <code>\+|^&*$[]]}{)(</code>.
-   * @param startRow starting row in table to scan
-   * @param timestamp only return results whose timestamp <= this value
-   * @param filter a row filter using row-key regexp and/or column data filter.
-   * @return scanner
-   * @throws IOException
-   */
-  public Scanner getScanner(final byte [][] columns,
-    final byte [] startRow, long timestamp, RowFilterInterface filter)
-  throws IOException {
-    ClientScanner s = new ClientScanner(columns, startRow,
-        timestamp, filter);
-    s.initialize();
-    return s;
-  }
+//   * Get a scanner on the current table starting at first row.
+//   * Return the specified columns.
+//   *
+//   * @param columns columns to scan. If column name is a column family, all
+//   * columns of the specified column family are returned.  Its also possible
+//   * to pass a regex in the column qualifier. A column qualifier is judged to
+//   * be a regex if it contains at least one of the following characters:
+//   * <code>\+|^&*$[]]}{)(</code>.
+//   * @return scanner
+//   * @throws IOException
+//   */
+//  public Scanner getScanner(final String [] columns)
+//  throws IOException {
+//    return getScanner(Bytes.toByteArrays(columns), HConstants.EMPTY_START_ROW);
+//  }
+//
+//  /** 
+//   * Get a scanner on the current table starting at the specified row.
+//   * Return the specified columns.
+//   *
+//   * @param columns columns to scan. If column name is a column family, all
+//   * columns of the specified column family are returned.  Its also possible
+//   * to pass a regex in the column qualifier. A column qualifier is judged to
+//   * be a regex if it contains at least one of the following characters:
+//   * <code>\+|^&*$[]]}{)(</code>.
+//   * @param startRow starting row in table to scan
+//   * @return scanner
+//   * @throws IOException
+//   */
+//  public Scanner getScanner(final String [] columns, final String startRow)
+//  throws IOException {
+//    return getScanner(Bytes.toByteArrays(columns), Bytes.toBytes(startRow));
+//  }
+//
+//  /** 
+//   * Get a scanner on the current table starting at first row.
+//   * Return the specified columns.
+//   *
+//   * @param columns columns to scan. If column name is a column family, all
+//   * columns of the specified column family are returned.  Its also possible
+//   * to pass a regex in the column qualifier. A column qualifier is judged to
+//   * be a regex if it contains at least one of the following characters:
+//   * <code>\+|^&*$[]]}{)(</code>.
+//   * @return scanner
+//   * @throws IOException
+//   */
+//  public Scanner getScanner(final byte[][] columns)
+//  throws IOException {
+//    return getScanner(columns, HConstants.EMPTY_START_ROW,
+//      HConstants.LATEST_TIMESTAMP, null);
+//  }
+//
+//  /** 
+//   * Get a scanner on the current table starting at the specified row.
+//   * Return the specified columns.
+//   *
+//   * @param columns columns to scan. If column name is a column family, all
+//   * columns of the specified column family are returned.  Its also possible
+//   * to pass a regex in the column qualifier. A column qualifier is judged to
+//   * be a regex if it contains at least one of the following characters:
+//   * <code>\+|^&*$[]]}{)(</code>.
+//   * @param startRow starting row in table to scan
+//   * @return scanner
+//   * @throws IOException
+//   */
+//  public Scanner getScanner(final byte[][] columns, final byte [] startRow)
+//  throws IOException {
+//    return getScanner(columns, startRow, HConstants.LATEST_TIMESTAMP, null);
+//  }
+//  
+//  /** 
+//   * Get a scanner on the current table starting at the specified row.
+//   * Return the specified columns.
+//   *
+//   * @param columns columns to scan. If column name is a column family, all
+//   * columns of the specified column family are returned.  Its also possible
+//   * to pass a regex in the column qualifier. A column qualifier is judged to
+//   * be a regex if it contains at least one of the following characters:
+//   * <code>\+|^&*$[]]}{)(</code>.
+//   * @param startRow starting row in table to scan
+//   * @param timestamp only return results whose timestamp <= this value
+//   * @return scanner
+//   * @throws IOException
+//   */
+//  public Scanner getScanner(final byte[][] columns, final byte [] startRow,
+//    long timestamp)
+//  throws IOException {
+//    return getScanner(columns, startRow, timestamp, null);
+//  }
+//  
+//  /** 
+//   * Get a scanner on the current table starting at the specified row.
+//   * Return the specified columns.
+//   *
+//   * @param columns columns to scan. If column name is a column family, all
+//   * columns of the specified column family are returned.  Its also possible
+//   * to pass a regex in the column qualifier. A column qualifier is judged to
+//   * be a regex if it contains at least one of the following characters:
+//   * <code>\+|^&*$[]]}{)(</code>.
+//   * @param startRow starting row in table to scan
+//   * @param filter a row filter using row-key regexp and/or column data filter.
+//   * @return scanner
+//   * @throws IOException
+//   */
+//  public Scanner getScanner(final byte[][] columns, final byte [] startRow,
+//    RowFilterInterface filter)
+//  throws IOException { 
+//    return getScanner(columns, startRow, HConstants.LATEST_TIMESTAMP, filter);
+//  }
+//  
+//  /** 
+//   * Get a scanner on the current table starting at the specified row and
+//   * ending just before <code>stopRow<code>.
+//   * Return the specified columns.
+//   *
+//   * @param columns columns to scan. If column name is a column family, all
+//   * columns of the specified column family are returned.  Its also possible
+//   * to pass a regex in the column qualifier. A column qualifier is judged to
+//   * be a regex if it contains at least one of the following characters:
+//   * <code>\+|^&*$[]]}{)(</code>.
+//   * @param startRow starting row in table to scan
+//   * @param stopRow Row to stop scanning on. Once we hit this row we stop
+//   * returning values; i.e. we return the row before this one but not the
+//   * <code>stopRow</code> itself.
+//   * @return scanner
+//   * @throws IOException
+//   */
+//  public Scanner getScanner(final byte [][] columns,
+//    final byte [] startRow, final byte [] stopRow)
+//  throws IOException {
+//    return getScanner(columns, startRow, stopRow,
+//      HConstants.LATEST_TIMESTAMP);
+//  }
+//
+//  /** 
+//   * Get a scanner on the current table starting at the specified row and
+//   * ending just before <code>stopRow<code>.
+//   * Return the specified columns.
+//   *
+//   * @param columns columns to scan. If column name is a column family, all
+//   * columns of the specified column family are returned.  Its also possible
+//   * to pass a regex in the column qualifier. A column qualifier is judged to
+//   * be a regex if it contains at least one of the following characters:
+//   * <code>\+|^&*$[]]}{)(</code>.
+//   * @param startRow starting row in table to scan
+//   * @param stopRow Row to stop scanning on. Once we hit this row we stop
+//   * returning values; i.e. we return the row before this one but not the
+//   * <code>stopRow</code> itself.
+//   * @param timestamp only return results whose timestamp <= this value
+//   * @return scanner
+//   * @throws IOException
+//   */
+//  public Scanner getScanner(final String [] columns,
+//    final String startRow, final String stopRow, final long timestamp)
+//  throws IOException {
+//    return getScanner(Bytes.toByteArrays(columns), Bytes.toBytes(startRow),
+//      Bytes.toBytes(stopRow), timestamp);
+//  }
+//
+//  /** 
+//   * Get a scanner on the current table starting at the specified row and
+//   * ending just before <code>stopRow<code>.
+//   * Return the specified columns.
+//   *
+//   * @param columns columns to scan. If column name is a column family, all
+//   * columns of the specified column family are returned.  Its also possible
+//   * to pass a regex in the column qualifier. A column qualifier is judged to
+//   * be a regex if it contains at least one of the following characters:
+//   * <code>\+|^&*$[]]}{)(</code>.
+//   * @param startRow starting row in table to scan
+//   * @param stopRow Row to stop scanning on. Once we hit this row we stop
+//   * returning values; i.e. we return the row before this one but not the
+//   * <code>stopRow</code> itself.
+//   * @param timestamp only return results whose timestamp <= this value
+//   * @return scanner
+//   * @throws IOException
+//   */
+//  public Scanner getScanner(final byte [][] columns,
+//    final byte [] startRow, final byte [] stopRow, final long timestamp)
+//  throws IOException {
+//    return getScanner(columns, startRow, timestamp,
+//      new WhileMatchRowFilter(new StopRowFilter(stopRow)));
+//  }
+//
+//  /** 
+//   * Get a scanner on the current table starting at the specified row.
+//   * Return the specified columns.
+//   *
+//   * @param columns columns to scan. If column name is a column family, all
+//   * columns of the specified column family are returned.  Its also possible
+//   * to pass a regex in the column qualifier. A column qualifier is judged to
+//   * be a regex if it contains at least one of the following characters:
+//   * <code>\+|^&*$[]]}{)(</code>.
+//   * @param startRow starting row in table to scan
+//   * @param timestamp only return results whose timestamp <= this value
+//   * @param filter a row filter using row-key regexp and/or column data filter.
+//   * @return scanner
+//   * @throws IOException
+//   */
+//  public Scanner getScanner(String[] columns,
+//    String startRow, long timestamp, RowFilterInterface filter)
+//  throws IOException {
+//    return getScanner(Bytes.toByteArrays(columns), Bytes.toBytes(startRow),
+//      timestamp, filter);
+//  }
+//
+//  /** 
+//   * Get a scanner on the current table starting at the specified row.
+//   * Return the specified columns.
+//   *
+//   * @param columns columns to scan. If column name is a column family, all
+//   * columns of the specified column family are returned.  Its also possible
+//   * to pass a regex in the column qualifier. A column qualifier is judged to
+//   * be a regex if it contains at least one of the following characters:
+//   * <code>\+|^&*$[]]}{)(</code>.
+//   * @param startRow starting row in table to scan
+//   * @param timestamp only return results whose timestamp <= this value
+//   * @param filter a row filter using row-key regexp and/or column data filter.
+//   * @return scanner
+//   * @throws IOException
+//   */
+//  public Scanner getScanner(final byte [][] columns,
+//    final byte [] startRow, long timestamp, RowFilterInterface filter)
+//  throws IOException {
+//    ClientScanner s = new ClientScanner(columns, startRow,
+//        timestamp, filter);
+//    s.initialize();
+//    return s;
+//  }
   
 //  /**
 //   * Completely delete the row's cells.
@@ -1377,6 +1381,13 @@ public class HTable {
     }
   }
   
+  public Scanner getScanner(Scan scan)
+  throws IOException {
+    ClientScanner s = new ClientScanner(scan);
+    s.initialize();
+    return s;
+  } 
+  
 //  public synchronized void commit(final Put put) 
 //  throws IOException {
 //    writeBuffer.add(put);
@@ -1596,36 +1607,31 @@ public class HTable {
    */
   protected class ClientScanner implements Scanner {
     private final Log CLIENT_LOG = LogFactory.getLog(this.getClass());
-    private byte[][] columns;
-    private byte [] startRow;
+    private Scan scan = null;
     protected long scanTime;
     private boolean closed = false;
     private HRegionInfo currentRegion = null;
     private ScannerCallable callable = null;
-    protected RowFilterInterface filter;
-    private final LinkedList<RowResult> cache = new LinkedList<RowResult>();
+    private final LinkedList<Result> cache = new LinkedList<Result>();
     @SuppressWarnings("hiding")
     private final int scannerCaching = HTable.this.scannerCaching;
     private long lastNext;
 
-    protected ClientScanner(final byte[][] columns, final byte [] startRow,
-        final long timestamp, final RowFilterInterface filter) {
+    protected ClientScanner(final Scan scan){
       if (CLIENT_LOG.isDebugEnabled()) {
         CLIENT_LOG.debug("Creating scanner over " 
             + Bytes.toString(getTableName()) 
-            + " starting at key '" + Bytes.toString(startRow) + "'");
+            + " starting at key '" + Bytes.toString(scan.getStartRow()) + "'");
       }
       // save off the simple parameters
-      this.columns = columns;
-      this.startRow = startRow;
-      this.scanTime = timestamp;
+      this.scan = scan;
       
       // save the filter, and make sure that the filter applies to the data
       // we're expecting to pull back
-      this.filter = filter;
-      if (filter != null) {
-        filter.validate(columns);
-      }
+//      this.filter = filter;
+//      if (filter != null) {
+//        filter.validate(columns);
+//      }
       this.lastNext = System.currentTimeMillis();
     }
 
@@ -1635,17 +1641,17 @@ public class HTable {
       nextScanner(this.scannerCaching);
     }
     
-    protected byte[][] getColumns() {
-      return columns;
+    protected Scan getScan() {
+      return this.scan;
     }
     
     protected long getTimestamp() {
       return scanTime;
     }
     
-    protected RowFilterInterface getFilter() {
-      return filter;
-    }
+//    protected RowFilterInterface getFilter() {
+//      return filter;
+//    }
         
     /*
      * Gets a scanner for the next region.
@@ -1669,14 +1675,15 @@ public class HTable {
         byte [] endKey = currentRegion.getEndKey();
         if (endKey == null ||
             Bytes.equals(endKey, HConstants.EMPTY_BYTE_ARRAY) ||
-            filterSaysStop(endKey)) {
+            Bytes.equals(endKey, this.scan.getStopRow()) ){
           close();
           return false;
         }
       } 
       
       HRegionInfo oldRegion = this.currentRegion;
-      byte [] localStartKey = oldRegion == null? startRow: oldRegion.getEndKey();
+      byte [] localStartKey = oldRegion == null ?scan.getStartRow() 
+          :oldRegion.getEndKey();
 
       if (CLIENT_LOG.isDebugEnabled()) {
         CLIENT_LOG.debug("Advancing internal scanner to startKey at '" +
@@ -1698,35 +1705,29 @@ public class HTable {
     
     protected ScannerCallable getScannerCallable(byte [] localStartKey,
         int nbRows) {
+//      ScannerCallable s = new ScannerCallable(getConnection(), 
+//          getTableName(), columns, 
+//          localStartKey, scanTime, filter);
+      
+      Scan tmpScan = new Scan(localStartKey);
+      tmpScan.setFamilyMap(this.scan.getFamilyMap());
+      tmpScan.setTimeStamp(scanTime);
+      tmpScan.setFilter(this.scan.getFilter());
       ScannerCallable s = new ScannerCallable(getConnection(), 
-          getTableName(), columns, 
-          localStartKey, scanTime, filter);
+          getTableName(), tmpScan);
       s.setCaching(nbRows);
       return s;
     }
 
-    /**
-     * @param endKey
-     * @return Returns true if the passed region endkey is judged beyond
-     * filter.
-     */
-    private boolean filterSaysStop(final byte [] endKey) {
-      if (this.filter == null) {
-        return false;
-      }
-      // Let the filter see current row.
-      this.filter.filterRowKey(endKey);
-      return this.filter.filterAllRemaining();
-    }
 
-    public RowResult next() throws IOException {
+    public Result next() throws IOException {
       // If the scanner is closed but there is some rows left in the cache,
       // it will first empty it before returning null
       if (cache.size() == 0 && this.closed) {
         return null;
       }
       if (cache.size() == 0) {
-        RowResult[] values = null;
+        Result[] values = null;
         int countdown = this.scannerCaching;
         // We need to reset it if it's a new callable that was created 
         // with a countdown in nextScanner
@@ -1745,7 +1746,7 @@ public class HTable {
           }
           lastNext = System.currentTimeMillis();
           if (values != null && values.length > 0) {
-            for (RowResult rs : values) {
+            for (Result rs : values) {
               cache.add(rs);
               countdown--;
             }
@@ -1764,18 +1765,18 @@ public class HTable {
      * @return Between zero and <param>nbRows</param> RowResults
      * @throws IOException
      */
-    public RowResult[] next(int nbRows) throws IOException {
+    public Result[] next(int nbRows) throws IOException {
       // Collect values to be returned here
-      ArrayList<RowResult> resultSets = new ArrayList<RowResult>(nbRows);
+      ArrayList<Result> resultSets = new ArrayList<Result>(nbRows);
       for(int i = 0; i < nbRows; i++) {
-        RowResult next = next();
+        Result next = next();
         if (next != null) {
           resultSets.add(next);
         } else {
           break;
         }
       }
-      return resultSets.toArray(new RowResult[resultSets.size()]);
+      return resultSets.toArray(new Result[resultSets.size()]);
     }
     
     public void close() {
@@ -1794,10 +1795,10 @@ public class HTable {
       closed = true;
     }
 
-    public Iterator<RowResult> iterator() {
-      return new Iterator<RowResult>() {
+    public Iterator<Result> iterator() {
+      return new Iterator<Result>() {
         // The next RowResult, possibly pre-read
-        RowResult next = null;
+        Result next = null;
         
         // return true if there is another item pending, false if there isn't.
         // this method is where the actual advancing takes place, but you need
@@ -1817,7 +1818,7 @@ public class HTable {
 
         // get the pending next item and advance the iterator. returns null if
         // there is no next item.
-        public RowResult next() {
+        public Result next() {
           // since hasNext() does the real advancing, we call this to determine
           // if there is a next before proceeding.
           if (!hasNext()) {
@@ -1827,7 +1828,7 @@ public class HTable {
           // if we get to here, then hasNext() has given us an item to return.
           // we want to return the item and then null out the next pointer, so
           // we use a temporary variable.
-          RowResult temp = next;
+          Result temp = next;
           next = null;
           return temp;
         }

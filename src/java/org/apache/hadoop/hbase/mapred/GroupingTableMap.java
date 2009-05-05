@@ -28,6 +28,7 @@ import org.apache.hadoop.hbase.HConstants;
 //import org.apache.hadoop.hbase.io.Cell;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 //import org.apache.hadoop.hbase.io.RowResult;
+import org.apache.hadoop.hbase.client.Result;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.MapReduceBase;
@@ -40,7 +41,7 @@ import org.apache.hadoop.mapred.Reporter;
  */
 public class GroupingTableMap
 extends MapReduceBase
-implements TableMap<ImmutableBytesWritable,RowResult> {
+implements TableMap<ImmutableBytesWritable, Result> {
 
   /**
    * JobConf parameter to specify the columns used to produce the key passed to 

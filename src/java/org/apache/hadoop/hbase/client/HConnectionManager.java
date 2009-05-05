@@ -48,6 +48,7 @@ import org.apache.hadoop.hbase.TableNotFoundException;
 import org.apache.hadoop.hbase.client.MetaScanner.MetaScannerVisitor;
 //import org.apache.hadoop.hbase.io.BatchUpdate;
 //import org.apache.hadoop.hbase.io.Cell;
+import org.apache.hadoop.hbase.io.Scan;
 import org.apache.hadoop.hbase.io.Update;
 //import org.apache.hadoop.hbase.io.RowResult;
 import org.apache.hadoop.hbase.ipc.HBaseRPC;
@@ -339,7 +340,9 @@ public class HConnectionManager implements HConstants {
 
       MetaScannerVisitor visitor = new MetaScannerVisitor() {
 
-        public boolean processRow(RowResult rowResult) throws IOException {
+        public boolean processRow(Result result) throws IOException {
+          RowResult rowResult = result.rowResult();
+          
           HRegionInfo info = Writables.getHRegionInfo(
               rowResult.get(HConstants.COL_REGIONINFO));
           // Only examine the rows where the startKey is zero length
@@ -387,12 +390,11 @@ public class HConnectionManager implements HConstants {
         HRegionInfo.createRegionName(tableName, null, HConstants.ZEROES);
       byte[] endKey = null;
       HRegionInfo currentRegion = null;
+      Scan scan = new Scan(startKey);
+      
       ScannerCallable s = new ScannerCallable(this, 
           (Bytes.equals(tableName, HConstants.META_TABLE_NAME) ?
-              HConstants.ROOT_TABLE_NAME : HConstants.META_TABLE_NAME),
-          HConstants.COL_REGIONINFO_ARRAY, startKey,
-          HConstants.LATEST_TIMESTAMP, null
-      );
+              HConstants.ROOT_TABLE_NAME : HConstants.META_TABLE_NAME), scan);
       try {
         // Open scanner
         getRegionServerWithRetries(s);
@@ -402,10 +404,12 @@ public class HConnectionManager implements HConstants {
             startKey = oldRegion.getEndKey();
           }
           currentRegion = s.getHRegionInfo();
+          Result result = null;
           RowResult r = null;
-          RowResult[] rrs = null;
+          Result[] rrs = null;
           while ((rrs = getRegionServerWithRetries(s)) != null) {
-            r = rrs[0];
+            result = rrs[0];
+            r = result.rowResult();
             Cell c = r.get(HConstants.COL_REGIONINFO);
             if (c != null) {
               byte[] value = c.getValue();
@@ -436,22 +440,23 @@ public class HConnectionManager implements HConstants {
     private static class HTableDescriptorFinder 
     implements MetaScanner.MetaScannerVisitor {
         byte[] tableName;
-        HTableDescriptor result;
+        HTableDescriptor res;
         protected HTableDescriptorFinder(byte[] tableName) {
           this.tableName = tableName;
         }
-        public boolean processRow(RowResult rowResult) throws IOException {
+        public boolean processRow(Result result) throws IOException {
+          RowResult rowResult = result.rowResult();
           HRegionInfo info = Writables.getHRegionInfo(
             rowResult.get(HConstants.COL_REGIONINFO));
           HTableDescriptor desc = info.getTableDesc();
           if (Bytes.compareTo(desc.getName(), tableName) == 0) {
-            result = desc;
+            res = desc;
             return false;
           }
           return true;
         }
         HTableDescriptor getResult() {
-          return result;
+          return res;
         }
     }
 

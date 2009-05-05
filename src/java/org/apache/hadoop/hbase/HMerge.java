@@ -29,15 +29,17 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.hbase.client.Cell;
 import org.apache.hadoop.hbase.client.HConnection;
 import org.apache.hadoop.hbase.client.HConnectionManager;
 import org.apache.hadoop.hbase.client.HTable;
+import org.apache.hadoop.hbase.client.Result;
+import org.apache.hadoop.hbase.client.RowResult;
 import org.apache.hadoop.hbase.client.Scanner;
 //import org.apache.hadoop.hbase.io.BatchUpdate;
-//import org.apache.hadoop.hbase.io.Cell;
-//import org.apache.hadoop.hbase.io.RowResult;
 import org.apache.hadoop.hbase.io.Delete;
 import org.apache.hadoop.hbase.io.Put;
+import org.apache.hadoop.hbase.io.Scan;
 import org.apache.hadoop.hbase.io.Update;
 import org.apache.hadoop.hbase.regionserver.HLog;
 import org.apache.hadoop.hbase.regionserver.HRegion;
@@ -205,7 +207,11 @@ class HMerge implements HConstants {
       super(conf, fs, tableName);
       this.tableName = tableName;
       this.table = new HTable(conf, META_TABLE_NAME);
-      this.metaScanner = table.getScanner(COL_REGIONINFO_ARRAY, tableName);
+//      this.metaScanner = table.getScanner(COL_REGIONINFO_ARRAY, tableName);
+      Scan scan = new Scan(tableName);
+      scan.addFamily(COL_REGIONINFO);
+      this.metaScanner = table.getScanner(scan);
+//      getScanner(COL_REGIONINFO_ARRAY, tableName);
       this.latestRegion = null;
     }
     
@@ -248,13 +254,17 @@ class HMerge implements HConstants {
      * @throws IOException
      */
     private RowResult getMetaRow() throws IOException {
-      RowResult currentRow = metaScanner.next();
+      Result result = metaScanner.next();
+      //Todo fix to no need for conversion Result -> RowResult
+      RowResult currentRow = result.rowResult();
       boolean foundResult = false;
       while (currentRow != null) {
         LOG.info("Row: <" + Bytes.toString(currentRow.getRow()) + ">");
         Cell regionInfo = currentRow.get(COL_REGIONINFO);
         if (regionInfo == null || regionInfo.getValue().length == 0) {
-          currentRow = metaScanner.next();
+          result = metaScanner.next();
+          //Todo fix to no need for conversion Result -> RowResult
+          currentRow = result.rowResult();
           continue;
         }
         foundResult = true;
@@ -387,7 +397,7 @@ class HMerge implements HConstants {
 //        b.delete(COL_SPLITA);
 //        b.delete(COL_SPLITB);
 //        root.batchUpdate(b,null);
-        root.updateRow(delete);
+        root.updateRow(delete, null, true);
 
         if(LOG.isDebugEnabled()) {
           LOG.debug("updated columns in row: " + Bytes.toString(regionsToDelete[r]));
@@ -397,7 +407,8 @@ class HMerge implements HConstants {
       newInfo.setOffline(true);
       Put put = new Put(newRegion.getRegionName());
       put.add(COLUMN_FAMILY, COL_REGIONINFO, Writables.getBytes(newInfo));
-      root.putRow(put);
+//      root.putRow(put);
+      root.updateRow(put, null, true);
 //      BatchUpdate b = new BatchUpdate(newRegion.getRegionName());
 //      b.put(COL_REGIONINFO, Writables.getBytes(newInfo));
 //      root.batchUpdate(b,null);

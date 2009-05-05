@@ -14,95 +14,11 @@ import org.apache.hadoop.hbase.io.TimeRange;
 import org.apache.hadoop.hbase.util.Bytes;
 
 public class ServerGet {
-//public interface ServerGet {
-//  /**
-//   * Sets all the internal variables to original settings, needs to be done
-//   * in between every storeFile
-//   */
-//  public void clear();
-//  
-//  /**
-//   * 
-//   * Return codes that need to be implemented by method
-//   * -1 if cur should not be included in result
-//   * 0 if cur should be included in result
-//   * 1 if cur has reached the put/delete border
-//   * 2 if cur has reached the next row
-//   * 3 if cur is past this StoreFiles boundary for this Get
-//   * 4 if cur is past this Stores boundary for this get
-//   * 
-//   * @param kv
-//   * @return the return code 
-//   */
-//  public int compareTo(KeyValue kv) throws IOException;
-//  /**
-//   * 
-//   * Return codes that need to be implemented by method
-//   * -1 if cur should not be included in result
-//   * 0 if cur should be included in result
-//   * 1 if cur has reached the put/delete border
-//   * 2 if cur has reached the next row
-//   * 3 if cur is past this StoreFiles boundary for this Get
-//   * 4 if cur is past this Stores boundary for this get
-//   * 
-//   * @param kv
-//   * @param multiFamily, if the store includes multiple families
-//   * @return the return code 
-//   */
-//  public int compareTo(KeyValue kv, boolean multiFamily) throws IOException;
-//  
-////  public byte [] getFirstColumn();
-//  public byte [] getRow();
-//  
-//  public TimeRange getTimeRange();
-//  
-//  public List<KeyValue> getColumns();
-//  public void setColumns(List<byte[]> columns);
-////  public void setColumns(List<KeyValue> columns);
-////  public void setColumnsFromBytes(List<byte[]> columns);
-//  public List<Short> getVersions();
-////  public byte [][] getColumns();
-////  public void setColumns(byte [][] columns);
-//  
-//  public List<KeyValue> getDeletes();
-//  public void setDeletes(List<KeyValue> deletes);
-//  public List<KeyValue> getNewDeletes();
-//  public void setNewDeletes(List<KeyValue> deletes);
-//  public int isDeleted(byte [] currBytes, int initCurrOffset,
-//      short currRowLen, byte currFamLen, int currColLen, boolean multiFamily);
-//  
-//  public byte [] getFamily();
-//  public void setFamily(byte [] family);
-//  
-//  public void setFilter(RowFilterInterface filter);
-//  
-//  public long getNow();
-//  public void setNow();
-//  public void setNow(long now);
-//  
-//  public long getTTL();
-//  public void setTTL(long ttl);
-//  
-//  public void mergeDeletes(boolean multiFamily);
-////  public Deletes mergeDeletes(List<KeyValue> l1, List<KeyValue> l2);
-////  public Deletes mergeDeletes(List<KeyValue> l1, List<KeyValue> l2,
-////      boolean multiFamily);
-//  
-//  public void mergeGets();
-//  
-//  public String toString();
-
-  
-  
   protected static final int NEXT_KV = 0;
   protected static final int ADD = 1;
   protected static final int NEXT_SF = 2;
   protected static final int DONE = 3;
   
-  
-//  byte[] row = null;
-//  Family family = null;
-//  TimeRange tr = null;
   protected Get get = null;
   private byte [] family = null;
   

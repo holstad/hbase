@@ -33,9 +33,10 @@ import org.apache.hadoop.hbase.RemoteExceptionHandler;
 import org.apache.hadoop.hbase.ipc.HRegionInterface;
 import org.apache.hadoop.hbase.regionserver.HLog;
 import org.apache.hadoop.hbase.regionserver.HRegion;
+import org.apache.hadoop.hbase.client.RowResult;
+import org.apache.hadoop.hbase.io.Scan;
 import org.apache.hadoop.hbase.util.Writables;
 import org.apache.hadoop.hbase.util.Bytes;
-//import org.apache.hadoop.hbase.io.RowResult;
 
 /** 
  * Instantiated when a server's lease has expired, meaning it has crashed.
@@ -96,7 +97,7 @@ class ProcessServerShutdown extends RegionServerOperation {
       while (true) {
         RowResult values = null;
         try {
-          values = server.next(scannerId);
+          values = server.next(scannerId).rowResult();
         } catch (IOException e) {
           LOG.error("Shutdown scanning of meta region",
             RemoteExceptionHandler.checkIOException(e));
@@ -202,9 +203,13 @@ class ProcessServerShutdown extends RegionServerOperation {
         LOG.debug("process server shutdown scanning root region on " +
             master.getRootRegionLocation().getBindAddress());
       }
+      Scan scan = new Scan(EMPTY_START_ROW);
+      scan.addFamily(COLUMN_FAMILY);
       long scannerId = server.openScanner(
-          HRegionInfo.ROOT_REGIONINFO.getRegionName(), COLUMN_FAMILY_ARRAY,
-          EMPTY_START_ROW, HConstants.LATEST_TIMESTAMP, null);
+          HRegionInfo.ROOT_REGIONINFO.getRegionName(), scan);
+//      long scannerId = server.openScanner(
+//          HRegionInfo.ROOT_REGIONINFO.getRegionName(), COLUMN_FAMILY_ARRAY,
+//          EMPTY_START_ROW, HConstants.LATEST_TIMESTAMP, null);
       scanMetaRegion(server, scannerId,
           HRegionInfo.ROOT_REGIONINFO.getRegionName());
       return true;
@@ -221,9 +226,13 @@ class ProcessServerShutdown extends RegionServerOperation {
         LOG.debug("process server shutdown scanning " +
           Bytes.toString(m.getRegionName()) + " on " + m.getServer());
       }
-      long scannerId =
-        server.openScanner(m.getRegionName(), COLUMN_FAMILY_ARRAY,
-        EMPTY_START_ROW, HConstants.LATEST_TIMESTAMP, null);
+      Scan scan = new Scan(EMPTY_START_ROW);
+      scan.addFamily(COLUMN_FAMILY);
+      long scannerId = server.openScanner(
+          HRegionInfo.ROOT_REGIONINFO.getRegionName(), scan);
+//      long scannerId =
+//        server.openScanner(m.getRegionName(), COLUMN_FAMILY_ARRAY,
+//        EMPTY_START_ROW, HConstants.LATEST_TIMESTAMP, null);
       scanMetaRegion(server, scannerId, m.getRegionName());
       return true;
     }

@@ -78,6 +78,7 @@ import org.apache.hadoop.hbase.UnknownRowLockException;
 import org.apache.hadoop.hbase.UnknownScannerException;
 import org.apache.hadoop.hbase.HMsg.Type;
 import org.apache.hadoop.hbase.Leases.LeaseStillHeldException;
+import org.apache.hadoop.hbase.client.Result;
 import org.apache.hadoop.hbase.client.ServerConnection;
 import org.apache.hadoop.hbase.client.ServerConnectionManager;
 import org.apache.hadoop.hbase.filter.RowFilterInterface;
@@ -87,6 +88,7 @@ import org.apache.hadoop.hbase.io.Get;
 import org.apache.hadoop.hbase.io.GetColumns;
 import org.apache.hadoop.hbase.io.HbaseMapWritable;
 import org.apache.hadoop.hbase.io.Put;
+import org.apache.hadoop.hbase.io.Scan;
 import org.apache.hadoop.hbase.io.Update;
 //import org.apache.hadoop.hbase.io.RowResult;
 //import org.apache.hadoop.hbase.io.RowUpdates;
@@ -1659,12 +1661,12 @@ public class HRegionServer implements HConstants, HRegionInterface,
     }
   }
   
-  public RowResult next(final long scannerId) throws IOException {
-    RowResult[] rrs = next(scannerId, 1);
+  public Result next(final long scannerId) throws IOException {
+    Result[] rrs = next(scannerId, 1);
     return rrs.length == 0 ? null : rrs[0];
   }
 
-  public RowResult [] next(final long scannerId, int nbRows) throws IOException {
+  public Result[] next(final long scannerId, int nbRows) throws IOException {
     checkOpen();
     List<List<KeyValue>> results = new ArrayList<List<KeyValue>>();
     try {
@@ -1686,7 +1688,12 @@ public class HRegionServer implements HConstants, HRegionInterface,
           }
         }
       }
-      return RowResult.createRowResultArray(results);
+      int resLen = results.size();
+      Result[] rss = new Result[resLen];
+      for(int i=0; i<resLen; i++){
+        rss[i] = new Result(results.get(i).toArray(new KeyValue[0]));
+      }
+      return rss;
     } catch (Throwable t) {
       throw convertThrowableToIOE(cleanup(t));
     }
@@ -1832,17 +1839,18 @@ public class HRegionServer implements HConstants, HRegionInterface,
   //
   // remote scanner interface
   //
-
-  public long openScanner(byte [] regionName, byte [][] cols, byte [] firstRow,
-    final long timestamp, final RowFilterInterface filter)
+//  public long openScanner(byte [] regionName, byte [][] cols, byte [] firstRow,
+//      final long timestamp, final RowFilterInterface filter)
+//    throws IOException {
+  public long openScanner(byte[] regionName, Scan scan)
   throws IOException {
     checkOpen();
     NullPointerException npe = null;
     if (regionName == null) {
       npe = new NullPointerException("regionName is null");
-    } else if (cols == null) {
-      npe = new NullPointerException("columns to scan is null");
-    } else if (firstRow == null) {
+    } else if (scan.getFamilyMap().size() == 0) {
+      npe = new NullPointerException("FamilyMap is empty, no columns to scan");
+    } else if (scan.getStartRow() == null) {
       npe = new NullPointerException("firstRow for scanner is null");
     }
     if (npe != null) {
@@ -1851,8 +1859,9 @@ public class HRegionServer implements HConstants, HRegionInterface,
     requestCount.incrementAndGet();
     try {
       HRegion r = getRegion(regionName);
-      InternalScanner s =
-        r.getScanner(cols, firstRow, timestamp, filter);
+      InternalScanner s =  r.getScanner(scan);
+//      InternalScanner s =
+//        r.getScanner(cols, firstRow, timestamp, filter);
       long scannerId = addScanner(s);
       return scannerId;
     } catch (Throwable t) {
@@ -1948,7 +1957,7 @@ public class HRegionServer implements HConstants, HRegionInterface,
     Delete delete = new Delete(row);
     delete.deleteFamily(family, timestamp);
     
-    getRegion(regionName).deleteRow(delete, getLockFromId(lockId), true);
+    getRegion(regionName).updateRow(delete, getLockFromId(lockId), true);
   }
 
 //  public void deleteFamilyByRegex(byte[] regionName, byte[] row, String familyRegex,
@@ -1957,10 +1966,10 @@ public class HRegionServer implements HConstants, HRegionInterface,
 //        getLockFromId(lockId));
 //  }
 
-  public boolean exists(byte[] regionName, byte[] row, byte[] column,
-      long timestamp, long lockId)
+  public boolean exists(byte[] regionName, byte[] row, byte[] family,
+      byte[] qualifier, long timestamp, long lockId)
   throws IOException {
-    return getRegion(regionName).exists(row, column, timestamp, 
+    return getRegion(regionName).exists(row, family, qualifier, timestamp, 
       getLockFromId(lockId));
   }
 
@@ -2426,7 +2435,7 @@ public class HRegionServer implements HConstants, HRegionInterface,
 
   /** {@inheritDoc} */
   public long incrementColumnValue(byte[] regionName, byte[] row,
-      byte[] column, long amount) throws IOException {
+      byte[] family, byte[] qualifier, long amount) throws IOException {
     checkOpen();
     
     NullPointerException npe = null;
@@ -2434,8 +2443,10 @@ public class HRegionServer implements HConstants, HRegionInterface,
       npe = new NullPointerException("regionName is null");
     } else if (row == null) {
       npe = new NullPointerException("row is null");
-    } else if (column == null) {
-      npe = new NullPointerException("column is null");
+    } else if (family == null) {
+      npe = new NullPointerException("family is null");
+    } else if (qualifier == null) {
+      npe = new NullPointerException("qualifier is null");
     }
     if (npe != null) {
       IOException io = new IOException(
@@ -2445,7 +2456,7 @@ public class HRegionServer implements HConstants, HRegionInterface,
     requestCount.incrementAndGet();
     try {
       HRegion region = getRegion(regionName);
-      return region.incrementColumnValue(row, column, amount);
+      return region.incrementColumnValue(row, family, qualifier, amount);
     } catch (IOException e) {
       checkFileSystem();
       throw e;

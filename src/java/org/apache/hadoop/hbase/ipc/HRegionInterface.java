@@ -29,10 +29,12 @@ import org.apache.hadoop.hbase.io.Delete;
 import org.apache.hadoop.hbase.io.Get;
 import org.apache.hadoop.hbase.io.HbaseMapWritable;
 import org.apache.hadoop.hbase.io.Put;
+import org.apache.hadoop.hbase.io.Scan;
 import org.apache.hadoop.hbase.io.Update;
 //import org.apache.hadoop.hbase.io.RowResult;
 //import org.apache.hadoop.hbase.io.RowUpdates;
 //import org.apache.hadoop.hbase.io.TimeRange;
+import org.apache.hadoop.hbase.client.Result;
 
 import org.apache.hadoop.hbase.HRegionInfo;
 import org.apache.hadoop.hbase.KeyValue;
@@ -227,8 +229,8 @@ public interface HRegionInterface extends HBaseRPCProtocolVersion {
    * @return true if the row exists, false otherwise
    * @throws IOException
    */
-  public boolean exists(byte [] regionName, byte [] row, byte [] column, 
-    long timestamp, long lockID)
+  public boolean exists(byte[] regionName, byte[] row, byte[] family, 
+    byte[] qualifier, long timestamp, long lockID)
   throws IOException;
   
 //  public List<KeyValue> newGet(final byte [] regionName, Get get,
@@ -263,25 +265,28 @@ public interface HRegionInterface extends HBaseRPCProtocolVersion {
   // remote scanner interface
   //
 
-  /**
-   * Opens a remote scanner with a RowFilter.
-   * 
-   * @param regionName name of region to scan
-   * @param columns columns to scan. If column name is a column family, all
-   * columns of the specified column family are returned.  Its also possible
-   * to pass a regex for column family name. A column name is judged to be
-   * regex if it contains at least one of the following characters:
-   * <code>\+|^&*$[]]}{)(</code>.
-   * @param startRow starting row to scan
-   * @param timestamp only return values whose timestamp is <= this value
-   * @param filter RowFilter for filtering results at the row-level.
-   *
-   * @return scannerId scanner identifier used in other calls
-   * @throws IOException
-   */
-  public long openScanner(final byte [] regionName, final byte [][] columns,
-      final byte [] startRow, long timestamp, RowFilterInterface filter)
+//  /**
+//   * Opens a remote scanner with a RowFilter.
+//   * 
+//   * @param regionName name of region to scan
+//   * @param columns columns to scan. If column name is a column family, all
+//   * columns of the specified column family are returned.  Its also possible
+//   * to pass a regex for column family name. A column name is judged to be
+//   * regex if it contains at least one of the following characters:
+//   * <code>\+|^&*$[]]}{)(</code>.
+//   * @param startRow starting row to scan
+//   * @param timestamp only return values whose timestamp is <= this value
+//   * @param filter RowFilter for filtering results at the row-level.
+//   *
+//   * @return scannerId scanner identifier used in other calls
+//   * @throws IOException
+//   */
+//  public long openScanner(final byte [] regionName, final byte [][] columns,
+//      final byte [] startRow, long timestamp, RowFilterInterface filter)
+//  throws IOException;
+  public long openScanner(final byte[] regionName, Scan scan)
   throws IOException;
+  
   
   /**
    * Get the next set of values
@@ -289,7 +294,7 @@ public interface HRegionInterface extends HBaseRPCProtocolVersion {
    * @return map of values
    * @throws IOException
    */
-  public RowResult next(long scannerId) throws IOException;
+  public Result next(long scannerId) throws IOException;
   
   /**
    * Get the next set of values
@@ -298,7 +303,7 @@ public interface HRegionInterface extends HBaseRPCProtocolVersion {
    * @return map of values
    * @throws IOException
    */
-  public RowResult[] next(long scannerId, int numberOfRows) throws IOException;
+  public Result[] next(long scannerId, int numberOfRows) throws IOException;
   
   /**
    * Close a scanner
@@ -340,6 +345,6 @@ public interface HRegionInterface extends HBaseRPCProtocolVersion {
    * @return new incremented column value
    * @throws IOException
    */
-  public long incrementColumnValue(byte [] regionName, byte [] row,
-      byte [] column, long amount) throws IOException;
+  public long incrementColumnValue(byte[] regionName, byte[] family,
+      byte[] qualifier, byte[] column, long amount) throws IOException;
 }

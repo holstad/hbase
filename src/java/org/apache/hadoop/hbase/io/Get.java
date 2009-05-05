@@ -50,7 +50,7 @@ public class Get implements Writable{
   
     
   private long rowLock = 0L;
-  private int maxVersions = 0;
+  private int maxVersions = 1;
   private RowFilterInterface filter = null;
   private TimeRange tr = new TimeRange();
   
@@ -91,9 +91,8 @@ public class Get implements Writable{
     tr = new TimeRange(maxStamp, minStamp);
   }
   
-  public void setTimeStamp(long timestamp)
-  throws IOException {
-    tr = new TimeRange(timestamp, timestamp);
+  public void setTimeStamp(long timestamp) {
+    tr = new TimeRange(timestamp);
   }
   
   public void setMaxVersions(int maxVersions){

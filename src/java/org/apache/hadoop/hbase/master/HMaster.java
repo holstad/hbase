@@ -55,13 +55,15 @@ import org.apache.hadoop.hbase.MasterNotRunningException;
 import org.apache.hadoop.hbase.RegionHistorian;
 import org.apache.hadoop.hbase.RemoteExceptionHandler;
 import org.apache.hadoop.hbase.TableExistsException;
+import org.apache.hadoop.hbase.client.Cell;
 import org.apache.hadoop.hbase.client.HBaseAdmin;
 import org.apache.hadoop.hbase.client.ServerConnection;
 import org.apache.hadoop.hbase.client.ServerConnectionManager;
-//import org.apache.hadoop.hbase.io.Cell;
+import org.apache.hadoop.hbase.client.Result;
+import org.apache.hadoop.hbase.client.RowResult;
 import org.apache.hadoop.hbase.io.Get;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
-//import org.apache.hadoop.hbase.io.RowResult;
+import org.apache.hadoop.hbase.io.Scan;
 import org.apache.hadoop.hbase.ipc.HBaseRPC;
 import org.apache.hadoop.hbase.ipc.HBaseRPCProtocolVersion;
 import org.apache.hadoop.hbase.ipc.HBaseServer;
@@ -655,12 +657,16 @@ public class HMaster extends Thread implements HConstants, HMasterInterface,
     byte [] metaRegionName = m.getRegionName();
     HRegionInterface srvr = connection.getHRegionConnection(m.getServer());
     byte[] firstRowInTable = Bytes.toBytes(tableName + ",,");
-    long scannerid = srvr.openScanner(metaRegionName, COL_REGIONINFO_ARRAY,
-        firstRowInTable, LATEST_TIMESTAMP, null);
+    Scan scan = new Scan(firstRowInTable);
+    scan.addColumn(COLUMN_FAMILY, COL_REGIONINFO);
+    long scannerid = srvr.openScanner(metaRegionName, scan);
+    
+//    long scannerid = srvr.openScanner(metaRegionName, COL_REGIONINFO_ARRAY,
+//        firstRowInTable, LATEST_TIMESTAMP, null);
     try {
-      RowResult data = srvr.next(scannerid);
-      if (data != null && data.size() > 0) {
-        HRegionInfo info = Writables.getHRegionInfo(data.get(COL_REGIONINFO));
+      Result data = srvr.next(scannerid);
+      if (data != null) {
+        HRegionInfo info = Writables.getHRegionInfo(data.value());
         if (info.getTableDesc().getNameAsString().equals(tableName)) {
           // A region for this table already exists. Ergo table exists.
           throw new TableExistsException(tableName);
@@ -719,15 +725,15 @@ public class HMaster extends Thread implements HConstants, HMasterInterface,
     for (MetaRegion m: regions) {
       byte [] metaRegionName = m.getRegionName();
       HRegionInterface srvr = connection.getHRegionConnection(m.getServer());
-      long scannerid = 
-        srvr.openScanner(metaRegionName, 
-          new byte[][] {COL_REGIONINFO, COL_SERVER},
-          firstRowInTable, 
-          LATEST_TIMESTAMP, 
-          null);
+
+      Scan scan = new Scan(firstRowInTable);
+      scan.addColumn(COLUMN_FAMILY, COL_REGIONINFO);
+      scan.addColumn(COLUMN_FAMILY, COL_SERVER);
+      long scannerid =  srvr.openScanner(metaRegionName, scan);
       try {
         while (true) {
-          RowResult data = srvr.next(scannerid);
+          Result res = srvr.next(scannerid);
+          RowResult data = res.rowResult();
           if (data == null || data.size() <= 0)
             break;
           HRegionInfo info = Writables.getHRegionInfo(data.get(COL_REGIONINFO));
@@ -757,15 +763,16 @@ public class HMaster extends Thread implements HConstants, HMasterInterface,
       byte [] firstRowInTable = Bytes.toBytes(Bytes.toString(tableName) + ",,");
       byte [] metaRegionName = m.getRegionName();
       HRegionInterface srvr = connection.getHRegionConnection(m.getServer());
-      long scannerid = 
-          srvr.openScanner(metaRegionName, 
-            new byte[][] {COL_REGIONINFO, COL_SERVER},
-            firstRowInTable, 
-            LATEST_TIMESTAMP, 
-            null);
+      
+      Scan scan = new Scan(firstRowInTable);
+      scan.addColumn(COLUMN_FAMILY, COL_REGIONINFO);
+      scan.addColumn(COLUMN_FAMILY, COL_SERVER);
+      long scannerid =  srvr.openScanner(metaRegionName, scan);
+      
       try {
         while (true) {
-          RowResult data = srvr.next(scannerid);
+          Result res = srvr.next(scannerid);
+          RowResult data = res.rowResult();
           if (data == null || data.size() <= 0)
             break;
           HRegionInfo info = Writables.getHRegionInfo(data.get(COL_REGIONINFO));
@@ -801,18 +808,16 @@ public class HMaster extends Thread implements HConstants, HMasterInterface,
 //      RowResult data = srvr.getRow(metaRegionName, regionName, 
 //        new byte[][] {COL_REGIONINFO, COL_SERVER},
 //        HConstants.LATEST_TIMESTAMP, 1, -1L);
-      Get get = new Get(, -1L);
+      Get get = new Get(regionName);
       get.addColumn(COLUMN_FAMILY, COL_REGIONINFO);
       get.addColumn(COLUMN_FAMILY, COL_SERVER);
       get.setTimeStamp(HConstants.LATEST_TIMESTAMP);
       get.setMaxVersions(1);
       
-      KeyValue[] data = srvr.getRow(get);
+      KeyValue[] result = srvr.getRow(metaRegionName, get, -1L);
+      RowResult data = new Result(result).rowResult();
       
-      RowResult data = srvr.getRow(metaRegionName, regionName, 
-          new byte[][] {COL_REGIONINFO, COL_SERVER},
-          HConstants.LATEST_TIMESTAMP, 1, -1L);
-      if(data == null || data.length <= 0) continue;
+      if(data == null || data.size() <= 0) continue;
       HRegionInfo info = Writables.getHRegionInfo(data.get(COL_REGIONINFO));
       Cell cell = data.get(COL_SERVER);
       if(cell != null) {
@@ -831,12 +836,16 @@ public class HMaster extends Thread implements HConstants, HMasterInterface,
    * @return RowResult
    * @throws IOException
    */
-  protected RowResult getFromMETA(final byte [] row, final byte [][] columns)
-  throws IOException {
-    MetaRegion meta = this.regionManager.getMetaRegionForRow(row);
+//  protected Result getFromMETA(final byte [] row, final byte [][] columns)
+//  throws IOException {
+  protected KeyValue[] getFromMETA(Get get)
+    throws IOException {
+    MetaRegion meta = this.regionManager.getMetaRegionForRow(get.getRow());
     HRegionInterface srvr = getMETAServer(meta);
-    return srvr.getRow(meta.getRegionName(), row, columns,
-      HConstants.LATEST_TIMESTAMP, 1, -1);
+    return srvr.getRow(meta.getRegionName(), get, -1);
+    
+//    return srvr.getRow(meta.getRegionName(), row, columns,
+//      HConstants.LATEST_TIMESTAMP, 1, -1);
   }
   
   /*
@@ -900,8 +909,14 @@ public class HMaster extends Thread implements HConstants, HMasterInterface,
         servername = Bytes.toString(((ImmutableBytesWritable)args[1]).get());
       }
       // Need hri
-      RowResult rr = getFromMETA(regionname, HConstants.COLUMN_FAMILY_ARRAY);
-      HRegionInfo hri = getHRegionInfo(rr.getRow(), rr);
+      Get get = new Get(regionname);
+      get.addFamily(HConstants.COLUMN_FAMILY);
+      KeyValue[] res = getFromMETA(get);
+      RowResult rr = new Result(res).rowResult();
+      HRegionInfo hri = getHRegionInfo(regionname, rr);
+      
+//      RowResult rr = getFromMETA(regionname, HConstants.COLUMN_FAMILY_ARRAY);
+//      HRegionInfo hri = getHRegionInfo(rr.getRow(), rr);
       if (servername == null) {
         // Get server from the .META. if it wasn't passed as argument
         servername = Writables.cellToString(rr.get(COL_SERVER));

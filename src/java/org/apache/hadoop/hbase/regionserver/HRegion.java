@@ -63,9 +63,9 @@ import org.apache.hadoop.hbase.io.Delete;
 import org.apache.hadoop.hbase.io.Get;
 import org.apache.hadoop.hbase.io.GetColumns;
 import org.apache.hadoop.hbase.io.GetFamilies;
-//import org.apache.hadoop.hbase.io.GetRow;
 import org.apache.hadoop.hbase.io.HbaseMapWritable;
 import org.apache.hadoop.hbase.io.Put;
+import org.apache.hadoop.hbase.io.Scan;
 //import org.apache.hadoop.hbase.io.RowResult;
 import org.apache.hadoop.hbase.io.Update;
 import org.apache.hadoop.hbase.io.Reference.Range;
@@ -1195,28 +1195,42 @@ public class HRegion implements HConstants {
    * @return InternalScanner
    * @throws IOException
    */
-  public InternalScanner getScanner(byte[][] cols, byte [] firstRow,
-    long timestamp, RowFilterInterface filter) 
+//  public InternalScanner getScanner(byte[][] cols, byte [] firstRow,
+//    long timestamp, RowFilterInterface filter)
+  public InternalScanner getScanner(Scan scan) 
   throws IOException {
     newScannerLock.readLock().lock();
     try {
       if (this.closed.get()) {
         throw new IOException("Region " + this + " closed");
       }
-      HashSet<Store> storeSet = new HashSet<Store>();
-      NavigableSet<byte []> columns =
-        new TreeSet<byte []>(Bytes.BYTES_COMPARATOR);
-      // Below we make up set of stores we want scanners on and we fill out the
-      // list of columns.
-      for (int i = 0; i < cols.length; i++) {
-        columns.add(cols[i]);
-        Store s = stores.get(cols[i]);
-        if (s != null) {
-          storeSet.add(s);
-        }
-      }
-      return new HScanner(columns, firstRow, timestamp,
-        storeSet.toArray(new Store [storeSet.size()]), filter);
+//      List<Store> storeList = new ArrayList<Store>();
+//      SortedMap<byte[], SortedSet<byte[]>> familyMap = scan.getFamilyMap();
+//      Store store = null;
+//      for(byte[] family: familyMap.keySet()){
+//        store = this.stores.get(family);
+//        if (store != null) {
+//          storeList.add(store);
+//        }
+//      }
+//      return new HScanner(scan, storeList);
+    return new HScanner(scan);
+
+      
+//      HashSet<Store> storeSet = new HashSet<Store>();
+//      NavigableSet<byte []> columns =
+//        new TreeSet<byte []>(Bytes.BYTES_COMPARATOR);
+//      // Below we make up set of stores we want scanners on and we fill out the
+//      // list of columns.
+//      for (int i = 0; i < cols.length; i++) {
+//        columns.add(cols[i]);
+//        Store s = stores.get(cols[i]);
+//        if (s != null) {
+//          storeSet.add(s);
+//        }
+//      }
+//      return new HScanner(columns, firstRow, timestamp,
+//        storeSet.toArray(new Store [storeSet.size()]), filter);
     } finally {
       newScannerLock.readLock().unlock();
     }
@@ -2154,39 +2168,41 @@ public class HRegion implements HConstants {
    * HScanner is an iterator through a bunch of rows in an HRegion.
    */
   private class HScanner implements InternalScanner {
-    private InternalScanner[] scanners;
-    private List<KeyValue> [] resultSets;
+//    private InternalScanner[] scanners;
+    private List<InternalScanner> scanners = null;
+    private List<KeyValue> [] resultSets = null;
     private RowFilterInterface filter;
+    private int scannerSize = 0;
 
     /** Create an HScanner with a handle on many HStores. */
     @SuppressWarnings("unchecked")
-    HScanner(final NavigableSet<byte []> columns, byte [] firstRow,
-      long timestamp, final Store [] stores, final RowFilterInterface filter)
+    HScanner(Scan scan)
+//  HScanner(final NavigableSet<byte []> columns, byte [] firstRow,
+//  long timestamp, final Store [] stores, final RowFilterInterface filter)
     throws IOException {
-      this.filter = filter;
-      this.scanners = new InternalScanner[stores.length];
+      Store store = null;
       try {
-        for (int i = 0; i < stores.length; i++) {
-          // Only pass relevant columns to each store
-          NavigableSet<byte[]> columnSubset =
-            new TreeSet<byte[]>(Bytes.BYTES_COMPARATOR);
-          for (byte [] c: columns) {
-            if (KeyValue.FAMILY_COMPARATOR.compare(stores[i].storeName, c) == 0) {
-              columnSubset.add(c);
-            }
+        for(Map.Entry<byte[], Set<byte[]>> entry :
+          scan.getFamilyMap().entrySet()){
+          store = stores.get(entry.getKey());
+          if (store != null) {
+            scanners.add(store.getScanner(scan));
           }
-          RowFilterInterface f = filter;
-          if (f != null) {
-            // Need to replicate filters.
-            // At least WhileMatchRowFilter will mess up the scan if only
-            // one shared across many rows. See HADOOP-2467.
-            f = WritableUtils.clone(filter, conf);
-          }
-          scanners[i] = stores[i].getScanner(timestamp, columnSubset, firstRow, f);
         }
+        this.scannerSize = scanners.size();
+        filter = scan.getFilter();
+        RowFilterInterface f = filter;
+        if (f != null) {
+          // Need to replicate filters.
+          // At least WhileMatchRowFilter will mess up the scan if only
+          // one shared across many rows. See HADOOP-2467.
+          f = WritableUtils.clone(filter, conf);
+        }
+
+//      scanners[i] = stores[i].getScanner(timestamp, columnSubset, firstRow, f);
       } catch (IOException e) {
-        for (int i = 0; i < this.scanners.length; i++) {
-          if (scanners[i] != null) {
+        for (int i = 0; i < this.scannerSize; i++) {
+          if (scanners.get(i) != null) {
             closeScanner(i);
           }
         }
@@ -2195,10 +2211,10 @@ public class HRegion implements HConstants {
 
       // Advance to the first key in each store.
       // All results will match the required column-set and scanTime.
-      this.resultSets = new List[scanners.length];
-      for (int i = 0; i < scanners.length; i++) {
+      this.resultSets = new List[this.scannerSize];
+      for (int i = 0; i < this.scannerSize; i++) {
         resultSets[i] = new ArrayList<KeyValue>();
-        if(scanners[i] != null && !scanners[i].next(resultSets[i])) {
+        if(scanners.get(i) != null && !scanners.get(i).next(resultSets[i])) {
           closeScanner(i);
         }
       }
@@ -2217,7 +2233,7 @@ public class HRegion implements HConstants {
         // Find the lowest key across all stores.
         KeyValue chosen = null;
         long chosenTimestamp = -1;
-        for (int i = 0; i < this.scanners.length; i++) {
+        for (int i = 0; i < this.scannerSize; i++) {
           if (this.resultSets[i] == null || this.resultSets[i].isEmpty()) {
             continue;
           }
@@ -2233,7 +2249,7 @@ public class HRegion implements HConstants {
 
         // Store results from each sub-scanner.
         if (chosenTimestamp >= 0) {
-          for (int i = 0; i < scanners.length; i++) {
+          for (int i = 0; i < this.scannerSize; i++) {
             if (this.resultSets[i] == null || this.resultSets[i].isEmpty()) {
               continue;
             }
@@ -2241,7 +2257,7 @@ public class HRegion implements HConstants {
             if (comparator.compareRows(kv, chosen) == 0) {
               results.addAll(this.resultSets[i]);
               resultSets[i].clear();
-              if (!scanners[i].next(resultSets[i])) {
+              if (!scanners.get(i).next(resultSets[i])) {
                 closeScanner(i);
               }
             }
@@ -2272,8 +2288,8 @@ public class HRegion implements HConstants {
 
       // Make sure scanners closed if no more results
       if (!moreToFollow) {
-        for (int i = 0; i < scanners.length; i++) {
-          if (null != scanners[i]) {
+        for (int i = 0; i < this.scannerSize; i++) {
+          if (null != scanners.get(i)) {
             closeScanner(i);
           }
         }
@@ -2286,12 +2302,12 @@ public class HRegion implements HConstants {
     void closeScanner(int i) {
       try {
         try {
-          scanners[i].close();
+          scanners.get(i).close();
         } catch (IOException e) {
           LOG.warn("Failed closing scanner " + i, e);
         }
       } finally {
-        scanners[i] = null;
+        scanners.set(i, null);
         // These data members can be null if exception in constructor
         if (resultSets != null) {
           resultSets[i] = null;
@@ -2301,8 +2317,8 @@ public class HRegion implements HConstants {
 
     public void close() {
       try {
-        for(int i = 0; i < scanners.length; i++) {
-          if(scanners[i] != null) {
+        for(int i = 0; i < this.scannerSize; i++) {
+          if(scanners.get(i) != null) {
             closeScanner(i);
           }
         }

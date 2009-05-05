@@ -38,8 +38,10 @@ import org.apache.hadoop.hbase.HRegionInfo;
 import org.apache.hadoop.hbase.HServerInfo;
 import org.apache.hadoop.hbase.RemoteExceptionHandler;
 import org.apache.hadoop.hbase.UnknownScannerException;
-import org.apache.hadoop.hbase.io.BatchUpdate;
-import org.apache.hadoop.hbase.io.RowResult;
+import org.apache.hadoop.hbase.client.Result;
+import org.apache.hadoop.hbase.client.RowResult;
+import org.apache.hadoop.hbase.io.Delete;
+import org.apache.hadoop.hbase.io.Scan;
 import org.apache.hadoop.hbase.ipc.HRegionInterface;
 import org.apache.hadoop.hbase.regionserver.HLog;
 import org.apache.hadoop.hbase.regionserver.HRegion;
@@ -153,11 +155,14 @@ abstract class BaseScanner extends Chore implements HConstants {
     int rows = 0;
     try {
       regionServer = master.connection.getHRegionConnection(region.getServer());
-      scannerId = regionServer.openScanner(region.getRegionName(),
-        COLUMN_FAMILY_ARRAY, EMPTY_START_ROW, HConstants.LATEST_TIMESTAMP, null);
+      Scan scan = new Scan(EMPTY_START_ROW);
+      scan.addFamily(COLUMN_FAMILY);
+      scannerId = regionServer.openScanner(region.getRegionName(), scan);
+//          scannerId = regionServer.openScanner(region.getRegionName(),
+//        COLUMN_FAMILY_ARRAY, EMPTY_START_ROW, HConstants.LATEST_TIMESTAMP, null);
       while (true) {
-        RowResult values = regionServer.next(scannerId);
-        if (values == null || values.size() == 0) {
+        RowResult values = regionServer.next(scannerId).rowResult();
+        if (values == null) {
           break;
         }
         HRegionInfo info = master.getHRegionInfo(values.getRow(), values);
@@ -318,10 +323,14 @@ abstract class BaseScanner extends Chore implements HConstants {
       LOG.debug(split.getRegionNameAsString() +
         " no longer has references to " + Bytes.toString(parent));
     }
+    Delete delete = new Delete(parent);
+    //Special use case that should be removed 
+    delete.deleteColumn(splitColumn);
+    srvr.updateRow(metaRegionName, delete);
     
-    BatchUpdate b = new BatchUpdate(parent);
-    b.delete(splitColumn);
-    srvr.batchUpdate(metaRegionName, b, -1L);
+//    BatchUpdate b = new BatchUpdate(parent);
+//    b.delete(splitColumn);
+//    srvr.batchUpdate(metaRegionName, b, -1L);
       
     return result;
   }

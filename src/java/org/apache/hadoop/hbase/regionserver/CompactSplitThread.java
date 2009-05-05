@@ -211,7 +211,7 @@ class CompactSplitThread extends Thread implements HConstants {
         Writables.getBytes(newRegions[0].getRegionInfo()));
     put.add(COLUMN_FAMILY, COL_SPLITB, 
         Writables.getBytes(newRegions[1].getRegionInfo()));
-    t.commit(put);
+    t.put(put);
     
     // Add new regions to META
     //TODO check if the entries in META are keep or why we are just overwriting
@@ -220,7 +220,7 @@ class CompactSplitThread extends Thread implements HConstants {
       put = new Put(newRegions[i].getRegionName());
       put.add(COLUMN_FAMILY, COL_REGIONINFO, Writables.getBytes(
           newRegions[i].getRegionInfo()));
-      t.commit(put);
+      t.put(put);
     }
         
     // Now tell the master about the new regions

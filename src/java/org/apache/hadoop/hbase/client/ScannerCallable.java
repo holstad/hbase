@@ -24,22 +24,23 @@ import java.io.IOException;
 
 import org.apache.hadoop.hbase.HRegionInfo;
 import org.apache.hadoop.hbase.filter.RowFilterInterface;
-import org.apache.hadoop.hbase.io.RowResult;
-
+import org.apache.hadoop.hbase.client.Result;
+import org.apache.hadoop.hbase.io.Scan;
 
 /**
  * Retries scanner operations such as create, next, etc.
  * Used by {@link Scanner}s made by {@link HTable}.
  */
-public class ScannerCallable extends ServerCallable<RowResult[]> {
+public class ScannerCallable extends ServerCallable<Result[]> {
   private long scannerId = -1L;
   private boolean instantiated = false;
   private boolean closed = false;
-  private final byte [][] columns;
-  private final long timestamp;
-  private final RowFilterInterface filter;
+  private Scan scan = null;
   private int caching = 1;
 
+  
+  
+  
   /**
    * @param connection
    * @param tableName
@@ -48,12 +49,26 @@ public class ScannerCallable extends ServerCallable<RowResult[]> {
    * @param timestamp
    * @param filter
    */
-  public ScannerCallable (HConnection connection, byte [] tableName, byte [][] columns,
-      byte [] startRow, long timestamp, RowFilterInterface filter) {
-    super(connection, tableName, startRow);
-    this.columns = columns;
-    this.timestamp = timestamp;
-    this.filter = filter;
+//  public ScannerCallable (HConnection connection, byte [] tableName, byte [][] columns,
+//      byte [] startRow, long timestamp, RowFilterInterface filter) {
+//    super(connection, tableName, startRow);
+//    this.columns = columns;
+//    this.timestamp = timestamp;
+//    this.filter = filter;
+//  }
+  
+  
+  /**
+   * @param connection
+   * @param tableName
+   * @param columns
+   * @param startRow
+   * @param timestamp
+   * @param filter
+   */
+  public ScannerCallable (HConnection connection, byte[] tableName, Scan scan){
+    super(connection, tableName, scan.getStartRow());
+    this.scan = scan;
   }
   
   /**
@@ -71,7 +86,7 @@ public class ScannerCallable extends ServerCallable<RowResult[]> {
   /**
    * @see java.util.concurrent.Callable#call()
    */
-  public RowResult[] call() throws IOException {
+  public Result[] call() throws IOException {
     if (scannerId != -1L && closed) {
       server.close(scannerId);
       scannerId = -1L;
@@ -79,29 +94,28 @@ public class ScannerCallable extends ServerCallable<RowResult[]> {
       // open the scanner
       scannerId = openScanner();
     } else {
-      RowResult [] rrs = server.next(scannerId, caching);
-      return rrs.length == 0 ? null : rrs;
+      Result[] rs = server.next(scannerId, caching);
+      return rs.length == 0 ? null : rs;
     }
     return null;
   }
   
   protected long openScanner() throws IOException {
     return server.openScanner(
-        this.location.getRegionInfo().getRegionName(), columns, row,
-        timestamp, filter);
+        this.location.getRegionInfo().getRegionName(), this.scan);
   }
   
-  protected byte [][] getColumns() {
-    return columns;
+  protected Scan getScan() {
+    return this.scan;
   }
   
-  protected long getTimestamp() {
-    return timestamp;
-  }
+//  protected long getTimestamp() {
+//    return timestamp;
+//  }
   
-  protected RowFilterInterface getFilter() {
-    return filter;
-  }
+//  protected RowFilterInterface getFilter() {
+//    return filter;
+//  }
   
   /**
    * Call this when the next invocation of call should close the scanner
