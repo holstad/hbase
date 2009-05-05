@@ -19,8 +19,8 @@
  */
 package org.apache.hadoop.hbase.mapred;
 
-import org.apache.hadoop.hbase.io.BatchUpdate;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
+import org.apache.hadoop.hbase.io.Put;
 import org.apache.hadoop.io.Writable;
 import org.apache.hadoop.io.WritableComparable;
 import org.apache.hadoop.mapred.Reducer;
@@ -33,6 +33,6 @@ import org.apache.hadoop.mapred.Reducer;
  */
 @SuppressWarnings("unchecked")
 public interface TableReduce<K extends WritableComparable, V extends Writable>
-extends Reducer<K, V, ImmutableBytesWritable, BatchUpdate> {
+extends Reducer<K, V, ImmutableBytesWritable, Put> {
 
 }

@@ -23,7 +23,7 @@ import java.io.IOException;
 
 import org.apache.hadoop.hbase.HBaseConfiguration;
 import org.apache.hadoop.hbase.client.HTable;
-import org.apache.hadoop.hbase.io.BatchUpdate;
+import org.apache.hadoop.hbase.io.Put;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.io.Writable;
 import org.apache.hadoop.io.WritableComparable;
@@ -92,7 +92,7 @@ public class TableMapReduceUtil {
     job.setReducerClass(reducer);
     job.set(TableOutputFormat.OUTPUT_TABLE, table);
     job.setOutputKeyClass(ImmutableBytesWritable.class);
-    job.setOutputValueClass(BatchUpdate.class);
+    job.setOutputValueClass(Put.class);
     if (partitioner != null) {
       job.setPartitionerClass(HRegionPartitioner.class);
       HTable outputTable = new HTable(new HBaseConfiguration(job), table);

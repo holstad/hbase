@@ -33,6 +33,7 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.hbase.KeyValue;
 import org.apache.hadoop.hbase.filter.RowFilterInterface;
+import org.apache.hadoop.hbase.io.Scan;
 import org.apache.hadoop.hbase.util.Bytes;
 
 /**
@@ -48,7 +49,8 @@ class StoreScanner implements InternalScanner,  ChangedReadersObserver {
   private RowFilterInterface dataFilter;
   private Store store;
   private final long timestamp;
-  private final NavigableSet<byte []> columns;
+  private Scan scan = null;
+//  private final NavigableSet<byte []> columns;
   
   // Indices for memcache scanner and hstorefile scanner.
   private static final int MEMS_INDEX = 0;
@@ -62,10 +64,12 @@ class StoreScanner implements InternalScanner,  ChangedReadersObserver {
 
   /** Create an Scanner with a handle on the memcache and HStore files. */
   @SuppressWarnings("unchecked")
-  StoreScanner(Store store, final NavigableSet<byte []> targetCols,
-    byte [] firstRow, long timestamp, RowFilterInterface filter) 
+  StoreScanner(Store store, Scan scan, RowFilterInterface filter)
+//  StoreScanner(Store store, final NavigableSet<byte []> targetCols,
+//    byte [] firstRow, long timestamp, RowFilterInterface filter) 
   throws IOException {
     this.store = store;
+    this.scan = scan;
     this.dataFilter = filter;
     if (null != dataFilter) {
       dataFilter.reset();
@@ -74,13 +78,15 @@ class StoreScanner implements InternalScanner,  ChangedReadersObserver {
     this.resultSets = new List[scanners.length];
     // Save these args in case we need them later handling change in readers
     // See updateReaders below.
-    this.timestamp = timestamp;
-    this.columns = targetCols;
+    this.timestamp = Bytes.toLong(scan.getTimeRange().getMax());
+//    this.columns = targetCols;
     try {
-      scanners[MEMS_INDEX] =
-        store.memcache.getScanner(timestamp, targetCols, firstRow);
-      scanners[HSFS_INDEX] =
-        new StoreFileScanner(store, timestamp, targetCols, firstRow);
+      scanners[MEMS_INDEX] = store.memcache.getScanner(scan);
+//      scanners[MEMS_INDEX] =
+//        store.memcache.getScanner(timestamp, targetCols, firstRow);
+      scanners[HSFS_INDEX] = new StoreFileScanner(store, scan);
+//      scanners[HSFS_INDEX] =
+//        new StoreFileScanner(store, timestamp, targetCols, firstRow);
       for (int i = MEMS_INDEX; i < scanners.length; i++) {
         checkScannerFlags(i);
       }
@@ -296,9 +302,11 @@ class StoreScanner implements InternalScanner,  ChangedReadersObserver {
         try {
           // I think its safe getting key from mem at this stage -- it shouldn't have
           // been flushed yet
-          // TODO: MAKE SURE WE UPDATE FROM TRUNNK.
+          // TODO: MAKE SURE WE UPDATE FROM TRUNK
           this.scanners[HSFS_INDEX] = new StoreFileScanner(this.store,
-              this.timestamp, this. columns, this.resultSets[MEMS_INDEX].get(0).getRow());
+              this.scan);
+//          this.scanners[HSFS_INDEX] = new StoreFileScanner(this.store,
+//              this.timestamp, this. columns, this.resultSets[MEMS_INDEX].get(0).getRow());
           checkScannerFlags(HSFS_INDEX);
           setupScanner(HSFS_INDEX);
           LOG.debug("Added a StoreFileScanner to outstanding HStoreScanner");

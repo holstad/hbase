@@ -20,7 +20,7 @@
 package org.apache.hadoop.hbase.mapred;
 
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
-import org.apache.hadoop.hbase.io.RowResult;
+import org.apache.hadoop.hbase.io.Result;
 import org.apache.hadoop.io.Writable;
 import org.apache.hadoop.io.WritableComparable;
 import org.apache.hadoop.mapred.Mapper;
@@ -33,6 +33,6 @@ import org.apache.hadoop.mapred.Mapper;
  * @param <V> Writable value class
  */
 public interface TableMap<K extends WritableComparable<K>, V extends Writable>
-extends Mapper<ImmutableBytesWritable, RowResult, K, V> {
+extends Mapper<ImmutableBytesWritable, Result, K, V> {
 
 }

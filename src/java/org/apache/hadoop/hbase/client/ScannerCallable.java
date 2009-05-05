@@ -24,7 +24,7 @@ import java.io.IOException;
 
 import org.apache.hadoop.hbase.HRegionInfo;
 import org.apache.hadoop.hbase.filter.RowFilterInterface;
-import org.apache.hadoop.hbase.client.Result;
+import org.apache.hadoop.hbase.io.Result;
 import org.apache.hadoop.hbase.io.Scan;
 
 /**

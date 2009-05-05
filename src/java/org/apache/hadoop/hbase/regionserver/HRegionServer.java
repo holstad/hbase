@@ -78,7 +78,6 @@ import org.apache.hadoop.hbase.UnknownRowLockException;
 import org.apache.hadoop.hbase.UnknownScannerException;
 import org.apache.hadoop.hbase.HMsg.Type;
 import org.apache.hadoop.hbase.Leases.LeaseStillHeldException;
-import org.apache.hadoop.hbase.client.Result;
 import org.apache.hadoop.hbase.client.ServerConnection;
 import org.apache.hadoop.hbase.client.ServerConnectionManager;
 import org.apache.hadoop.hbase.filter.RowFilterInterface;
@@ -90,7 +89,7 @@ import org.apache.hadoop.hbase.io.HbaseMapWritable;
 import org.apache.hadoop.hbase.io.Put;
 import org.apache.hadoop.hbase.io.Scan;
 import org.apache.hadoop.hbase.io.Update;
-//import org.apache.hadoop.hbase.io.RowResult;
+import org.apache.hadoop.hbase.io.Result;
 //import org.apache.hadoop.hbase.io.RowUpdates;
 //import org.apache.hadoop.hbase.io.TimeRange;
 import org.apache.hadoop.hbase.ipc.HBaseRPC;
@@ -1579,45 +1578,7 @@ public class HRegionServer implements HConstants, HRegionInterface,
     return getRegion(regionName).getRegionInfo();
   }
 
-//  public Cell [] get(final byte [] regionName, final byte [] row,
-//    final byte [] column, final long timestamp, final int numVersions) 
-//  throws IOException {
-//    checkOpen();
-//    requestCount.incrementAndGet();
-//    try {
-//      List<KeyValue> results =
-//        getRegion(regionName).get(row, column, timestamp, numVersions);
-//      return Cell.createSingleCellArray(results);
-//    } catch (Throwable t) {
-//      throw convertThrowableToIOE(cleanup(t));
-//    }
-//  }
-
-//  public RowResult getRow(final byte [] regionName, final byte [] row, 
-//    final byte [][] columns, final long ts,
-//    final int numVersions, final long lockId)
-//  throws IOException {
-//    checkOpen();
-//    requestCount.incrementAndGet();
-//    try {
-//      // convert the columns array into a set so it's easy to check later.
-//      NavigableSet<byte []> columnSet = null;
-//      if (columns != null) {
-//        columnSet = new TreeSet<byte []>(Bytes.BYTES_COMPARATOR);
-//        columnSet.addAll(Arrays.asList(columns));
-//      }
-//      HRegion region = getRegion(regionName);
-//      HbaseMapWritable<byte [], Cell> result =
-//        region.getFull(row, columnSet, ts, numVersions, getLockFromId(lockId));
-//      if (result == null || result.isEmpty())
-//        return null;
-//      return new RowResult(row, result);
-//    } catch (Throwable t) {
-//      throw convertThrowableToIOE(cleanup(t));
-//    }
-//  }
-
-  public KeyValue[] getRow(final byte [] regionName, Get get,
+  public Result getRow(final byte [] regionName, Get get,
     final long lockId)
   throws IOException {
     if (LOG.isDebugEnabled()) {
@@ -1635,17 +1596,14 @@ public class HRegionServer implements HConstants, HRegionInterface,
       if (LOG.isDebugEnabled()) {
         LOG.debug("newGet: result.isEmpty " +result.isEmpty());
       }
-//      return new KeyValue[]{new KeyValue("row", "fam:col")};
-      return result.isEmpty() ? null : result.toArray(new KeyValue[0]);
+      return result.isEmpty() ?null :new Result(result.toArray(new KeyValue[0]));
 
     } catch (Throwable t) {
       throw convertThrowableToIOE(cleanup(t));
     }
   }
   
-//  public RowResult getClosestRowBefore(final byte [] regionName, 
-//    final byte [] row, final byte [] columnFamily)
-  public KeyValue[] getClosestRowBefore(final byte[] regionName, 
+  public Result getClosestRowBefore(final byte[] regionName, 
       final byte[] row, final byte[] family)
   throws IOException {
     checkOpen();
@@ -1655,7 +1613,7 @@ public class HRegionServer implements HConstants, HRegionInterface,
       HRegion region = getRegion(regionName);
       // ask the region for all the data 
       KeyValue[] kvs = region.getClosestRowBefore(row, family);
-      return kvs;
+      return new Result(kvs);
     } catch (Throwable t) {
       throw convertThrowableToIOE(cleanup(t));
     }
@@ -1698,45 +1656,6 @@ public class HRegionServer implements HConstants, HRegionInterface,
       throw convertThrowableToIOE(cleanup(t));
     }
   }
-
-//  public void batchUpdate(final byte [] regionName, BatchUpdate b, long lockId)
-//  throws IOException {
-//    if (b.getRow() == null)
-//      throw new IllegalArgumentException("update has null row");
-//    
-//    checkOpen();
-//    this.requestCount.incrementAndGet();
-//    HRegion region = getRegion(regionName);
-//    try {
-//      cacheFlusher.reclaimMemcacheMemory();
-//      region.batchUpdate(b, getLockFromId(b.getRowLock()));
-//    } catch (Throwable t) {
-//      throw convertThrowableToIOE(cleanup(t));
-//    }
-//  }
-//  
-//  public int batchUpdates(final byte[] regionName, final BatchUpdate[] b)
-//  throws IOException {
-//    int i = 0;
-//    checkOpen();
-//    try {
-//      HRegion region = getRegion(regionName);
-//      this.cacheFlusher.reclaimMemcacheMemory();
-//      Integer[] locks = new Integer[b.length];
-//      for (i = 0; i < b.length; i++) {
-//        this.requestCount.incrementAndGet();
-//        locks[i] = getLockFromId(b[i].getRowLock());
-//        region.batchUpdate(b[i], locks[i]);
-//      }
-//    } catch(WrongRegionException ex) {
-//      return i;
-//    } catch (NotServingRegionException ex) {
-//      return i;
-//    } catch (Throwable t) {
-//      throw convertThrowableToIOE(cleanup(t));
-//    }
-//    return -1;
-//  }
 
   public int updateRow(final byte[] regionName, final Update update)
   throws IOException {

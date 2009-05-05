@@ -52,6 +52,7 @@ import org.apache.hadoop.hbase.HRegionInfo;
 import org.apache.hadoop.hbase.KeyValue;
 import org.apache.hadoop.hbase.RemoteExceptionHandler;
 import org.apache.hadoop.hbase.filter.RowFilterInterface;
+import org.apache.hadoop.hbase.io.Scan;
 import org.apache.hadoop.hbase.io.SequenceFile;
 import org.apache.hadoop.hbase.io.hfile.Compression;
 import org.apache.hadoop.hbase.io.hfile.HFile;
@@ -1239,10 +1240,7 @@ public class Store implements HConstants {
     
     //TODO check how efficient the seekTo is and add an extra method for
     //building the the search key, keep it simple for now 
-    int retCode = 0;
-    boolean ret = false;
-    byte[] bs = new KeyValue(sget.getRow(), "".getBytes()).getBuffer();
-    retCode = scanner.seekTo(
+    int retCode = scanner.seekTo(
         new KeyValue(sget.getRow(), "".getBytes()).getBuffer());
     if(retCode == -1){
       scanner.seekTo();
@@ -1841,13 +1839,15 @@ public class Store implements HConstants {
   /**
    * Return a scanner for both the memcache and the HStore files
    */
-  protected InternalScanner getScanner(long timestamp,
-      final NavigableSet<byte []> targetCols,
-      byte [] firstRow, RowFilterInterface filter)
+  protected InternalScanner getScanner(Scan scan, RowFilterInterface filter)
+//    long timestamp,
+//      final NavigableSet<byte []> targetCols,
+//      byte [] firstRow, RowFilterInterface filter)
   throws IOException {
     lock.readLock().lock();
     try {
-      return new StoreScanner(this, targetCols, firstRow, timestamp, filter);
+      return new StoreScanner(this, scan, filter);
+//      return new StoreScanner(this, targetCols, firstRow, timestamp, filter);
     } finally {
       lock.readLock().unlock();
     }

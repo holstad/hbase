@@ -25,9 +25,10 @@ import java.util.Map;
 import org.apache.hadoop.conf.Configured;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hbase.HBaseConfiguration;
-import org.apache.hadoop.hbase.io.Cell;
+import org.apache.hadoop.hbase.client.Cell;
+import org.apache.hadoop.hbase.client.RowResult;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
-import org.apache.hadoop.hbase.io.RowResult;
+import org.apache.hadoop.hbase.io.Result;
 import org.apache.hadoop.mapred.FileOutputFormat;
 import org.apache.hadoop.mapred.JobClient;
 import org.apache.hadoop.mapred.JobConf;
@@ -47,15 +48,16 @@ public class RowCounter extends Configured implements Tool {
   static final String NAME = "rowcounter";
 
   static class RowCounterMapper
-  implements TableMap<ImmutableBytesWritable, RowResult> {
+  implements TableMap<ImmutableBytesWritable, Result> {
     private static enum Counters {ROWS}
 
-    public void map(ImmutableBytesWritable row, RowResult value,
-        OutputCollector<ImmutableBytesWritable, RowResult> output,
+    public void map(ImmutableBytesWritable row, Result value,
+        OutputCollector<ImmutableBytesWritable, Result> output,
         Reporter reporter)
     throws IOException {
+      RowResult rowRes = value.rowResult();
       boolean content = false;
-      for (Map.Entry<byte [], Cell> e: value.entrySet()) {
+      for (Map.Entry<byte [], Cell> e: rowRes.entrySet()) {
         Cell cell = e.getValue();
         if (cell != null && cell.getValue().length > 0) {
           content = true;
@@ -98,7 +100,7 @@ public class RowCounter extends Configured implements Tool {
     }
     // Second argument is the table name.
     TableMapReduceUtil.initTableMapJob(args[1], sb.toString(),
-      RowCounterMapper.class, ImmutableBytesWritable.class, RowResult.class, c);
+      RowCounterMapper.class, ImmutableBytesWritable.class, Result.class, c);
     c.setNumReduceTasks(0);
     // First arg is the output directory.
     FileOutputFormat.setOutputPath(c, new Path(args[0]));

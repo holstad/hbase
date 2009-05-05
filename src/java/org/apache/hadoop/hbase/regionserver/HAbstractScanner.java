@@ -22,13 +22,16 @@ package org.apache.hadoop.hbase.regionserver;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.NavigableSet;
 import java.util.regex.Pattern;
+import java.util.Set;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.hbase.ColumnNameParseException;
 import org.apache.hadoop.hbase.KeyValue;
+import org.apache.hadoop.hbase.io.Scan;
 import org.apache.hadoop.hbase.util.Bytes;
 
 /**
@@ -63,16 +66,26 @@ public abstract class HAbstractScanner implements InternalScanner {
   private boolean multipleMatchers = false;
 
   /** Constructor for abstract base class */
-  protected HAbstractScanner(final long timestamp,
-    final NavigableSet<byte []> columns)
+//  protected HAbstractScanner(final long timestamp,
+//    final NavigableSet<byte []> columns)
+  protected HAbstractScanner(Scan scan)
   throws IOException {
-    this.timestamp = timestamp;
-    for (byte [] column: columns) {
-      ColumnMatcher matcher = new ColumnMatcher(column);
-      this.wildcardMatch = matcher.isWildCardMatch();
-      matchers.add(matcher);
-      this.multipleMatchers = !matchers.isEmpty();
+    this.timestamp = Bytes.toLong(scan.getTimeRange().getMax());
+    byte[] family = null;
+    for(Map.Entry<byte[], Set<byte[]>> entry : scan.getFamilyMap().entrySet()){
+      family = entry.getKey();
+      for(byte[] qualifier : entry.getValue()){
+        ColumnMatcher matcher = new ColumnMatcher(family, qualifier);
+        matchers.add(matcher);
+        this.multipleMatchers = !matchers.isEmpty();
+      }
     }
+//    for (byte [] column: columns) {
+//      ColumnMatcher matcher = new ColumnMatcher(column);
+//      this.wildcardMatch = matcher.isWildCardMatch();
+//      matchers.add(matcher);
+//      this.multipleMatchers = !matchers.isEmpty();
+//    }
   }
 
   /**
@@ -122,38 +135,50 @@ public abstract class HAbstractScanner implements InternalScanner {
   private static class ColumnMatcher {
     private boolean wildCardmatch;
     private MATCH_TYPE matchType;
-    private byte [] family;
+    private byte[] family;
+    private byte[] qualifier = null;
     private Pattern columnMatcher;
     // Column without delimiter so easy compare to KeyValue column
-    private byte [] col;
+//    private byte [] col;
   
-    ColumnMatcher(final byte [] col) throws IOException {
-      byte [][] parse = parseColumn(col);
+    
+    ColumnMatcher(final byte[] family, final byte[] qualifier)
+    throws IOException {
+      this.family = family;
+//      
+      
+//    ColumnMatcher(final byte [] col) throws IOException {
+//      byte [][] parse = parseColumn(col);
       // Make up column without delimiter
-      byte [] columnWithoutDelimiter =
-        new byte [parse[0].length + parse[1].length];
-      System.arraycopy(parse[0], 0, columnWithoutDelimiter, 0, parse[0].length);
-      System.arraycopy(parse[1], 0, columnWithoutDelimiter, parse[0].length,
-        parse[1].length);
+//      byte [] columnWithoutDelimiter =
+//        new byte [parse[0].length + parse[1].length];
+//      System.arraycopy(parse[0], 0, columnWithoutDelimiter, 0, parse[0].length);
+//      System.arraycopy(parse[1], 0, columnWithoutDelimiter, parse[0].length,
+//        parse[1].length);
       // First position has family.  Second has qualifier.
-      byte [] qualifier = parse[1];
+//      byte [] qualifier = parse[1];
       try {
         if (qualifier == null || qualifier.length == 0) {
           this.matchType = MATCH_TYPE.FAMILY_ONLY;
-          this.family = parse[0];
+//          this.family = parse[0];
           this.wildCardmatch = true;
         } else if (isRegexPattern.matcher(Bytes.toString(qualifier)).matches()) {
           this.matchType = MATCH_TYPE.REGEX;
-          this.columnMatcher = Pattern.compile(Bytes.toString(columnWithoutDelimiter));
+          int famLen = family.length;
+          int qfLen = qualifier.length;
+          byte[] column = new byte[famLen + qfLen];
+          System.arraycopy(family, 0, column, 0, famLen);
+          System.arraycopy(qualifier, 0, column, famLen, qfLen);
+          this.columnMatcher = Pattern.compile(Bytes.toString(column));
           this.wildCardmatch = true;
         } else {
           this.matchType = MATCH_TYPE.SIMPLE;
-          this.col = columnWithoutDelimiter;
+          this.qualifier = qualifier;
           this.wildCardmatch = false;
         }
       } catch(Exception e) {
-        throw new IOException("Column: " + Bytes.toString(col) + ": " +
-          e.getMessage());
+        throw new IOException("Family: " + Bytes.toString(family) + 
+            ": qualifier " + Bytes.toString(qualifier) + " : " +e.getMessage());
       }
     }
     
@@ -164,7 +189,47 @@ public abstract class HAbstractScanner implements InternalScanner {
      */
     boolean matches(final KeyValue kv) throws IOException {
       if (this.matchType == MATCH_TYPE.SIMPLE) {
-        return kv.matchingColumnNoDelimiter(this.col);
+        int initialOffset = kv.getOffset();
+        int offset = initialOffset;
+        byte[] bytes = kv.getBuffer();
+
+        //Getting key length
+        int keyLen = Bytes.toInt(bytes, offset);
+        offset += Bytes.SIZEOF_INT;
+
+        //Skipping valueLength
+        offset += Bytes.SIZEOF_INT;
+
+        //Getting row length
+        short rowLen = Bytes.toShort(bytes, offset);
+        offset += Bytes.SIZEOF_SHORT;
+
+        //Skipping row
+        offset += rowLen;
+
+        //This is only for the future if we have more than on family in the same
+        //storefile, can be turned off for now
+        //Getting family length
+        byte famLen = bytes[offset];
+        offset += Bytes.SIZEOF_BYTE;
+
+        int ret = Bytes.compareTo(family, 0, family.length,
+            bytes, offset, famLen);
+        if(ret != 0){
+          return false;
+        }
+        offset += famLen;
+
+        //Getting column length
+        int qfLen = kv.ROW_OFFSET + keyLen - (offset-initialOffset) - 
+        Bytes.SIZEOF_LONG - Bytes.SIZEOF_BYTE;
+        
+        ret = Bytes.compareTo(qualifier, 0, qualifier.length,
+            bytes, offset, qfLen);
+        if(ret != 0){
+          return false;
+        }
+        return true;
       } else if(this.matchType == MATCH_TYPE.FAMILY_ONLY) {
         return kv.matchingFamily(this.family);
       } else if (this.matchType == MATCH_TYPE.REGEX) {
@@ -183,29 +248,29 @@ public abstract class HAbstractScanner implements InternalScanner {
       return this.wildCardmatch;
     }
 
-    /**
-     * @param c Column name
-     * @return Return array of size two whose first element has the family
-     * prefix of passed column <code>c</code> and whose second element is the
-     * column qualifier.
-     * @throws ColumnNameParseException 
-     */
-    public static byte [][] parseColumn(final byte [] c)
-    throws ColumnNameParseException {
-      final byte [][] result = new byte [2][];
-      // TODO: Change this so don't do parse but instead use the comparator
-      // inside in KeyValue which just looks at column family.
-      final int index = KeyValue.getFamilyDelimiterIndex(c, 0, c.length);
-      if (index == -1) {
-        throw new ColumnNameParseException("Impossible column name: " + c);
-      }
-      result[0] = new byte [index];
-      System.arraycopy(c, 0, result[0], 0, index);
-      final int len = c.length - (index + 1);
-      result[1] = new byte[len];
-      System.arraycopy(c, index + 1 /*Skip delimiter*/, result[1], 0,
-        len);
-      return result;
-    }
+//    /**
+//     * @param c Column name
+//     * @return Return array of size two whose first element has the family
+//     * prefix of passed column <code>c</code> and whose second element is the
+//     * column qualifier.
+//     * @throws ColumnNameParseException 
+//     */
+//    public static byte [][] parseColumn(final byte [] c)
+//    throws ColumnNameParseException {
+//      final byte [][] result = new byte [2][];
+//      // TODO: Change this so don't do parse but instead use the comparator
+//      // inside in KeyValue which just looks at column family.
+//      final int index = KeyValue.getFamilyDelimiterIndex(c, 0, c.length);
+//      if (index == -1) {
+//        throw new ColumnNameParseException("Impossible column name: " + c);
+//      }
+//      result[0] = new byte [index];
+//      System.arraycopy(c, 0, result[0], 0, index);
+//      final int len = c.length - (index + 1);
+//      result[1] = new byte[len];
+//      System.arraycopy(c, index + 1 /*Skip delimiter*/, result[1], 0,
+//        len);
+//      return result;
+//    }
   }
 }

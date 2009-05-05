@@ -24,7 +24,7 @@ import java.util.Iterator;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-//import org.apache.hadoop.hbase.io.BatchUpdate;
+import org.apache.hadoop.hbase.io.Put;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.mapred.MapReduceBase;
 import org.apache.hadoop.mapred.OutputCollector;
@@ -35,7 +35,7 @@ import org.apache.hadoop.mapred.Reporter;
  */
 public class IdentityTableReduce
 extends MapReduceBase
-implements TableReduce<ImmutableBytesWritable, BatchUpdate> {
+implements TableReduce<ImmutableBytesWritable, Put> {
   @SuppressWarnings("unused")
   private static final Log LOG =
     LogFactory.getLog(IdentityTableReduce.class.getName());
@@ -48,8 +48,8 @@ implements TableReduce<ImmutableBytesWritable, BatchUpdate> {
    * @param reporter 
    * @throws IOException 
    */
-  public void reduce(ImmutableBytesWritable key, Iterator<BatchUpdate> values,
-      OutputCollector<ImmutableBytesWritable, BatchUpdate> output,
+  public void reduce(ImmutableBytesWritable key, Iterator<Put> values,
+      OutputCollector<ImmutableBytesWritable, Put> output,
       Reporter reporter)
       throws IOException {
     

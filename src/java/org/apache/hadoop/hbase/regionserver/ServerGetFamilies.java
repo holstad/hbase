@@ -70,7 +70,7 @@ public class ServerGetFamilies extends ServerGet{
 
     if(multiFamily){
       byte [] family = super.getFamily();
-      ret = Bytes.compareTo(family, 0, family.length, bytes, offset, rowLen);
+      ret = Bytes.compareTo(family, 0, family.length, bytes, offset, famLen);
       if(ret <= -1){
         return super.NEXT_SF;
       } else if(ret >= 1){

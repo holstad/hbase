@@ -21,7 +21,7 @@ package org.apache.hadoop.hbase.client;
 
 import java.io.Closeable;
 import java.io.IOException;
-import org.apache.hadoop.hbase.client.Result;
+import org.apache.hadoop.hbase.io.Result;
 
 /**
  * Interface for client-side scanning.

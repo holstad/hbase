@@ -28,6 +28,7 @@ import org.apache.hadoop.io.Writable;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+import org.apache.hadoop.hbase.io.HeapSize;
 import org.apache.hadoop.hbase.io.hfile.HFile;
 import org.apache.hadoop.hbase.util.Bytes;
 
@@ -53,7 +54,7 @@ import org.apache.hadoop.hbase.util.Bytes;
  * <p>TODO: Group Key-only compartors and operations into a Key class, just
  * for neatness sake, if can figure what to call it.
  */
-public class KeyValue implements Writable{
+public class KeyValue implements HeapSize, Writable {
   static final Log LOG = LogFactory.getLog(KeyValue.class);
 
   /**
@@ -136,7 +137,7 @@ public class KeyValue implements Writable{
 
   // How far into the key the row starts at. First thing to read is the short
   // that says how long the row is.
-  private static final int ROW_OFFSET =
+  public static final int ROW_OFFSET =
     Bytes.SIZEOF_INT /*keylength*/ +
     Bytes.SIZEOF_INT /*valuelength*/;
 
@@ -1586,6 +1587,12 @@ public class KeyValue implements Writable{
       }
       return 0;
     }
+  }
+  
+  //HeapSize
+  //TODO fix this
+  public long heapSize() {
+    return 0;
   }
   
   

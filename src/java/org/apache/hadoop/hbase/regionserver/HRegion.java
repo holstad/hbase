@@ -1083,11 +1083,8 @@ public class HRegion implements HConstants {
   public List<KeyValue> getRow(Get get, List<KeyValue> result,
       final Integer lockid)
   throws IOException {
-//    if (LOG.isDebugEnabled()) {
-//      LOG.debug("newget: entering");
-//    }
     ServerGet serverGet = null; 
-    //Find out what kind of get that we are dealing with
+    //Check if this is a get everything for a row call
     if(get.getFamilyMap().isEmpty()){
       for(byte[] family: regionInfo.getTableDesc().getFamiliesKeys()){
         get.addFamily(family);
@@ -2170,7 +2167,7 @@ public class HRegion implements HConstants {
   private class HScanner implements InternalScanner {
 //    private InternalScanner[] scanners;
     private List<InternalScanner> scanners = null;
-    private List<KeyValue> [] resultSets = null;
+    private List<KeyValue> [] resultLists = null;
     private RowFilterInterface filter;
     private int scannerSize = 0;
 
@@ -2182,28 +2179,38 @@ public class HRegion implements HConstants {
     throws IOException {
       Store store = null;
       try {
+        RowFilterInterface f = null;
+        filter = scan.getFilter();
+        
+        //Check if this is a get everything for a row call
+        if(scan.getFamilyMap().isEmpty()){
+          for(byte[] family: regionInfo.getTableDesc().getFamiliesKeys()){
+            scan.addFamily(family);
+          }
+        }
+        
         for(Map.Entry<byte[], Set<byte[]>> entry :
           scan.getFamilyMap().entrySet()){
           store = stores.get(entry.getKey());
+          
+          
+          
+          
           if (store != null) {
-            scanners.add(store.getScanner(scan));
+            if (filter != null) {
+              // Need to replicate filters.
+              // At least WhileMatchRowFilter will mess up the scan if only
+              // one shared across many rows. See HADOOP-2467.
+              f = WritableUtils.clone(filter, conf);
+            }
+            scanners.add(store.getScanner(scan, f));
           }
         }
         this.scannerSize = scanners.size();
-        filter = scan.getFilter();
-        RowFilterInterface f = filter;
-        if (f != null) {
-          // Need to replicate filters.
-          // At least WhileMatchRowFilter will mess up the scan if only
-          // one shared across many rows. See HADOOP-2467.
-          f = WritableUtils.clone(filter, conf);
-        }
-
-//      scanners[i] = stores[i].getScanner(timestamp, columnSubset, firstRow, f);
       } catch (IOException e) {
-        for (int i = 0; i < this.scannerSize; i++) {
-          if (scanners.get(i) != null) {
-            closeScanner(i);
+        for(InternalScanner scanner : scanners) {
+          if (scanner != null) {
+            scanner.close();
           }
         }
         throw e;
@@ -2211,10 +2218,10 @@ public class HRegion implements HConstants {
 
       // Advance to the first key in each store.
       // All results will match the required column-set and scanTime.
-      this.resultSets = new List[this.scannerSize];
+      this.resultLists = new List[this.scannerSize];
       for (int i = 0; i < this.scannerSize; i++) {
-        resultSets[i] = new ArrayList<KeyValue>();
-        if(scanners.get(i) != null && !scanners.get(i).next(resultSets[i])) {
+        resultLists[i] = new ArrayList<KeyValue>();
+        if(scanners.get(i) != null && !scanners.get(i).next(resultLists[i])) {
           closeScanner(i);
         }
       }
@@ -2234,10 +2241,10 @@ public class HRegion implements HConstants {
         KeyValue chosen = null;
         long chosenTimestamp = -1;
         for (int i = 0; i < this.scannerSize; i++) {
-          if (this.resultSets[i] == null || this.resultSets[i].isEmpty()) {
+          if (this.resultLists[i] == null || this.resultLists[i].isEmpty()) {
             continue;
           }
-          KeyValue kv = this.resultSets[i].get(0);
+          KeyValue kv = this.resultLists[i].get(0);
           if (chosen == null ||
                (comparator.compareRows(kv, chosen) < 0) ||
                ((comparator.compareRows(kv, chosen) == 0) &&
@@ -2250,14 +2257,14 @@ public class HRegion implements HConstants {
         // Store results from each sub-scanner.
         if (chosenTimestamp >= 0) {
           for (int i = 0; i < this.scannerSize; i++) {
-            if (this.resultSets[i] == null || this.resultSets[i].isEmpty()) {
+            if (this.resultLists[i] == null || this.resultLists[i].isEmpty()) {
               continue;
             }
-            KeyValue kv = this.resultSets[i].get(0);
+            KeyValue kv = this.resultLists[i].get(0);
             if (comparator.compareRows(kv, chosen) == 0) {
-              results.addAll(this.resultSets[i]);
-              resultSets[i].clear();
-              if (!scanners.get(i).next(resultSets[i])) {
+              results.addAll(this.resultLists[i]);
+              resultLists[i].clear();
+              if (!scanners.get(i).next(resultLists[i])) {
                 closeScanner(i);
               }
             }
@@ -2309,8 +2316,8 @@ public class HRegion implements HConstants {
       } finally {
         scanners.set(i, null);
         // These data members can be null if exception in constructor
-        if (resultSets != null) {
-          resultSets[i] = null;
+        if (resultLists != null) {
+          resultLists[i] = null;
         }
       }
     }

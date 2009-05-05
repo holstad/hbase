@@ -29,6 +29,7 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 import org.apache.hadoop.hbase.HConstants;
 import org.apache.hadoop.hbase.KeyValue;
+import org.apache.hadoop.hbase.io.Scan;
 import org.apache.hadoop.hbase.io.hfile.HFileScanner;
 
 /**
@@ -58,14 +59,16 @@ implements ChangedReadersObserver {
    * @param deletes Set of running deletes
    * @throws IOException
    */
-  public StoreFileScanner(final Store store, final long timestamp,
-    final NavigableSet<byte []> columns, final byte [] firstRow)
+//  public StoreFileScanner(final Store store, final long timestamp,
+//    final NavigableSet<byte []> columns, final byte [] firstRow)
+  public StoreFileScanner(final Store store, Scan scan)
   throws IOException {
-    super(timestamp, columns);
+    super(scan);
+//    super(timestamp, columns);
     this.store = store;
     this.store.addChangedReaderObserver(this);
     try {
-      openScanner(firstRow);
+      openScanner(scan.getTimeRange().getMax());
     } catch (Exception ex) {
       close();
       IOException e = new IOException("HStoreScanner failed construction");

@@ -29,15 +29,15 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.hbase.HBaseConfiguration;
 import org.apache.hadoop.hbase.HStoreKey;
+import org.apache.hadoop.hbase.client.Cell;
 import org.apache.hadoop.hbase.client.HTable;
 import org.apache.hadoop.hbase.client.Scanner;
 import org.apache.hadoop.hbase.client.transactional.TransactionalTable;
 import org.apache.hadoop.hbase.filter.RowFilterInterface;
-//import org.apache.hadoop.hbase.io.Cell;
+import org.apache.hadoop.hbase.client.RowResult;
 import org.apache.hadoop.hbase.io.HbaseMapWritable;
 import org.apache.hadoop.hbase.io.Scan;
-//import org.apache.hadoop.hbase.client.RowResult;
-import org.apache.hadoop.hbase.client.Result;
+import org.apache.hadoop.hbase.io.Result;
 import org.apache.hadoop.hbase.util.Bytes;
 
 /** HTable extended with indexed support. */

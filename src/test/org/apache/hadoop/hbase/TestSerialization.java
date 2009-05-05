@@ -19,24 +19,19 @@
  */
 package org.apache.hadoop.hbase;
 
-
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-//import org.apache.hadoop.hbase.io.BatchOperation;
-//import org.apache.hadoop.hbase.io.BatchUpdate;
-//import org.apache.hadoop.hbase.io.Cell;
+import org.apache.hadoop.hbase.filter.InclusiveStopRowFilter;
 import org.apache.hadoop.hbase.io.Delete;
-//import org.apache.hadoop.hbase.io.Family;
 import org.apache.hadoop.hbase.io.Get;
-//import org.apache.hadoop.hbase.io.GetColumns;
 import org.apache.hadoop.hbase.io.HbaseMapWritable;
 import org.apache.hadoop.hbase.io.Put;
-//import org.apache.hadoop.hbase.io.RowResult;
-//import org.apache.hadoop.hbase.io.RowUpdates;
+import org.apache.hadoop.hbase.io.Scan;
+import org.apache.hadoop.hbase.io.Result;
 import org.apache.hadoop.hbase.io.TimeRange;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.hbase.util.Writables;
@@ -291,6 +286,51 @@ public class TestSerialization extends HBaseTestCase {
     TimeRange desTr = desGet.getTimeRange();
     assertEquals(0, Bytes.compareTo(tr.getMax(), desTr.getMax()));
     assertEquals(0, Bytes.compareTo(tr.getMin(), desTr.getMin()));
+  }
+  
+
+  public void testScan() throws Exception{
+    byte[] startRow = "startRow".getBytes();
+    byte[] stopRow  = "stopRow".getBytes();
+    byte[] fam = "fam".getBytes();
+    byte[] qf1 = "qf1".getBytes();
+    
+    long ts = System.currentTimeMillis();
+    byte[] val = "val".getBytes();
+    int maxVersions = 2;
+    long rowLock = 5;
+    
+    Scan scan = new Scan(startRow, stopRow);
+    scan.addColumn(fam, qf1);
+    scan.setTimeRange(ts, ts);
+    scan.setMaxVersions(maxVersions);
+    scan.setFilter(new InclusiveStopRowFilter(stopRow));
+    
+    byte[] sb = Writables.getBytes(scan);
+    Scan desScan = (Scan)Writables.getWritable(sb, new Scan());
+
+    assertTrue(Bytes.equals(scan.getStartRow(), desScan.getStartRow()));
+    assertTrue(Bytes.equals(scan.getStopRow(), desScan.getStopRow()));
+    Set<byte[]> set = null;
+    Set<byte[]> desSet = null;
+    
+    for(Map.Entry<byte[], Set<byte[]>> entry :
+        scan.getFamilyMap().entrySet()){
+      assertTrue(desScan.getFamilyMap().containsKey(entry.getKey()));
+      set = entry.getValue();
+      desSet = desScan.getFamilyMap().get(entry.getKey());
+      for(byte[] column : set){
+        assertTrue(desSet.contains(column));
+      }
+    }
+    
+    assertEquals(scan.getMaxVersions(), desScan.getMaxVersions());
+    TimeRange tr = scan.getTimeRange();
+    TimeRange desTr = desScan.getTimeRange();
+    assertEquals(0, Bytes.compareTo(tr.getMax(), desTr.getMax()));
+    assertEquals(0, Bytes.compareTo(tr.getMin(), desTr.getMin()));
+    
+    assertTrue(desScan.getFilter() instanceof InclusiveStopRowFilter);
   }
   
   

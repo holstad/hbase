@@ -34,7 +34,7 @@ import org.apache.hadoop.hbase.io.Update;
 //import org.apache.hadoop.hbase.io.RowResult;
 //import org.apache.hadoop.hbase.io.RowUpdates;
 //import org.apache.hadoop.hbase.io.TimeRange;
-import org.apache.hadoop.hbase.client.Result;
+import org.apache.hadoop.hbase.io.Result;
 
 import org.apache.hadoop.hbase.HRegionInfo;
 import org.apache.hadoop.hbase.KeyValue;
@@ -87,7 +87,7 @@ public interface HRegionInterface extends HBaseRPCProtocolVersion {
 //  public RowResult getClosestRowBefore(final byte [] regionName,
 //    final byte [] row, final byte [] columnFamily)
 //  throws IOException;
-  public KeyValue[] getClosestRowBefore(final byte[] regionName,
+  public Result getClosestRowBefore(final byte[] regionName,
       final byte[] row, final byte[] columnFamily)
     throws IOException;
 
@@ -239,7 +239,7 @@ public interface HRegionInterface extends HBaseRPCProtocolVersion {
 //  public void deleteRow(final byte[] regionName, Delete delete)
 //  throws IOException;
   
-  public KeyValue[] getRow(final byte[] regionName, Get get,
+  public Result getRow(final byte[] regionName, Get get,
       final long lockId)
   throws IOException;
   

@@ -81,7 +81,7 @@ public class ServerGetColumns extends ServerGet {
 
     if(multiFamily){
       byte [] family = super.getFamily();
-      ret = Bytes.compareTo(family, 0, family.length, bytes, offset, rowLen);
+      ret = Bytes.compareTo(family, 0, family.length, bytes, offset, famLen);
       if(ret <= -1){
         if(outOfTimeRange){
           return super.DONE;

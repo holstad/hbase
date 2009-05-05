@@ -43,6 +43,7 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.hbase.HConstants;
 import org.apache.hadoop.hbase.KeyValue;
+import org.apache.hadoop.hbase.io.Scan;
 import org.apache.hadoop.hbase.regionserver.HRegion.Counter;
 import org.apache.hadoop.hbase.util.Bytes;
 
@@ -1054,12 +1055,14 @@ class Memcache {
   /**
    * @return a scanner over the keys in the Memcache
    */
-  InternalScanner getScanner(long timestamp,
-    final NavigableSet<byte []> targetCols, final byte [] firstRow)
+//  InternalScanner getScanner(long timestamp,
+//    final NavigableSet<byte []> targetCols, final byte [] firstRow)
+  InternalScanner getScanner(Scan scan)
   throws IOException {
     this.lock.readLock().lock();
     try {
-      return new MemcacheScanner(timestamp, targetCols, firstRow);
+      return new MemcacheScanner(scan);
+//      return new MemcacheScanner(timestamp, targetCols, firstRow);
     } finally {
       this.lock.readLock().unlock();
     }
@@ -1073,17 +1076,21 @@ class Memcache {
   private class MemcacheScanner extends HAbstractScanner {
     private KeyValue current;
     private final NavigableSet<byte []> columns;
-    private final NavigableSet<KeyValue> deletes;
+    private final List<KeyValue> deletes;
+//    private final NavigableSet<KeyValue> deletes;
     private final Map<KeyValue, Counter> versionCounter;
     private final long now = System.currentTimeMillis();
 
-    MemcacheScanner(final long timestamp, final NavigableSet<byte []> columns,
-      final byte [] firstRow)
+//    MemcacheScanner(final long timestamp, final NavigableSet<byte []> columns,
+//      final byte [] firstRow)
+    MemcacheScanner(final Scan scan)
     throws IOException {
       // Call to super will create ColumnMatchers and whether this is a regex
       // scanner or not.  Will also save away timestamp.  Also sorts rows.
-      super(timestamp, columns);
-      this.deletes = new TreeSet<KeyValue>(comparatorIgnoreType);
+      
+      this.deletes = new ArrayList<KeyValue>();
+//      super(timestamp, columns);
+//      this.deletes = new TreeSet<KeyValue>(comparatorIgnoreType);
       this.versionCounter =
         new TreeMap<KeyValue, Counter>(comparatorIgnoreTimestamp);
       this.current = KeyValue.createFirstOnRow(firstRow, timestamp);
@@ -1094,7 +1101,8 @@ class Memcache {
     }
 
     @Override
-    public boolean next(final List<KeyValue> keyvalues)
+//    public boolean next(final List<KeyValue> keyvalues)
+    public boolean next(final List<KeyValue> result)
     throws IOException {
       if (this.scannerClosed) {
         return false;

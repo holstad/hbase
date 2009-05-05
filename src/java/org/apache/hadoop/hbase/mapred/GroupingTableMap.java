@@ -25,10 +25,8 @@ import java.util.ArrayList;
 import java.util.Map;
 
 import org.apache.hadoop.hbase.HConstants;
-//import org.apache.hadoop.hbase.io.Cell;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
-//import org.apache.hadoop.hbase.io.RowResult;
-import org.apache.hadoop.hbase.client.Result;
+import org.apache.hadoop.hbase.io.Result;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.MapReduceBase;
@@ -68,7 +66,7 @@ implements TableMap<ImmutableBytesWritable, Result> {
     Class<? extends TableMap> mapper, JobConf job) {
     
     TableMapReduceUtil.initTableMapJob(table, columns, mapper,
-        ImmutableBytesWritable.class, RowResult.class, job);
+        ImmutableBytesWritable.class, Result.class, job);
     job.set(GROUP_COLUMNS, groupColumns);
   }
 
@@ -93,8 +91,8 @@ implements TableMap<ImmutableBytesWritable, Result> {
    * @param reporter 
    * @throws IOException 
    */
-  public void map(ImmutableBytesWritable key, RowResult value, 
-      OutputCollector<ImmutableBytesWritable,RowResult> output,
+  public void map(ImmutableBytesWritable key, Result value, 
+      OutputCollector<ImmutableBytesWritable, Result> output,
       Reporter reporter) throws IOException {
     
     byte[][] keyVals = extractKeyValues(value);
@@ -113,7 +111,7 @@ implements TableMap<ImmutableBytesWritable, Result> {
    * @param r
    * @return array of byte values
    */
-  protected byte[][] extractKeyValues(RowResult r) {
+  protected byte[][] extractKeyValues(Result r) {
     byte[][] keyVals = null;
     ArrayList<byte[]> foundList = new ArrayList<byte[]>();
     int numCols = m_columns.length;

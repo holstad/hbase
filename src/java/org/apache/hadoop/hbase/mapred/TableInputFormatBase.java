@@ -34,7 +34,8 @@ import org.apache.hadoop.hbase.filter.RowFilterSet;
 import org.apache.hadoop.hbase.filter.StopRowFilter;
 import org.apache.hadoop.hbase.filter.WhileMatchRowFilter;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
-import org.apache.hadoop.hbase.io.RowResult;
+import org.apache.hadoop.hbase.io.Result;
+import org.apache.hadoop.hbase.io.Scan;
 import org.apache.hadoop.hbase.regionserver.HRegion;
 import org.apache.hadoop.hbase.util.Writables;
 import org.apache.hadoop.mapred.InputFormat;
@@ -73,25 +74,28 @@ import org.apache.hadoop.util.StringUtils;
  * </pre>
  */
 public abstract class TableInputFormatBase
-implements InputFormat<ImmutableBytesWritable, RowResult> {
+implements InputFormat<ImmutableBytesWritable, Result> {
   final Log LOG = LogFactory.getLog(TableInputFormatBase.class);
-  private byte [][] inputColumns;
+//  private byte [][] inputColumns;
+  private Scan scan = null;
   private HTable table;
   private TableRecordReader tableRecordReader;
-  private RowFilterInterface rowFilter;
+//  private RowFilterInterface rowFilter;
 
   /**
    * Iterate over an HBase table data, return (Text, RowResult) pairs
    */
   protected class TableRecordReader
-  implements RecordReader<ImmutableBytesWritable, RowResult> {
-    private byte [] startRow;
-    private byte [] endRow;
+  implements RecordReader<ImmutableBytesWritable, Result> {
+//    private byte [] startRow;
+//    private byte [] endRow;
+//    private byte [][] trrInputColumns;
+//    private RowFilterInterface trrRowFilter;
     private byte [] lastRow;
-    private RowFilterInterface trrRowFilter;
     private Scanner scanner;
     private HTable htable;
-    private byte [][] trrInputColumns;
+    
+    private Scan scan = null;
 
     /**
      * Restart from survivable exceptions by creating a new scanner.
@@ -106,6 +110,8 @@ implements InputFormat<ImmutableBytesWritable, RowResult> {
             new HashSet<RowFilterInterface>();
           rowFiltersSet.add(new WhileMatchRowFilter(new StopRowFilter(endRow)));
           rowFiltersSet.add(trrRowFilter);
+          Scan scan = new Scan(startRow);
+          scan.
           this.scanner = this.htable.getScanner(trrInputColumns, startRow,
             new RowFilterSet(RowFilterSet.Operator.MUST_PASS_ALL,
               rowFiltersSet));
@@ -125,9 +131,13 @@ implements InputFormat<ImmutableBytesWritable, RowResult> {
      * @throws IOException
      */
     public void init() throws IOException {
-      restart(startRow);
+      restart(scan.getStartRow());
     }
 
+    public void setScan(Scan scan){
+      this.scan = scan;
+    }
+    
     /**
      * @param htable the {@link HTable} to scan.
      */
@@ -135,34 +145,34 @@ implements InputFormat<ImmutableBytesWritable, RowResult> {
       this.htable = htable;
     }
 
-    /**
-     * @param inputColumns the columns to be placed in {@link RowResult}.
-     */
-    public void setInputColumns(final byte [][] inputColumns) {
-      this.trrInputColumns = inputColumns;
-    }
-
-    /**
-     * @param startRow the first row in the split
-     */
-    public void setStartRow(final byte [] startRow) {
-      this.startRow = startRow;
-    }
-
-    /**
-     *
-     * @param endRow the last row in the split
-     */
-    public void setEndRow(final byte [] endRow) {
-      this.endRow = endRow;
-    }
-
-    /**
-     * @param rowFilter the {@link RowFilterInterface} to be used.
-     */
-    public void setRowFilter(RowFilterInterface rowFilter) {
-      this.trrRowFilter = rowFilter;
-    }
+//    /**
+//     * @param inputColumns the columns to be placed in {@link RowResult}.
+//     */
+//    public void setInputColumns(final byte [][] inputColumns) {
+//      this.trrInputColumns = inputColumns;
+//    }
+//
+//    /**
+//     * @param startRow the first row in the split
+//     */
+//    public void setStartRow(final byte [] startRow) {
+//      this.startRow = startRow;
+//    }
+//
+//    /**
+//     *
+//     * @param endRow the last row in the split
+//     */
+//    public void setEndRow(final byte [] endRow) {
+//      this.endRow = endRow;
+//    }
+//
+//    /**
+//     * @param rowFilter the {@link RowFilterInterface} to be used.
+//     */
+//    public void setRowFilter(RowFilterInterface rowFilter) {
+//      this.trrRowFilter = rowFilter;
+//    }
 
     public void close() {
       this.scanner.close();
@@ -177,13 +187,8 @@ implements InputFormat<ImmutableBytesWritable, RowResult> {
       return new ImmutableBytesWritable();
     }
 
-    /**
-     * @return RowResult
-     *
-     * @see org.apache.hadoop.mapred.RecordReader#createValue()
-     */
-    public RowResult createValue() {
-      return new RowResult();
+    public Result createValue() {
+      return new Result();
     }
 
     public long getPos() {
@@ -197,15 +202,9 @@ implements InputFormat<ImmutableBytesWritable, RowResult> {
       return 0;
     }
 
-    /**
-     * @param key HStoreKey as input key.
-     * @param value MapWritable as input value
-     * @return true if there was more data
-     * @throws IOException
-     */
-    public boolean next(ImmutableBytesWritable key, RowResult value)
+    public boolean next(ImmutableBytesWritable key, Result value)
     throws IOException {
-      RowResult result;
+      Result result;
       try {
         result = this.scanner.next();
       } catch (UnknownScannerException e) {
@@ -215,7 +214,7 @@ implements InputFormat<ImmutableBytesWritable, RowResult> {
         result = this.scanner.next();
       }
 
-      if (result != null && result.size() > 0) {
+      if (result != null) {
         key.set(result.getRow());
         lastRow = key.get();
         Writables.copyWritable(result, value);
@@ -232,7 +231,7 @@ implements InputFormat<ImmutableBytesWritable, RowResult> {
    * @see org.apache.hadoop.mapred.InputFormat#getRecordReader(InputSplit,
    *      JobConf, Reporter)
    */
-  public RecordReader<ImmutableBytesWritable, RowResult> getRecordReader(
+  public RecordReader<ImmutableBytesWritable, Result> getRecordReader(
       InputSplit split, JobConf job, Reporter reporter)
   throws IOException {
     TableSplit tSplit = (TableSplit) split;
@@ -241,12 +240,13 @@ implements InputFormat<ImmutableBytesWritable, RowResult> {
     if (trr == null) {
       trr = new TableRecordReader();
     }
-    trr.setStartRow(tSplit.getStartRow());
-    trr.setEndRow(tSplit.getEndRow());
     trr.setHTable(this.table);
-    trr.setInputColumns(this.inputColumns);
-    trr.setRowFilter(this.rowFilter);
+    Scan scan = new Scan(tSplit.getStartRow(), tSplit.getEndRow());
+    scan.setFamilyMap(this.scan.getFamilyMap());
+    scan.setFilter(this.scan.getFilter());
+    trr.setScan(scan);
     trr.init();
+    
     return trr;
   }
 
@@ -275,7 +275,7 @@ implements InputFormat<ImmutableBytesWritable, RowResult> {
     if (this.table == null) {
       throw new IOException("No table was provided");
     }
-    if (this.inputColumns == null || this.inputColumns.length == 0) {
+    if (this.scan.getFamilyMap().size() == 0) {
       throw new IOException("Expecting at least one column");
     }
     int realNumSplits = numSplits > startKeys.length? startKeys.length:
@@ -297,12 +297,17 @@ implements InputFormat<ImmutableBytesWritable, RowResult> {
     return splits;
   }
 
-  /**
-   * @param inputColumns to be passed in {@link RowResult} to the map task.
-   */
-  protected void setInputColums(byte [][] inputColumns) {
-    this.inputColumns = inputColumns;
+  
+  protected void setScan(Scan scan){
+    this.scan = scan;
   }
+  
+//  /**
+//   * @param inputColumns to be passed in {@link RowResult} to the map task.
+//   */
+//  protected void setInputColums(byte [][] inputColumns) {
+//    this.inputColumns = inputColumns;
+//  }
 
   /**
    * Allows subclasses to set the {@link HTable}.
@@ -323,12 +328,12 @@ implements InputFormat<ImmutableBytesWritable, RowResult> {
     this.tableRecordReader = tableRecordReader;
   }
 
-  /**
-   * Allows subclasses to set the {@link RowFilterInterface} to be used.
-   *
-   * @param rowFilter
-   */
-  protected void setRowFilter(RowFilterInterface rowFilter) {
-    this.rowFilter = rowFilter;
-  }
+//  /**
+//   * Allows subclasses to set the {@link RowFilterInterface} to be used.
+//   *
+//   * @param rowFilter
+//   */
+//  protected void setRowFilter(RowFilterInterface rowFilter) {
+//    this.rowFilter = rowFilter;
+//  }
 }

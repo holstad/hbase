@@ -26,7 +26,7 @@ import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.hbase.HBaseConfiguration;
 import org.apache.hadoop.hbase.client.HTable;
-//import org.apache.hadoop.hbase.io.BatchUpdate;
+import org.apache.hadoop.hbase.io.Put;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.io.RowUpdates;
 import org.apache.hadoop.mapred.FileAlreadyExistsException;
@@ -41,7 +41,7 @@ import org.apache.hadoop.util.Progressable;
  * Convert Map/Reduce output and write it to an HBase table
  */
 public class TableOutputFormat extends
-FileOutputFormat<ImmutableBytesWritable, RowUpdates> {
+FileOutputFormat<ImmutableBytesWritable, Put> {
 
   /** JobConf parameter that specifies the output table */
   public static final String OUTPUT_TABLE = "hbase.mapred.outputtable";
@@ -52,7 +52,7 @@ FileOutputFormat<ImmutableBytesWritable, RowUpdates> {
    * and write to an HBase table
    */
   protected static class TableRecordWriter
-  implements RecordWriter<ImmutableBytesWritable, RowUpdates> {
+  implements RecordWriter<ImmutableBytesWritable, Put> {
     private HTable m_table;
 
     /**
@@ -70,8 +70,8 @@ FileOutputFormat<ImmutableBytesWritable, RowUpdates> {
     }
 
     public void write(ImmutableBytesWritable key,
-        RowUpdates value) throws IOException {
-      m_table.commit(new RowUpdates(value));
+        Put value) throws IOException {
+      m_table.put(value);
     }
   }
   

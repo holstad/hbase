@@ -30,10 +30,9 @@ import java.util.List;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.hbase.client.HTable;
-//import org.apache.hadoop.hbase.io.BatchUpdate;
-//import org.apache.hadoop.hbase.io.Cell;
 import org.apache.hadoop.hbase.io.Get;
 import org.apache.hadoop.hbase.io.Put;
+import org.apache.hadoop.hbase.io.Result;
 import org.apache.hadoop.hbase.util.Bytes;
 
 /**
@@ -127,7 +126,8 @@ public class RegionHistorian implements HConstants {
         Get get = new Get(Bytes.toBytes(regionName));
         get.addColumn(COLUMN_FAMILY_HISTORIAN, qualifier);
         get.setMaxVersions(ALL_VERSIONS);
-        KeyValue[] kvs = this.metaTable.get(get);
+        Result result = this.metaTable.get(get);
+        KeyValue[] kvs = result.raw();
         if(kvs != null){
           for (KeyValue kv : kvs) {
             informations.add(historian.new RegionHistoryInformation(

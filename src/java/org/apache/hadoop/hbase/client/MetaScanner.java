@@ -5,7 +5,7 @@ import java.io.IOException;
 import org.apache.hadoop.hbase.HBaseConfiguration;
 import org.apache.hadoop.hbase.HConstants;
 import org.apache.hadoop.hbase.HRegionInfo;
-import org.apache.hadoop.hbase.io.RowResult;
+import org.apache.hadoop.hbase.io.Result;
 import org.apache.hadoop.hbase.io.Scan;
 import org.apache.hadoop.hbase.util.Bytes;
 

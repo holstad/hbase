@@ -50,7 +50,7 @@ import org.apache.hadoop.hbase.io.Get;
 import org.apache.hadoop.hbase.io.HbaseMapWritable;
 import org.apache.hadoop.hbase.io.Put;
 import org.apache.hadoop.hbase.io.Scan;
-//import org.apache.hadoop.hbase.io.RowResult;
+import org.apache.hadoop.hbase.io.Result;
 import org.apache.hadoop.hbase.io.Update;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.hbase.util.Writables;
@@ -292,14 +292,14 @@ public class HTable {
     return regionMap;
   }
 
-  public KeyValue [] get(final Get get)
+  public Result get(final Get get)
   throws IOException {
     System.out.println("IN HT.get, row " +Bytes.toInt(get.getRow()));
     return connection.getRegionServerWithRetries(
-        new ServerCallable<KeyValue []>(connection, tableName, get.getRow()) {
-          public KeyValue [] call() throws IOException {
+        new ServerCallable<Result>(connection, tableName, get.getRow()) {
+          public Result call() throws IOException {
             System.out.println("IN HT.get.ServerCallable,");
-            KeyValue [] result = server.getRow(
+            Result result = server.getRow(
                 location.getRegionInfo().getRegionName(), get, -1L);
             return (result == null)? null : result;
           }

@@ -22,7 +22,7 @@ package org.apache.hadoop.hbase.mapred;
 import java.io.IOException;
 
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
-//import org.apache.hadoop.hbase.io.RowResult;
+import org.apache.hadoop.hbase.io.Result;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.MapReduceBase;
 import org.apache.hadoop.mapred.OutputCollector;
@@ -31,9 +31,8 @@ import org.apache.hadoop.mapred.Reporter;
 /**
  * Pass the given key and record as-is to reduce
  */
-public class IdentityTableMap
-extends MapReduceBase
-implements TableMap<ImmutableBytesWritable, RowResult> {
+public class IdentityTableMap extends MapReduceBase
+implements TableMap<ImmutableBytesWritable, Result> {
 
   /** constructor */
   public IdentityTableMap() {
@@ -54,7 +53,7 @@ implements TableMap<ImmutableBytesWritable, RowResult> {
     Class<? extends TableMap> mapper, JobConf job) {
     TableMapReduceUtil.initTableMapJob(table, columns, mapper,
       ImmutableBytesWritable.class,
-      RowResult.class, job);
+      Result.class, job);
   }
 
   /**
@@ -65,8 +64,8 @@ implements TableMap<ImmutableBytesWritable, RowResult> {
    * @param reporter 
    * @throws IOException 
    */
-  public void map(ImmutableBytesWritable key, RowResult value,
-      OutputCollector<ImmutableBytesWritable,RowResult> output,
+  public void map(ImmutableBytesWritable key, Result value,
+      OutputCollector<ImmutableBytesWritable, Result> output,
       Reporter reporter) throws IOException {
     
     // convert 

@@ -33,12 +33,11 @@ import org.apache.hadoop.hbase.client.Cell;
 import org.apache.hadoop.hbase.client.HConnection;
 import org.apache.hadoop.hbase.client.HConnectionManager;
 import org.apache.hadoop.hbase.client.HTable;
-import org.apache.hadoop.hbase.client.Result;
 import org.apache.hadoop.hbase.client.RowResult;
 import org.apache.hadoop.hbase.client.Scanner;
-//import org.apache.hadoop.hbase.io.BatchUpdate;
 import org.apache.hadoop.hbase.io.Delete;
 import org.apache.hadoop.hbase.io.Put;
+import org.apache.hadoop.hbase.io.Result;
 import org.apache.hadoop.hbase.io.Scan;
 import org.apache.hadoop.hbase.io.Update;
 import org.apache.hadoop.hbase.regionserver.HLog;
@@ -340,9 +339,10 @@ class HMerge implements HConstants {
           HRegionInfo.ROOT_REGIONINFO, null);
       root.initialize(null, null);
 
+      Scan scan = new Scan(HConstants.EMPTY_START_ROW);
+      scan.addColumn(COLUMN_FAMILY, COL_REGIONINFO);
       InternalScanner rootScanner = 
-        root.getScanner(COL_REGIONINFO_ARRAY, HConstants.EMPTY_START_ROW, 
-        HConstants.LATEST_TIMESTAMP, null);
+      root.getScanner(scan);
       
       try {
         List<KeyValue> results = new ArrayList<KeyValue>();
